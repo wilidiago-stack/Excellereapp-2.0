@@ -58,9 +58,7 @@ const userSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   company: z.string().min(1, 'Company is required'),
   phoneNumber: z.string().optional(),
-  assignedProjects: z
-    .array(z.string())
-    .min(1, 'Please select at least one project.'),
+  assignedProjects: z.array(z.string()).optional(),
   role: z.enum(['admin', 'project_manager', 'viewer']),
 });
 
@@ -224,7 +222,7 @@ export default function UsersPage() {
                               className="w-full justify-start font-normal"
                             >
                               <span className="truncate">
-                                {field.value?.length
+                                {field.value && field.value?.length > 0
                                   ? projects
                                       .filter((p) =>
                                         field.value.includes(p.id)
