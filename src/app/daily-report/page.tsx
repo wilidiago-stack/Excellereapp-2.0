@@ -260,7 +260,7 @@ export default function DailyReportPage() {
               Create new report
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-4xl">
+          <DialogContent className="max-w-[85vw]">
             <DialogHeader>
               <DialogTitle>Create New Daily Report</DialogTitle>
             </DialogHeader>
