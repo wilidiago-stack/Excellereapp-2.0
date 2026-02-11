@@ -28,7 +28,7 @@ export default function RootLayout({
       </head>
       <body className="font-body antialiased">
         <FirebaseClientProvider>
-          <SidebarProvider>
+          <SidebarProvider defaultOpen={false}>
             <MainSidebar />
             <SidebarInset className="flex flex-col">
               <MainHeader />
