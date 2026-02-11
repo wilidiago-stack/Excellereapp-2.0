@@ -11,36 +11,63 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { PlaceHolderImages } from '@/lib/placeholder-images';
-import { LogOut, User, Settings, Mail } from 'lucide-react';
+import { LogOut, User, Settings, Mail, LogIn } from 'lucide-react';
+import { useAuth, useUser } from '@/firebase';
+import { signOut } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { Skeleton } from './ui/skeleton';
 
 export function UserNav() {
-  const userAvatar = PlaceHolderImages.find(
-    (image) => image.id === 'user-avatar'
-  );
+  const { user, loading } = useUser();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    if (auth) {
+      signOut(auth).then(() => {
+        router.push('/');
+      });
+    }
+  };
+
+  if (loading) {
+    return <Skeleton className="h-9 w-9 rounded-full" />;
+  }
+
+  if (!user) {
+    return (
+      <Button asChild>
+        <Link href="/sign-up">
+          <LogIn className="mr-2" />
+          Sign In
+        </Link>
+      </Button>
+    );
+  }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-9 w-9">
-            {userAvatar && (
-              <AvatarImage
-                src={userAvatar.imageUrl}
-                alt="User Avatar"
-                data-ai-hint={userAvatar.imageHint}
-              />
+            {user.photoURL && (
+              <AvatarImage src={user.photoURL} alt={user.displayName || ''} />
             )}
-            <AvatarFallback>U</AvatarFallback>
+            <AvatarFallback>
+              {user.displayName?.charAt(0) || user.email?.charAt(0) || 'U'}
+            </AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">User</p>
+            <p className="text-sm font-medium leading-none">
+              {user.displayName}
+            </p>
             <p className="text-xs leading-none text-muted-foreground">
-              user@excellere.com
+              {user.email}
             </p>
           </div>
         </DropdownMenuLabel>
@@ -60,7 +87,7 @@ export function UserNav() {
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
         </DropdownMenuItem>

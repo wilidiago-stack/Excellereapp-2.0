@@ -384,7 +384,9 @@
   },
   "auth": {
     "providers": [
-      "google.com"
+      "google.com",
+      "microsoft.com",
+      "apple.com"
     ]
   },
   "firestore": {
