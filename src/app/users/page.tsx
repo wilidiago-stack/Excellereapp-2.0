@@ -25,6 +25,7 @@ import {
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,6 +39,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { PlusCircle } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
@@ -48,10 +55,22 @@ import { FirestorePermissionError } from '@/firebase/errors';
 const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
+  position: z.string().min(1, 'Position is required'),
+  company: z.string().min(1, 'Company is required'),
+  phoneNumber: z.string().optional(),
+  assignedProjects: z
+    .array(z.string())
+    .min(1, 'Please select at least one project.'),
   role: z.enum(['admin', 'project_manager', 'viewer']),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
+
+const projects = [
+  { id: 'adm-dsm-pfas-replacement', label: 'ADM DSM - PFAS Replacement' },
+  { id: 'project-alpha', label: 'Project Alpha' },
+  { id: 'project-beta', label: 'Project Beta' },
+];
 
 export default function UsersPage() {
   const [open, setOpen] = useState(false);
@@ -63,6 +82,10 @@ export default function UsersPage() {
     defaultValues: {
       name: '',
       email: '',
+      position: '',
+      company: '',
+      phoneNumber: '',
+      assignedProjects: [],
       role: 'viewer',
     },
   });
@@ -149,6 +172,107 @@ export default function UsersPage() {
                   />
                   <FormField
                     control={form.control}
+                    name="position"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Position</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Project Manager" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="company"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Company</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g. Acme Inc." {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl>
+                          <Input type="tel" placeholder="(123) 456-7890" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="assignedProjects"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assigned Projects</FormLabel>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start font-normal"
+                            >
+                              <span className="truncate">
+                                {field.value?.length
+                                  ? projects
+                                      .filter((p) =>
+                                        field.value.includes(p.id)
+                                      )
+                                      .map((p) => p.label)
+                                      .join(', ')
+                                  : 'Select projects...'}
+                              </span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="w-[--radix-dropdown-menu-trigger-width]"
+                            align="start"
+                          >
+                            {projects.map((project) => (
+                              <DropdownMenuCheckboxItem
+                                key={project.id}
+                                checked={field.value?.includes(project.id)}
+                                onSelect={(e) => e.preventDefault()}
+                                onCheckedChange={(checked) => {
+                                  const currentProjects = field.value || [];
+                                  if (checked) {
+                                    field.onChange([
+                                      ...currentProjects,
+                                      project.id,
+                                    ]);
+                                  } else {
+                                    field.onChange(
+                                      currentProjects.filter(
+                                        (id) => id !== project.id
+                                      )
+                                    );
+                                  }
+                                }}
+                              >
+                                {project.label}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <FormDescription>
+                          This selection determines which project information
+                          the user can view.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name="role"
                     render={({ field }) => (
                       <FormItem>
@@ -178,7 +302,10 @@ export default function UsersPage() {
                     <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
                     </DialogClose>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                    <Button
+                      type="submit"
+                      disabled={form.formState.isSubmitting}
+                    >
                       {form.formState.isSubmitting
                         ? 'Creating...'
                         : 'Create user'}
