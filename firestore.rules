@@ -5,6 +5,7 @@ service cloud.firestore {
     // WARNING: Insecure rules. For development only.
     // This is a temporary rule for debugging and opens up the entire database.
     // Re-applying this rule to attempt to fix a persistent permission issue.
+    // Forcing a re-deploy to address persistent permission errors.
     match /{document=**} {
       allow read, write: if true;
     }
