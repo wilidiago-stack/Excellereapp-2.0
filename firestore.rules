@@ -2,34 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /users/{userId} {
-      // WARNING: Insecure rules. For development only.
-      allow read, write: if true;
-    }
-
-    match /projects/{projectId} {
-      // WARNING: Insecure rules. For development only.
-      allow read, write: if true;
-    }
-
-    match /contractors/{contractorId} {
-      // WARNING: Insecure rules. For development only.
-      allow read, write: if true;
-    }
-
-    match /projects/{projectId}/dailyReports/{reportId} {
-      // WARNING: Insecure rules. For development only.
-      allow read, write: if true;
-    }
-
-    match /projects/{projectId}/monthlyReports/{reportId} {
-      // WARNING: Insecure rules. For development only.
-      allow read, write: if true;
-    }
-
-    // Fallback rule to deny all other access
+    // WARNING: Insecure rules. For development only.
+    // This is a temporary rule for debugging and opens up the entire database.
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if true;
     }
   }
 }
