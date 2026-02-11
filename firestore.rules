@@ -8,6 +8,11 @@ service cloud.firestore {
       allow read, create: if request.auth != null;
     }
 
+    match /contractors/{contractorId} {
+      // Allow authenticated users to create and read contractors.
+      allow read, create: if request.auth != null;
+    }
+
     // Fallback rule to deny all other access
     match /{document=**} {
       allow read, write: if false;

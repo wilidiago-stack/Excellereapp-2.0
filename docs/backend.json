@@ -85,25 +85,40 @@
       "properties": {
         "name": {
           "type": "string",
-          "description": "The name of the contractor"
+          "description": "The name of the contractor's company"
         },
         "contactPerson": {
           "type": "string",
-          "description": "The main contact person"
+          "description": "The main contact person for the contractor"
         },
-        "email": {
+        "address": {
           "type": "string",
-          "format": "email",
-          "description": "Contact email address"
+          "description": "The physical address of the contractor"
         },
-        "phone": {
+        "services": {
           "type": "string",
-          "description": "Contact phone number"
+          "description": "A description of services offered by the contractor"
+        },
+        "assignedProjects": {
+          "type": "array",
+          "description": "An array of project IDs assigned to the contractor.",
+          "items": {
+            "type": "string"
+          }
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the contractor",
+          "enum": [
+            "Active",
+            "Inactive"
+          ]
         }
       },
       "required": [
         "name",
-        "email"
+        "contactPerson",
+        "status"
       ]
     },
     "dailyReport": {
