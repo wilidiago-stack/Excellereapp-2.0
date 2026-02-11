@@ -3,24 +3,28 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     match /users/{userId} {
-      // Allow authenticated users to create and read users.
-      // For a production app, you might want more granular rules.
-      allow read, create: if request.auth != null;
+      // WARNING: Insecure rules. For development only.
+      allow read, write: if true;
     }
 
     match /projects/{projectId} {
-      // Allow authenticated users to create and read projects.
-      allow read, create: if request.auth != null;
+      // WARNING: Insecure rules. For development only.
+      allow read, write: if true;
     }
 
     match /contractors/{contractorId} {
-      // Allow authenticated users to create and read contractors.
-      allow read, create: if request.auth != null;
+      // WARNING: Insecure rules. For development only.
+      allow read, write: if true;
     }
 
     match /projects/{projectId}/dailyReports/{reportId} {
-      // Allow authenticated users to create and read reports.
-      allow read, create: if request.auth != null;
+      // WARNING: Insecure rules. For development only.
+      allow read, write: if true;
+    }
+
+    match /projects/{projectId}/monthlyReports/{reportId} {
+      // WARNING: Insecure rules. For development only.
+      allow read, write: if true;
     }
 
     // Fallback rule to deny all other access
