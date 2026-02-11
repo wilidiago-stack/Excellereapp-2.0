@@ -4,31 +4,34 @@ service cloud.firestore {
   match /databases/{database}/documents {
     // WARNING: Insecure rules. For development only.
     // This is a temporary rule for debugging and opens up the entire database.
-    // Forcing a re-deploy to address persistent permission errors.
+    // Forcing yet another re-deploy to address persistent permission errors.
+    function allowAll() {
+      return true;
+    }
 
     match /users/{userId} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
 
     match /projects/{projectId} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
 
     match /contractors/{contractorId} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
 
     match /projects/{projectId}/dailyReports/{reportId} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
 
     match /projects/{projectId}/monthlyReports/{reportId} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
 
     // A catch-all rule as a final fallback.
     match /{path=**} {
-      allow read, write: if true;
+      allow read, write: if allowAll();
     }
   }
 }
