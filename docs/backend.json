@@ -58,23 +58,74 @@
           "type": "string",
           "description": "The name of the project"
         },
-        "description": {
+        "companyName": {
           "type": "string",
-          "description": "A description of the project"
+          "description": "The name of the project's company"
+        },
+        "city": {
+          "type": "string",
+          "description": "The city where the project is located"
+        },
+        "state": {
+          "type": "string",
+          "description": "The state where the project is located"
         },
         "startDate": {
           "type": "string",
           "format": "date",
           "description": "The start date of the project"
         },
-        "endDate": {
+        "deliveryDate": {
           "type": "string",
           "format": "date",
-          "description": "The end date of the project"
+          "description": "The delivery date of the project"
+        },
+        "address": {
+          "type": "string",
+          "description": "The physical address of the project"
+        },
+        "phone": {
+          "type": "string",
+          "description": "The project's contact phone number"
+        },
+        "cell": {
+          "type": "string",
+          "description": "The project's contact cell phone number"
+        },
+        "projectManagerId": {
+          "type": "string",
+          "description": "ID of the assigned project manager (user)"
+        },
+        "generalContractorId": {
+          "type": "string",
+          "description": "ID of the assigned general contractor"
+        },
+        "workAreas": {
+          "type": "array",
+          "description": "List of work areas in the project",
+          "items": {
+            "type": "string"
+          }
+        },
+        "workPermits": {
+          "type": "array",
+          "description": "List of work permits for the project",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          }
         }
       },
       "required": [
         "name",
+        "companyName",
         "startDate"
       ]
     },
