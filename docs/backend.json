@@ -131,24 +131,154 @@
           "format": "date",
           "description": "The date of the report"
         },
-        "reportText": {
+        "username": {
           "type": "string",
-          "description": "The content of the daily report"
-        },
-        "authorId": {
-          "type": "string",
-          "description": "ID of the user who created the report"
+          "description": "The name of the user submitting the report"
         },
         "projectId": {
           "type": "string",
           "description": "ID of the project this report belongs to"
+        },
+        "shift": {
+          "type": "string",
+          "enum": [
+            "Day",
+            "Night"
+          ]
+        },
+        "weather": {
+          "type": "object",
+          "properties": {
+            "city": {
+              "type": "string"
+            },
+            "conditions": {
+              "type": "string"
+            },
+            "highTemp": {
+              "type": "number"
+            },
+            "lowTemp": {
+              "type": "number"
+            },
+            "wind": {
+              "type": "number"
+            }
+          }
+        },
+        "safetyStats": {
+          "type": "object",
+          "properties": {
+            "recordableIncidents": {
+              "type": "integer"
+            },
+            "lightFirstAids": {
+              "type": "integer"
+            },
+            "safetyMeeting": {
+              "type": "integer"
+            },
+            "toolBoxTalks": {
+              "type": "integer"
+            },
+            "admSiteOrientation": {
+              "type": "integer"
+            },
+            "bbsGemba": {
+              "type": "integer"
+            },
+            "operationsStandDowns": {
+              "type": "integer"
+            }
+          }
+        },
+        "safetyActivities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "activity": {
+                "type": "string"
+              },
+              "needsAction": {
+                "type": "boolean"
+              },
+              "notes": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "manHours": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "contractorId": {
+                "type": "string"
+              },
+              "headcount": {
+                "type": "integer"
+              },
+              "hours": {
+                "type": "number"
+              }
+            }
+          }
+        },
+        "dailyActivities": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "contractorId": {
+                "type": "string"
+              },
+              "activity": {
+                "type": "string"
+              },
+              "location": {
+                "type": "string"
+              },
+              "permits": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        },
+        "notes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "note": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              },
+              "imageUrl": {
+                "type": "string",
+                "format": "uri"
+              }
+            }
+          }
+        },
+        "authorId": {
+          "type": "string",
+          "description": "ID of the user who created the report"
         }
       },
       "required": [
         "date",
-        "reportText",
-        "authorId",
-        "projectId"
+        "projectId",
+        "authorId"
       ]
     },
     "monthlyReport": {

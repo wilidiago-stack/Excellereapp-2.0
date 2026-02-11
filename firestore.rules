@@ -13,6 +13,11 @@ service cloud.firestore {
       allow read, create: if request.auth != null;
     }
 
+    match /projects/{projectId}/dailyReports/{reportId} {
+      // Allow authenticated users to create and read reports.
+      allow read, create: if request.auth != null;
+    }
+
     // Fallback rule to deny all other access
     match /{document=**} {
       allow read, write: if false;
