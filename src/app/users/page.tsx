@@ -94,7 +94,9 @@ export default function UsersPage() {
     if (!firestore) return;
 
     const usersCollection = collection(firestore, 'users');
-    addDoc(usersCollection, data)
+    const userData = { ...data, status: 'active' };
+
+    addDoc(usersCollection, userData)
       .then((docRef) => {
         toast({
           title: 'User created',
@@ -107,7 +109,7 @@ export default function UsersPage() {
         const permissionError = new FirestorePermissionError({
           path: usersCollection.path,
           operation: 'create',
-          requestResourceData: data,
+          requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
       });

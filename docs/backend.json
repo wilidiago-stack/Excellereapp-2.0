@@ -41,6 +41,16 @@
             "project_manager",
             "viewer"
           ]
+        },
+        "status": {
+          "type": "string",
+          "description": "User account status",
+          "enum": [
+            "pending",
+            "active",
+            "invited",
+            "rejected"
+          ]
         }
       },
       "required": [
