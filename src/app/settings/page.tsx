@@ -10,13 +10,13 @@ export default function SettingsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Ajustes</CardTitle>
+        <CardTitle>Settings</CardTitle>
         <CardDescription>
-          Gestiona los ajustes de la aplicación aquí.
+          Manage application settings here.
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de ajustes en construcción.</p>
+        <p>Settings page under construction.</p>
       </CardContent>
     </Card>
   );

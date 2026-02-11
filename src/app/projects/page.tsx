@@ -10,11 +10,11 @@ export default function ProjectsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Proyectos</CardTitle>
-        <CardDescription>Gestiona tus proyectos aquí.</CardDescription>
+        <CardTitle>Projects</CardTitle>
+        <CardDescription>Manage your projects here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de proyectos en construcción.</p>
+        <p>Projects page under construction.</p>
       </CardContent>
     </Card>
   );

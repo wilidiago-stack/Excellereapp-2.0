@@ -10,11 +10,11 @@ export default function UsersPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Usuarios</CardTitle>
-        <CardDescription>Gestiona tus usuarios aquí.</CardDescription>
+        <CardTitle>Users</CardTitle>
+        <CardDescription>Manage your users here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de usuarios en construcción.</p>
+        <p>Users page under construction.</p>
       </CardContent>
     </Card>
   );

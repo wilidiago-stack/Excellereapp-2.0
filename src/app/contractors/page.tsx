@@ -10,11 +10,11 @@ export default function ContractorsPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Contratistas</CardTitle>
-        <CardDescription>Gestiona tus contratistas aquí.</CardDescription>
+        <CardTitle>Contractors</CardTitle>
+        <CardDescription>Manage your contractors here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de contratistas en construcción.</p>
+        <p>Contractors page under construction.</p>
       </CardContent>
     </Card>
   );

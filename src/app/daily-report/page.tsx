@@ -10,11 +10,11 @@ export default function DailyReportPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Reporte Diario</CardTitle>
-        <CardDescription>Gestiona tus reportes diarios aquí.</CardDescription>
+        <CardTitle>Daily Report</CardTitle>
+        <CardDescription>Manage your daily reports here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de reportes diarios en construcción.</p>
+        <p>Daily reports page under construction.</p>
       </CardContent>
     </Card>
   );

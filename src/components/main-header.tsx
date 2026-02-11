@@ -59,17 +59,17 @@ const ExcellereIcon = () => (
 export function MainHeader() {
   const menuItems = [
     { href: '/', label: 'Dashboard', icon: Home },
-    { href: '/customers', label: 'Clientes', icon: Building },
-    { href: '/projects', label: 'Proyectos', icon: FolderKanban },
-    { href: '/users', label: 'Usuarios', icon: Users },
-    { href: '/contractors', label: 'Contratistas', icon: HardHat },
-    { href: '/daily-report', label: 'Reporte Diario', icon: FileText },
-    { href: '/monthly-report', label: 'Reporte Mensual', icon: CalendarDays },
+    { href: '/customers', label: 'Customers', icon: Building },
+    { href: '/projects', label: 'Projects', icon: FolderKanban },
+    { href: '/users', label: 'Users', icon: Users },
+    { href: '/contractors', label: 'Contractors', icon: HardHat },
+    { href: '/daily-report', label: 'Daily Report', icon: FileText },
+    { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays },
   ];
 
   const secondaryMenuItems = [
-    { href: '/settings', label: 'Ajustes', icon: Settings, disabled: false },
-    { href: '#', label: 'Soporte', icon: LifeBuoy, disabled: true },
+    { href: '/settings', label: 'Settings', icon: Settings, disabled: false },
+    { href: '#', label: 'Support', icon: LifeBuoy, disabled: true },
   ];
 
   return (

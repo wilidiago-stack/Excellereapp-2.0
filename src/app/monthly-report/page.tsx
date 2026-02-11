@@ -10,11 +10,11 @@ export default function MonthlyReportPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Reporte Mensual</CardTitle>
-        <CardDescription>Gestiona tus reportes mensuales aquí.</CardDescription>
+        <CardTitle>Monthly Report</CardTitle>
+        <CardDescription>Manage your monthly reports here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de reportes mensuales en construcción.</p>
+        <p>Monthly reports page under construction.</p>
       </CardContent>
     </Card>
   );

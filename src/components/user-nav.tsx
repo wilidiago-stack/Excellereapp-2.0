@@ -38,9 +38,9 @@ export function UserNav() {
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">Usuario</p>
+            <p className="text-sm font-medium leading-none">User</p>
             <p className="text-xs leading-none text-muted-foreground">
-              usuario@excellere.com
+              user@excellere.com
             </p>
           </div>
         </DropdownMenuLabel>
@@ -48,21 +48,21 @@ export function UserNav() {
         <DropdownMenuGroup>
           <DropdownMenuItem>
             <User className="mr-2 h-4 w-4" />
-            <span>Perfil</span>
+            <span>Profile</span>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Mail className="mr-2 h-4 w-4" />
-            <span>Bandeja de entrada</span>
+            <span>Inbox</span>
           </DropdownMenuItem>
           <DropdownMenuItem>
             <Settings className="mr-2 h-4 w-4" />
-            <span>Ajustes</span>
+            <span>Settings</span>
           </DropdownMenuItem>
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem>
           <LogOut className="mr-2 h-4 w-4" />
-          <span>Cerrar sesión</span>
+          <span>Log out</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

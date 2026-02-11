@@ -10,11 +10,11 @@ export default function CustomersPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Clientes</CardTitle>
-        <CardDescription>Gestiona tus clientes aquí.</CardDescription>
+        <CardTitle>Customers</CardTitle>
+        <CardDescription>Manage your customers here.</CardDescription>
       </CardHeader>
       <CardContent>
-        <p>Página de clientes en construcción.</p>
+        <p>Customers page under construction.</p>
       </CardContent>
     </Card>
   );
