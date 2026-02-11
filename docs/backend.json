@@ -192,22 +192,27 @@
             }
           }
         },
-        "safetyActivities": {
+        "safetyEvents": {
           "type": "array",
+          "description": "List of safety events occurred",
           "items": {
             "type": "object",
             "properties": {
-              "activity": {
-                "type": "string"
+              "eventType": {
+                "type": "string",
+                "description": "Type of the safety event"
               },
-              "needsAction": {
-                "type": "boolean"
+              "category": {
+                "type": "string",
+                "description": "Category of the safety event"
               },
-              "notes": {
-                "type": "string"
+              "responsibleContractor": {
+                "type": "string",
+                "description": "ID of the contractor responsible for the event"
               },
-              "status": {
-                "type": "string"
+              "eventDescription": {
+                "type": "string",
+                "description": "Description of the safety event"
               }
             }
           }

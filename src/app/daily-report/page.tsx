@@ -74,11 +74,11 @@ import {
 } from '@/components/ui/table';
 
 // Zod schemas for validation
-const safetyActivitySchema = z.object({
-  activity: z.string().default(''),
-  needsAction: z.boolean().default(false),
-  notes: z.string().default(''),
-  status: z.string().default(''),
+const safetyEventSchema = z.object({
+  eventType: z.string().min(1, 'Please select an event type'),
+  category: z.string().min(1, 'Please select a category'),
+  responsibleContractor: z.string().min(1, 'Please select a contractor'),
+  eventDescription: z.string().min(1, 'Description is required'),
 });
 
 const manHourSchema = z.object({
@@ -121,7 +121,7 @@ const dailyReportSchema = z.object({
     bbsGemba: z.coerce.number().int().min(0).default(0),
     operationsStandDowns: z.coerce.number().int().min(0).default(0),
   }),
-  safetyActivities: z.array(safetyActivitySchema).optional(),
+  safetyEvents: z.array(safetyEventSchema).optional(),
   manHours: z.array(manHourSchema).optional(),
   dailyActivities: z.array(dailyActivitySchema).optional(),
   notes: z.array(noteSchema).optional(),
@@ -148,6 +148,16 @@ const permitTypes = [
   { id: 'CW', label: 'CW' },
   { id: 'EX', label: 'EX' },
 ];
+const eventTypes = [
+  { id: 'near-miss', label: 'Near Miss' },
+  { id: 'incident', label: 'Incident' },
+  { id: 'observation', label: 'Observation' },
+];
+const categories = [
+  { id: 'safety', label: 'Safety' },
+  { id: 'environmental', label: 'Environmental' },
+  { id: 'quality', label: 'Quality' },
+];
 
 export default function DailyReportPage() {
   const [open, setOpen] = useState(false);
@@ -171,13 +181,18 @@ export default function DailyReportPage() {
         bbsGemba: 0,
         operationsStandDowns: 0,
       },
-      safetyActivities: [],
+      safetyEvents: [],
       manHours: [],
       dailyActivities: [],
       notes: [],
     },
   });
 
+  const {
+    fields: safetyEventFields,
+    append: appendSafetyEvent,
+    remove: removeSafetyEvent,
+  } = useFieldArray({ control: form.control, name: 'safetyEvents' });
   const {
     fields: manHourFields,
     append: appendManHour,
@@ -461,7 +476,7 @@ export default function DailyReportPage() {
                   {/* Safety Stats */}
                   <Card>
                     <CardHeader>
-                      <CardTitle>Safety Stats & Events</CardTitle>
+                      <CardTitle>Safety Stats</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
                       <FormField control={form.control} name="safetyStats.recordableIncidents" render={({ field }) => (<FormItem><FormLabel>Recordable Incidents</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -471,6 +486,101 @@ export default function DailyReportPage() {
                       <FormField control={form.control} name="safetyStats.admSiteOrientation" render={({ field }) => (<FormItem><FormLabel>Adm Site Orientation</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="safetyStats.bbsGemba" render={({ field }) => (<FormItem><FormLabel>Bbs Gemba</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="safetyStats.operationsStandDowns" render={({ field }) => (<FormItem><FormLabel>Ops Stand Downs</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                    </CardContent>
+                  </Card>
+
+                  {/* Safety Events */}
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Safety Events</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Event Type</TableHead>
+                            <TableHead>Category</TableHead>
+                            <TableHead>Responsible Contractor</TableHead>
+                            <TableHead className="w-1/3">Event Description</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {safetyEventFields.map((field, index) => (
+                            <TableRow key={field.id}>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`safetyEvents.${index}.eventType`}
+                                  render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select an event type" /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {eventTypes.map(e => <SelectItem key={e.id} value={e.id}>{e.label}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`safetyEvents.${index}.category`}
+                                  render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`safetyEvents.${index}.responsibleContractor`}
+                                  render={({ field }) => (
+                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <FormControl>
+                                        <SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`safetyEvents.${index}.eventDescription`}
+                                  render={({ field }) => <Textarea {...field} placeholder="Describe the event" />}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button type="button" variant="ghost" size="icon" onClick={() => removeSafetyEvent(index)}>
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => appendSafetyEvent({ eventType: '', category: '', responsibleContractor: '', eventDescription: '' })}
+                      >
+                        <PlusCircle className="mr-2 h-4 w-4" /> Add Event
+                      </Button>
                     </CardContent>
                   </Card>
 
