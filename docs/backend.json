@@ -13,13 +13,149 @@
           "type": "string",
           "format": "email",
           "description": "The user's email address"
+        },
+        "role": {
+          "type": "string",
+          "description": "User role",
+          "enum": [
+            "admin",
+            "project_manager",
+            "viewer"
+          ]
         }
       },
-      "required": ["name", "email"]
+      "required": [
+        "name",
+        "email",
+        "role"
+      ]
+    },
+    "project": {
+      "title": "Project",
+      "description": "A project managed in the application",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the project"
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the project"
+        },
+        "startDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The start date of the project"
+        },
+        "endDate": {
+          "type": "string",
+          "format": "date",
+          "description": "The end date of the project"
+        }
+      },
+      "required": [
+        "name",
+        "startDate"
+      ]
+    },
+    "contractor": {
+      "title": "Contractor",
+      "description": "A contractor or company working on projects",
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "The name of the contractor"
+        },
+        "contactPerson": {
+          "type": "string",
+          "description": "The main contact person"
+        },
+        "email": {
+          "type": "string",
+          "format": "email",
+          "description": "Contact email address"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Contact phone number"
+        }
+      },
+      "required": [
+        "name",
+        "email"
+      ]
+    },
+    "dailyReport": {
+      "title": "Daily Report",
+      "description": "A daily progress report for a project",
+      "type": "object",
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "The date of the report"
+        },
+        "reportText": {
+          "type": "string",
+          "description": "The content of the daily report"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "ID of the user who created the report"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "ID of the project this report belongs to"
+        }
+      },
+      "required": [
+        "date",
+        "reportText",
+        "authorId",
+        "projectId"
+      ]
+    },
+    "monthlyReport": {
+      "title": "Monthly Report",
+      "description": "A monthly summary report for a project",
+      "type": "object",
+      "properties": {
+        "month": {
+          "type": "integer",
+          "description": "The month of the report (1-12)"
+        },
+        "year": {
+          "type": "integer",
+          "description": "The year of the report"
+        },
+        "summary": {
+          "type": "string",
+          "description": "The summary of the monthly report"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "ID of the user who created the report"
+        },
+        "projectId": {
+          "type": "string",
+          "description": "ID of the project this report belongs to"
+        }
+      },
+      "required": [
+        "month",
+        "year",
+        "summary",
+        "authorId",
+        "projectId"
+      ]
     }
   },
   "auth": {
-    "providers": ["google.com"]
+    "providers": [
+      "google.com"
+    ]
   },
   "firestore": {
     "/users/{userId}": {
@@ -27,6 +163,30 @@
         "$ref": "#/entities/user"
       },
       "description": "User profile information"
+    },
+    "/projects/{projectId}": {
+      "schema": {
+        "$ref": "#/entities/project"
+      },
+      "description": "Project documents"
+    },
+    "/contractors/{contractorId}": {
+      "schema": {
+        "$ref": "#/entities/contractor"
+      },
+      "description": "Contractor documents"
+    },
+    "/projects/{projectId}/dailyReports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/dailyReport"
+      },
+      "description": "Daily reports for a specific project"
+    },
+    "/projects/{projectId}/monthlyReports/{reportId}": {
+      "schema": {
+        "$ref": "#/entities/monthlyReport"
+      },
+      "description": "Monthly reports for a specific project"
     }
   }
 }

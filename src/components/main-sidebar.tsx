@@ -15,6 +15,10 @@ import {
   FolderKanban,
   Settings,
   LifeBuoy,
+  Building,
+  HardHat,
+  FileText,
+  CalendarDays,
 } from 'lucide-react';
 
 const ExcellereIcon = () => (
@@ -53,8 +57,12 @@ export function MainSidebar() {
   const pathname = usePathname();
   const menuItems = [
     { href: '/', label: 'Dashboard', icon: Home },
-    { href: '/customers', label: 'Clientes', icon: Users },
+    { href: '/customers', label: 'Clientes', icon: Building },
     { href: '/projects', label: 'Proyectos', icon: FolderKanban },
+    { href: '/users', label: 'Usuarios', icon: Users },
+    { href: '/contractors', label: 'Contratistas', icon: HardHat },
+    { href: '/daily-report', label: 'Reporte Diario', icon: FileText },
+    { href: '/monthly-report', label: 'Reporte Mensual', icon: CalendarDays },
     { href: '/settings', label: 'Ajustes', icon: Settings },
   ];
 
