@@ -1,0 +1,135 @@
+mutation SeedData @transaction @auth(level: USER, insecureReason: "Seed data is for development and testing purposes and typically not exposed to regular users.") {
+  user_insertMany(data: [
+    {
+      id: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      createdAt: "2023-01-01T10:00:00Z",
+      displayName: "Alice Smith",
+      email: "alice@example.com",
+      photoUrl: "https://example.com/alice.jpg"
+    },
+    {
+      id: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+      createdAt: "2023-01-02T11:00:00Z",
+      displayName: "Bob Johnson",
+      email: "bob@example.com",
+      photoUrl: "https://example.com/bob.jpg"
+    },
+    {
+      id: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+      createdAt: "2023-01-03T12:00:00Z",
+      displayName: "Charlie Brown",
+      email: "charlie@example.com",
+      photoUrl: "https://example.com/charlie.jpg"
+    }
+  ])
+  project_insertMany(data: [
+    {
+      id: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+      ownerId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      createdAt: "2023-01-05T09:00:00Z",
+      description: "A new mobile application development project.",
+      dueDate: "2023-06-30",
+      name: "Mobile App Development",
+      status: "In Progress",
+      updatedAt: "2023-03-15T14:30:00Z"
+    },
+    {
+      id: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
+      ownerId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+      createdAt: "2023-01-10T10:00:00Z",
+      description: "Website redesign for improved user experience.",
+      dueDate: "2023-07-31",
+      name: "Website Redesign",
+      status: "Planning",
+      updatedAt: "2023-02-20T16:00:00Z"
+    },
+    {
+      id: "f0eebc99-9c0b-4ef8-bb6d-6bb9bd380a66",
+      ownerId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      createdAt: "2023-02-01T13:00:00Z",
+      description: "Internal tool to streamline data analysis.",
+      dueDate: "2023-08-31",
+      name: "Data Analytics Tool",
+      status: "Completed",
+      updatedAt: "2023-04-01T10:00:00Z"
+    }
+  ])
+  projectMembership_insertMany(data: [
+    {
+      projectId: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+      userId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+      createdAt: "2023-01-06T10:00:00Z",
+      role: "Developer"
+    },
+    {
+      projectId: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+      userId: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+      createdAt: "2023-01-07T11:00:00Z",
+      role: "Designer"
+    },
+    {
+      projectId: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
+      userId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      createdAt: "2023-01-11T12:00:00Z",
+      role: "Project Manager"
+    }
+  ])
+  task_insertMany(data: [
+    {
+      id: "g0eebc99-9c0b-4ef8-bb6d-6bb9bd380a77",
+      assigneeId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+      projectId: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+      createdAt: "2023-01-15T09:00:00Z",
+      description: "Implement user authentication flow.",
+      dueDate: "2023-03-31",
+      priority: "High",
+      status: "In Progress",
+      title: "Implement Auth",
+      updatedAt: "2023-02-28T17:00:00Z"
+    },
+    {
+      id: "h0eebc99-9c0b-4ef8-bb6d-6bb9bd380a88",
+      assigneeId: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+      projectId: "d0eebc99-9c0b-4ef8-bb6d-6bb9bd380a44",
+      createdAt: "2023-01-20T10:00:00Z",
+      description: "Design mobile app UI/UX mockups.",
+      dueDate: "2023-03-15",
+      priority: "High",
+      status: "Completed",
+      title: "Design UI/UX",
+      updatedAt: "2023-03-10T11:00:00Z"
+    },
+    {
+      id: "i0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99",
+      assigneeId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      projectId: "e0eebc99-9c0b-4ef8-bb6d-6bb9bd380a55",
+      createdAt: "2023-01-25T14:00:00Z",
+      description: "Research competitor websites for best practices.",
+      dueDate: "2023-02-10",
+      priority: "Medium",
+      status: "Completed",
+      title: "Competitor Analysis",
+      updatedAt: "2023-02-08T16:00:00Z"
+    }
+  ])
+  comment_insertMany(data: [
+    {
+      authorId: "b0eebc99-9c0b-4ef8-bb6d-6bb9bd380a22",
+      taskId: "g0eebc99-9c0b-4ef8-bb6d-6bb9bd380a77",
+      content: "Starting work on the login screen.",
+      createdAt: "2023-01-16T10:00:00Z"
+    },
+    {
+      authorId: "c0eebc99-9c0b-4ef8-bb6d-6bb9bd380a33",
+      taskId: "h0eebc99-9c0b-4ef8-bb6d-6bb9bd380a88",
+      content: "Mockups for user profiles are ready for review.",
+      createdAt: "2023-01-21T11:00:00Z"
+    },
+    {
+      authorId: "a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11",
+      taskId: "i0eebc99-9c0b-4ef8-bb6d-6bb9bd380a99",
+      content: "Found some great examples from X and Y websites.",
+      createdAt: "2023-01-26T15:00:00Z"
+    }
+  ])
+}

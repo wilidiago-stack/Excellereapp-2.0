@@ -1,0 +1,43 @@
+query ListAllProjects @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it only retrieves publicly available project information.") {
+  projects {
+    id
+    name
+    description
+    status
+    owner {
+      displayName
+    }
+  }
+}
+
+query GetMyProfile @auth(level: USER) {
+  user(key: {id_expr: "auth.uid"}) {
+    id
+    displayName
+    email
+    createdAt
+  }
+}
+
+mutation CreateNewTask($projectId: UUID!, $title: String!, $status: String!, $description: String, $priority: String, $dueDate: Date) @auth(level: USER) {
+  task_insert(data: {
+    projectId: $projectId,
+    title: $title,
+    status: $status,
+    description: $description,
+    priority: $priority,
+    dueDate: $dueDate,
+    createdAt_expr: "request.time",
+    updatedAt_expr: "request.time"
+  })
+}
+
+mutation UpdateProjectStatus($projectId: UUID!, $newStatus: String!) @auth(expr: "auth.uid != null && resource.ownerId == auth.uid") {
+  project_update(
+    key: {id: $projectId},
+    data: {
+      status: $newStatus,
+      updatedAt_expr: "request.time"
+    }
+  )
+}
