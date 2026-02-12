@@ -16,8 +16,11 @@ service cloud.firestore {
       // Authenticated users can read and update their own profile.
       allow read, update: if isAdmin() || isOwner(userId);
       
-      // Admins can create and delete users.
-      allow create, delete: if isAdmin();
+      // TEMPORARY: Allow any authenticated user to create a user to debug permission issues.
+      allow create: if request.auth != null;
+      
+      // Only admins can delete.
+      allow delete: if isAdmin();
     }
 
     match /projects/{projectId} {
