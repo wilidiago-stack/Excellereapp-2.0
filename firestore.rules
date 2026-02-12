@@ -3,21 +3,23 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Rule for the 'users' collection
     match /users/{userId} {
-      // Allow user document creation only if the user is creating their own document.
-      // This is a secure pattern for the sign-up flow.
+      // CREATE: A user can create their own document upon signing up.
       allow create: if request.auth.uid == userId;
 
-      // Allow any authenticated user to read user lists or individual profiles.
-      allow list, get: if request.auth != null;
+      // READ (single doc): Any authenticated user can view any single profile.
+      allow get: if request.auth != null;
 
-      // Allow users to update their own profile, or an admin to update any profile.
-      // Note: This requires the 'role' field to be correctly set in user documents.
-      allow update: if request.auth.uid == userId || 
-                      get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // UPDATE: A user can update their own profile, or an admin can update any profile.
+      allow update: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
-      // Only admins can delete users.
+      // DELETE: Only admins can delete users.
       allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    // Rule for LISTING the 'users' collection
+    match /users {
+      allow list: if request.auth != null;
     }
 
     match /projects/{projectId} {
