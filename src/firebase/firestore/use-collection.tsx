@@ -21,13 +21,13 @@ export function useCollection<T>(query: Query<T> | null | undefined) {
     const unsubscribe = onSnapshot(
         stableQuery,
       (snapshot) => {
-        const data = snapshot.docs.map((doc) => doc.data());
+        const data = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
         setData(data);
         setLoading(false);
       },
       (error) => {
         const permissionError = new FirestorePermissionError({
-            path: 'unknown_collection_path',
+            path: (stableQuery as any).path || 'unknown_collection_path',
             operation: 'list',
           });
         errorEmitter.emit('permission-error', permissionError);
