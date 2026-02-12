@@ -53,6 +53,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -67,6 +68,7 @@ const userSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   company: z.string().min(1, 'Company is required'),
   role: z.enum(['admin', 'project_manager', 'viewer']),
+  assignedProjects: z.array(z.string()).optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -78,12 +80,19 @@ export default function UsersPage() {
   const { user, loading: userLoading } = useUser();
 
   const usersCollection = useMemo(
-    () => (firestore && user ? collection(firestore, 'users') : null),
-    [firestore, user]
+    () => (user && firestore ? collection(firestore, 'users') : null),
+    [user, firestore]
   );
   const { data: users, loading: usersLoading } = useCollection(usersCollection);
 
-  const loading = userLoading || usersLoading;
+  const projectsCollection = useMemo(
+    () => (user && firestore ? collection(firestore, 'projects') : null),
+    [user, firestore]
+  );
+  const { data: projects, loading: projectsLoading } =
+    useCollection(projectsCollection);
+
+  const loading = userLoading || usersLoading || projectsLoading;
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -93,30 +102,32 @@ export default function UsersPage() {
       position: '',
       company: '',
       role: 'viewer',
+      assignedProjects: [],
     },
   });
 
   const onSubmit = async (data: UserFormValues) => {
-    if (!firestore || !usersCollection) return;
+    if (!firestore || !usersCollection || !user) return;
 
-    const userData = { ...data, status: 'invited' };
+    const userData = { ...data, status: 'pending' };
 
-    try {
-      await addDoc(usersCollection, userData);
-      toast({
-        title: 'User Invited',
-        description: `An invitation will be sent to ${data.name}.`,
+    addDoc(usersCollection, userData)
+      .then(() => {
+        toast({
+          title: 'User Created',
+          description: `User ${data.name} has been created.`,
+        });
+        setOpen(false);
+        form.reset();
+      })
+      .catch((error) => {
+        const permissionError = new FirestorePermissionError({
+          path: usersCollection.path,
+          operation: 'create',
+          requestResourceData: userData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      setOpen(false);
-      form.reset();
-    } catch (error: any) {
-      const permissionError = new FirestorePermissionError({
-        path: usersCollection.path,
-        operation: 'create',
-        requestResourceData: userData,
-      });
-      errorEmitter.emit('permission-error', permissionError);
-    }
   };
 
   const getStatusVariant = (status?: string) => {
@@ -148,15 +159,14 @@ export default function UsersPage() {
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Invite User
+                Create User
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Invite New User</DialogTitle>
+                <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Fill in the details below to invite a new user. An invitation
-                  will be sent to their email.
+                  Fill in the details below to create a new user.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -247,6 +257,66 @@ export default function UsersPage() {
                       </FormItem>
                     )}
                   />
+                  <FormField
+                    control={form.control}
+                    name="assignedProjects"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Assigned Projects</FormLabel>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              variant="outline"
+                              className="w-full justify-start font-normal"
+                            >
+                              <span className="truncate">
+                                {field.value &&
+                                field.value.length > 0 &&
+                                projects
+                                  ? projects
+                                      .filter((p: any) =>
+                                        field.value?.includes(p.id)
+                                      )
+                                      .map((p: any) => p.name)
+                                      .join(', ')
+                                  : 'Select projects...'}
+                              </span>
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent
+                            className="w-[--radix-dropdown-menu-trigger-width]"
+                            align="start"
+                          >
+                            {projects?.map((project: any) => (
+                              <DropdownMenuCheckboxItem
+                                key={project.id}
+                                checked={field.value?.includes(project.id)}
+                                onSelect={(e) => e.preventDefault()}
+                                onCheckedChange={(checked) => {
+                                  const currentProjects = field.value || [];
+                                  if (checked) {
+                                    field.onChange([
+                                      ...currentProjects,
+                                      project.id,
+                                    ]);
+                                  } else {
+                                    field.onChange(
+                                      currentProjects.filter(
+                                        (id) => id !== project.id
+                                      )
+                                    );
+                                  }
+                                }}
+                              >
+                                {project.name}
+                              </DropdownMenuCheckboxItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
@@ -256,8 +326,8 @@ export default function UsersPage() {
                       disabled={form.formState.isSubmitting}
                     >
                       {form.formState.isSubmitting
-                        ? 'Inviting...'
-                        : 'Send Invitation'}
+                        ? 'Creating...'
+                        : 'Create User'}
                     </Button>
                   </DialogFooter>
                 </form>
