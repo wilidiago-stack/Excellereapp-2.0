@@ -12,19 +12,20 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // ANYONE can create a user document (i.e., submit a registration request)
-      allow create;
+      // Allow unauthenticated users to create a 'pending' account request.
+      // Allow admins to create users (e.g., 'invited').
+      allow create: if (request.auth == null && request.resource.data.status == 'pending') || isAdmin();
 
-      // Admins can read the list of users
+      // Admins can see the list of all users.
       allow list: if isAdmin();
       
-      // An authenticated user can read their own profile, and admins can read any profile
+      // An authenticated user can read their own profile, and admins can read any profile.
       allow get: if isOwner(userId) || isAdmin();
       
-      // An authenticated user can update their own profile, and admins can update any profile
+      // An authenticated user can update their own profile, and admins can update any profile.
       allow update: if isOwner(userId) || isAdmin();
       
-      // Only admins can delete users
+      // Only admins can delete users.
       allow delete: if isAdmin();
     }
 
