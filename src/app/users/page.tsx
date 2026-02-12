@@ -25,7 +25,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -52,9 +51,15 @@ import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -70,7 +75,7 @@ export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
-  
+
   const usersCollection = firestore ? collection(firestore, 'users') : null;
   const { data: users, loading } = useCollection(usersCollection);
 
@@ -85,31 +90,30 @@ export default function UsersPage() {
     },
   });
 
-  const onSubmit = (data: UserFormValues) => {
+  const onSubmit = async (data: UserFormValues) => {
     if (!firestore) return;
 
     const usersCollectionRef = collection(firestore, 'users');
     const userData = { ...data, status: 'invited' };
 
-    addDoc(usersCollectionRef, userData)
-      .then(() => {
-        toast({
-          title: 'User Invited',
-          description: `An invitation will be sent to ${data.name}.`,
-        });
-        setOpen(false);
-        form.reset();
-      })
-      .catch((serverError: any) => {
+    try {
+      await addDoc(usersCollectionRef, userData);
+      toast({
+        title: 'User Invited',
+        description: `An invitation will be sent to ${data.name}.`,
+      });
+      setOpen(false);
+      form.reset();
+    } catch (error: any) {
         const permissionError = new FirestorePermissionError({
-          path: usersCollectionRef.path,
-          operation: 'create',
-          requestResourceData: userData,
+            path: usersCollectionRef.path,
+            operation: 'create',
+            requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
-      });
+    }
   };
-  
+
   const getStatusVariant = (status?: string) => {
     switch (status) {
       case 'active':
@@ -124,7 +128,6 @@ export default function UsersPage() {
         return 'secondary';
     }
   };
-
 
   return (
     <>
@@ -266,7 +269,9 @@ export default function UsersPage() {
                 <TableHead>Company</TableHead>
                 <TableHead>Role</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead><span className="sr-only">Actions</span></TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -291,12 +296,18 @@ export default function UsersPage() {
                   <TableCell>{user.company}</TableCell>
                   <TableCell>{user.role}</TableCell>
                   <TableCell>
-                    <Badge variant={getStatusVariant(user.status)}>{user.status}</Badge>
+                    <Badge variant={getStatusVariant(user.status)}>
+                      {user.status}
+                    </Badge>
                   </TableCell>
                   <TableCell>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                        <Button
+                          aria-haspopup="true"
+                          size="icon"
+                          variant="ghost"
+                        >
                           <MoreHorizontal className="h-4 w-4" />
                           <span className="sr-only">Toggle menu</span>
                         </Button>

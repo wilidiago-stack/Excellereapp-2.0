@@ -12,24 +12,17 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // READ permissions
-      // An admin can list all users.
+      // READ: Admins can list all users. Users can get their own profile.
       allow list: if isAdmin();
-      // An admin can get any user's document.
-      // A regular user can only get their own document.
       allow get: if isAdmin() || isOwner(userId);
 
-      // WRITE permissions
-      // A public, unauthenticated user can create a 'pending' application.
-      // An admin can create an 'invited' user.
-      allow create: if (request.auth == null && request.resource.data.status == 'pending') || 
-                       (isAdmin() && request.resource.data.status == 'invited');
+      // CREATE: A user can create their own profile document, or an admin can create one.
+      allow create: if isOwner(userId) || isAdmin();
 
-      // An admin can update any user document.
-      // A user can only update their own document.
+      // UPDATE: An admin can update any user. A user can only update their own profile.
       allow update: if isAdmin() || isOwner(userId);
-
-      // An admin can delete any user document.
+      
+      // DELETE: Only admins can delete users.
       allow delete: if isAdmin();
     }
 

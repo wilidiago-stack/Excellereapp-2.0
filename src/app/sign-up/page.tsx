@@ -23,67 +23,104 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
-import { FirestorePermissionError } from '@/firebase/errors';
-import { errorEmitter } from '@/firebase/error-emitter';
+import { useAuth, useFirestore } from '@/firebase';
+import {
+  collection,
+  setDoc,
+  doc,
+  getCountFromServer,
+} from 'firebase/firestore';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-const requestAccountSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  position: z.string().min(1, 'Position is required'),
-  company: z.string().min(1, 'Company is required'),
-  phoneNumber: z.string().optional(),
-});
+const signUpSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Invalid email address'),
+    position: z.string().min(1, 'Position is required'),
+    company: z.string().min(1, 'Company is required'),
+    phoneNumber: z.string().optional(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Passwords don't match",
+    path: ['confirmPassword'],
+  });
 
-type RequestAccountFormValues = z.infer<typeof requestAccountSchema>;
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const { toast } = useToast();
+  const auth = useAuth();
   const firestore = useFirestore();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
 
-  const form = useForm<RequestAccountFormValues>({
-    resolver: zodResolver(requestAccountSchema),
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
     defaultValues: {
       name: '',
       email: '',
       position: '',
       company: '',
       phoneNumber: '',
+      password: '',
+      confirmPassword: '',
     },
   });
 
-  const onSubmit = async (data: RequestAccountFormValues) => {
-    if (!firestore) {
+  const onSubmit = async (data: SignUpFormValues) => {
+    if (!auth || !firestore) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'Firestore is not available.',
+        description: 'Firebase is not available.',
       });
       return;
     }
     setLoading(true);
 
-    const usersCollection = collection(firestore, 'users');
-    const userData = { ...data, status: 'pending', role: 'viewer' };
-
     try {
-      await addDoc(usersCollection, userData);
+      // Check if this is the first user
+      const usersCollection = collection(firestore, 'users');
+      const snapshot = await getCountFromServer(usersCollection);
+      const isFirstUser = snapshot.data().count === 0;
+      const role = isFirstUser ? 'admin' : 'viewer';
+
+      // Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
+      const user = userCredential.user;
+
+      // Create user profile in Firestore
+      const userDocRef = doc(firestore, 'users', user.uid);
+      await setDoc(userDocRef, {
+        name: data.name,
+        email: data.email,
+        position: data.position,
+        company: data.company,
+        phoneNumber: data.phoneNumber,
+        role: role,
+        status: 'active',
+      });
+
       toast({
-        title: 'Request Submitted',
+        title: 'Account Created',
         description:
-          'Your account request has been sent for approval. You will be notified via email.',
+          'Your account has been created successfully. Please log in.',
       });
-      form.reset();
+      router.push('/login');
     } catch (error: any) {
-       const permissionError = new FirestorePermissionError({
-        path: usersCollection.path,
-        operation: 'create',
-        requestResourceData: userData,
+      toast({
+        variant: 'destructive',
+        title: 'Sign Up Failed',
+        description: error.message || 'An unexpected error occurred.',
       });
-      errorEmitter.emit('permission-error', permissionError);
     } finally {
       setLoading(false);
     }
@@ -93,9 +130,9 @@ export default function SignUpPage() {
     <div className="flex items-center justify-center py-12">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Request an Account</CardTitle>
+          <CardTitle className="text-2xl">Create an Account</CardTitle>
           <CardDescription>
-            Fill out the form below and we'll review your application.
+            Fill out the form below to create your account.
           </CardDescription>
         </CardHeader>
         <Form {...form}>
@@ -164,7 +201,45 @@ export default function SignUpPage() {
                   <FormItem>
                     <FormLabel>Phone Number (Optional)</FormLabel>
                     <FormControl>
-                      <Input type="tel" placeholder="(123) 456-7890" {...field} />
+                      <Input
+                        type="tel"
+                        placeholder="(123) 456-7890"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -173,9 +248,9 @@ export default function SignUpPage() {
             </CardContent>
             <CardFooter className="flex-col gap-4">
               <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? 'Submitting...' : 'Submit Request'}
+                {loading ? 'Creating Account...' : 'Create Account'}
               </Button>
-               <div className="text-sm text-center text-muted-foreground">
+              <div className="text-sm text-center text-muted-foreground">
                 Already have an account?{' '}
                 <Link href="/login" className="text-primary hover:underline">
                   Sign In

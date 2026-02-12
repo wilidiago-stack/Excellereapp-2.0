@@ -57,7 +57,7 @@ export default function LoginPage() {
       await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
         title: 'Login Successful',
-        description: "Welcome back!",
+        description: 'Welcome back!',
       });
       router.push('/');
     } catch (error: any) {
@@ -121,7 +121,7 @@ export default function LoginPage() {
               <div className="text-sm text-center text-muted-foreground">
                 Don't have an account?{' '}
                 <Link href="/sign-up" className="text-primary hover:underline">
-                  Request one now
+                  Sign up now
                 </Link>
               </div>
             </CardFooter>
