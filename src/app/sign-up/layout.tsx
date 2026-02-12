@@ -4,7 +4,7 @@ export default function SignUpLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <div className="flex h-full items-center justify-center -m-4 sm:-m-6">
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-background">
       {children}
     </div>
   );
