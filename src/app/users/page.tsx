@@ -92,13 +92,13 @@ export default function UsersPage() {
     if (!firestore) return;
 
     const usersCollection = collection(firestore, 'users');
-    const userData = { ...data, status: 'active' };
+    const userData = { ...data, status: 'invited' };
 
     addDoc(usersCollection, userData)
       .then((docRef) => {
         toast({
-          title: 'User created',
-          description: `User ${data.name} has been created successfully.`,
+          title: 'User Invited',
+          description: `An invitation will be sent to ${data.name}.`,
         });
         setOpen(false);
         form.reset();
@@ -132,7 +132,8 @@ export default function UsersPage() {
               <DialogHeader>
                 <DialogTitle>Create new user</DialogTitle>
                 <DialogDescription>
-                  Fill in the details below to create a new user.
+                  Fill in the details below to create a new user. An invitation
+                  will be sent to their email.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
@@ -203,7 +204,11 @@ export default function UsersPage() {
                       <FormItem>
                         <FormLabel>Phone Number</FormLabel>
                         <FormControl>
-                          <Input type="tel" placeholder="(123) 456-7890" {...field} />
+                          <Input
+                            type="tel"
+                            placeholder="(123) 456-7890"
+                            {...field}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -307,8 +312,8 @@ export default function UsersPage() {
                       disabled={form.formState.isSubmitting}
                     >
                       {form.formState.isSubmitting
-                        ? 'Creating...'
-                        : 'Create user'}
+                        ? 'Inviting...'
+                        : 'Invite user'}
                     </Button>
                   </DialogFooter>
                 </form>

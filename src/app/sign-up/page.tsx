@@ -1,11 +1,10 @@
 'use client';
 
 import {
-  createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -43,7 +42,9 @@ import {
 const signUpSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
-  password: z.string().min(6, 'Password must be at least 6 characters'),
+  position: z.string().min(1, 'Position is required'),
+  company: z.string().min(1, 'Company is required'),
+  phoneNumber: z.string().optional(),
 });
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
@@ -63,7 +64,13 @@ export default function SignUpPage() {
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
-    defaultValues: { name: '', email: '', password: '' },
+    defaultValues: {
+      name: '',
+      email: '',
+      position: '',
+      company: '',
+      phoneNumber: '',
+    },
   });
 
   const signInForm = useForm<SignInFormValues>({
@@ -71,59 +78,35 @@ export default function SignUpPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const processUser = useCallback(
-    async (user: FirebaseUser, name?: string) => {
-      if (!firestore) return;
-
-      if (!user.email) {
-        toast({
-          variant: 'destructive',
-          title: 'Email not provided',
-          description:
-            'Your social account did not provide an email. Please try another provider.',
-        });
-        setIsLoading(false);
-        return;
-      }
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (!userDocSnap.exists()) {
-        await setDoc(userDocRef, {
-          name: name || user.displayName || user.email,
-          email: user.email,
-          role: 'viewer',
-          status: 'active',
-          position: '',
-          company: '',
-          phoneNumber: user.phoneNumber || '',
-          assignedProjects: [],
-        });
-        toast({
-          title: 'Account Created',
-          description: 'Welcome! Your account has been successfully created.',
-        });
-      }
-
-      router.push('/');
-    },
-    [firestore, router, toast]
-  );
-
-  const handleEmailSignUp = async (data: SignUpFormValues) => {
-    if (!auth) return;
+  const handleRequestAccount = async (data: SignUpFormValues) => {
+    if (!firestore) {
+      setAuthError(
+        'Firestore is not available. Please try again in a moment.'
+      );
+      return;
+    }
     setIsLoading(true);
     setAuthError(null);
     try {
-      const userCredential = await createUserWithEmailAndPassword(
-        auth,
-        data.email,
-        data.password
-      );
-      await processUser(userCredential.user, data.name);
+      const usersCollection = collection(firestore, 'users');
+      await addDoc(usersCollection, {
+        ...data,
+        assignedProjects: [],
+        role: 'viewer',
+        status: 'pending',
+      });
+      toast({
+        title: 'Account Request Sent',
+        description:
+          'Thank you! Your request has been sent to an administrator for approval.',
+      });
+      signUpForm.reset();
     } catch (error: any) {
-      setAuthError(error.message);
+      console.error('Error requesting account:', error);
+      setAuthError(
+        'There was an error submitting your request. Please try again.'
+      );
+    } finally {
       setIsLoading(false);
     }
   };
@@ -225,15 +208,16 @@ export default function SignUpPage() {
         </TabsContent>
         <TabsContent value="sign-up">
           <CardHeader className="text-center">
-            <CardTitle>Create an Account</CardTitle>
+            <CardTitle>Request an Account</CardTitle>
             <CardDescription>
-              Enter your details below to create a new account.
+              Enter your details below. An administrator will review your
+              request.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Form {...signUpForm}>
               <form
-                onSubmit={signUpForm.handleSubmit(handleEmailSignUp)}
+                onSubmit={signUpForm.handleSubmit(handleRequestAccount)}
                 className="space-y-4"
               >
                 <FormField
@@ -268,12 +252,42 @@ export default function SignUpPage() {
                 />
                 <FormField
                   control={signUpForm.control}
-                  name="password"
+                  name="position"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>Position</FormLabel>
                       <FormControl>
-                        <Input type="password" {...field} />
+                        <Input placeholder="e.g. Project Manager" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="company"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Company</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g. Acme Inc." {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="tel"
+                          placeholder="(123) 456-7890"
+                          {...field}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -287,7 +301,7 @@ export default function SignUpPage() {
                   {signUpForm.formState.isSubmitting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  Create Account
+                  Request Account
                 </Button>
               </form>
             </Form>
