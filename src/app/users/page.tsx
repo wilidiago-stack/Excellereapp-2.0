@@ -40,40 +40,39 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { PlusCircle } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 
 const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   email: z.string().email('Invalid email address'),
   position: z.string().min(1, 'Position is required'),
   company: z.string().min(1, 'Company is required'),
-  phoneNumber: z.string().optional(),
-  assignedProjects: z.array(z.string()).optional(),
   role: z.enum(['admin', 'project_manager', 'viewer']),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
 
-const projects = [
-  { id: 'adm-dsm-pfas-replacement', label: 'ADM DSM - PFAS Replacement' },
-  { id: 'project-alpha', label: 'Project Alpha' },
-  { id: 'project-beta', label: 'Project Beta' },
-];
-
 export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
+  
+  const usersCollection = firestore ? collection(firestore, 'users') : null;
+  const { data: users, loading } = useCollection(usersCollection);
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -82,8 +81,6 @@ export default function UsersPage() {
       email: '',
       position: '',
       company: '',
-      phoneNumber: '',
-      assignedProjects: [],
       role: 'viewer',
     },
   });
@@ -91,10 +88,10 @@ export default function UsersPage() {
   const onSubmit = (data: UserFormValues) => {
     if (!firestore) return;
 
-    const usersCollection = collection(firestore, 'users');
+    const usersCollectionRef = collection(firestore, 'users');
     const userData = { ...data, status: 'invited' };
 
-    addDoc(usersCollection, userData)
+    addDoc(usersCollectionRef, userData)
       .then(() => {
         toast({
           title: 'User Invited',
@@ -105,13 +102,29 @@ export default function UsersPage() {
       })
       .catch((serverError: any) => {
         const permissionError = new FirestorePermissionError({
-          path: usersCollection.path,
+          path: usersCollectionRef.path,
           operation: 'create',
           requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
       });
   };
+  
+  const getStatusVariant = (status?: string) => {
+    switch (status) {
+      case 'active':
+        return 'default';
+      case 'pending':
+        return 'secondary';
+      case 'invited':
+        return 'outline';
+      case 'rejected':
+        return 'destructive';
+      default:
+        return 'secondary';
+    }
+  };
+
 
   return (
     <>
@@ -119,20 +132,22 @@ export default function UsersPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Users</CardTitle>
-            <CardDescription>Manage your users here.</CardDescription>
+            <CardDescription>
+              Manage account requests and user roles.
+            </CardDescription>
           </div>
           <Dialog open={open} onOpenChange={setOpen}>
             <DialogTrigger asChild>
               <Button>
                 <PlusCircle className="mr-2 h-4 w-4" />
-                Create new user
+                Invite User
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[425px]">
               <DialogHeader>
-                <DialogTitle>Create new user</DialogTitle>
+                <DialogTitle>Invite New User</DialogTitle>
                 <DialogDescription>
-                  Fill in the details below to create a new user. An invitation
+                  Fill in the details below to invite a new user. An invitation
                   will be sent to their email.
                 </DialogDescription>
               </DialogHeader>
@@ -199,85 +214,6 @@ export default function UsersPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="tel"
-                            placeholder="(123) 456-7890"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="assignedProjects"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assigned Projects</FormLabel>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start font-normal"
-                            >
-                              <span className="truncate">
-                                {field.value && field.value?.length > 0
-                                  ? projects
-                                      .filter((p) =>
-                                        field.value.includes(p.id)
-                                      )
-                                      .map((p) => p.label)
-                                      .join(', ')
-                                  : 'Select projects...'}
-                              </span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="w-[--radix-dropdown-menu-trigger-width]"
-                            align="start"
-                          >
-                            {projects.map((project) => (
-                              <DropdownMenuCheckboxItem
-                                key={project.id}
-                                checked={field.value?.includes(project.id)}
-                                onSelect={(e) => e.preventDefault()}
-                                onCheckedChange={(checked) => {
-                                  const currentProjects = field.value || [];
-                                  if (checked) {
-                                    field.onChange([
-                                      ...currentProjects,
-                                      project.id,
-                                    ]);
-                                  } else {
-                                    field.onChange(
-                                      currentProjects.filter(
-                                        (id) => id !== project.id
-                                      )
-                                    );
-                                  }
-                                }}
-                              >
-                                {project.label}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <FormDescription>
-                          This selection determines which project information
-                          the user can view.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
                     name="role"
                     render={({ field }) => (
                       <FormItem>
@@ -313,7 +249,7 @@ export default function UsersPage() {
                     >
                       {form.formState.isSubmitting
                         ? 'Inviting...'
-                        : 'Invite user'}
+                        : 'Send Invitation'}
                     </Button>
                   </DialogFooter>
                 </form>
@@ -322,7 +258,60 @@ export default function UsersPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          <p>Users page under construction.</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Company</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead><span className="sr-only">Actions</span></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    Loading users...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && users?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={6} className="h-24 text-center">
+                    No users found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {users?.map((user: any) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>{user.company}</TableCell>
+                  <TableCell>{user.role}</TableCell>
+                  <TableCell>
+                    <Badge variant={getStatusVariant(user.status)}>{user.status}</Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button aria-haspopup="true" size="icon" variant="ghost">
+                          <MoreHorizontal className="h-4 w-4" />
+                          <span className="sr-only">Toggle menu</span>
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </>

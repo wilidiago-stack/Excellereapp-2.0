@@ -16,6 +16,7 @@ import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
+import Link from 'next/link';
 
 export function UserNav() {
   const { user, loading } = useUser();
@@ -25,7 +26,7 @@ export function UserNav() {
   const handleLogout = () => {
     if (auth) {
       signOut(auth).then(() => {
-        router.push('/');
+        router.push('/login');
       });
     }
   };
@@ -35,7 +36,11 @@ export function UserNav() {
   }
 
   if (!user) {
-    return null;
+    return (
+      <Button asChild>
+        <Link href="/login">Login</Link>
+      </Button>
+    );
   }
 
   return (
