@@ -48,7 +48,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
 import { useFirestore, useCollection, useUser } from '@/firebase';
-import { collection, addDoc, collectionGroup } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -81,11 +81,13 @@ export default function MonthlyReportPage() {
     : null;
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
-  const monthlyReportsQuery = firestore
-    ? collectionGroup(firestore, 'monthlyReports')
+    
+  const monthlyReportsCollection = firestore
+    ? collection(firestore, 'monthlyReports')
     : null;
   const { data: monthlyReports, loading: reportsLoading } =
-    useCollection(monthlyReportsQuery);
+    useCollection(monthlyReportsCollection);
+
   const loading = projectsLoading || reportsLoading;
 
   const projectMap = useMemo(() => {
@@ -107,15 +109,11 @@ export default function MonthlyReportPage() {
   });
 
   const onSubmit = (data: MonthlyReportFormValues) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user || !monthlyReportsCollection) return;
 
-    const reportsCollection = collection(
-      firestore,
-      `projects/${data.projectId}/monthlyReports`
-    );
     const reportData = { ...data, authorId: user.uid };
 
-    addDoc(reportsCollection, reportData)
+    addDoc(monthlyReportsCollection, reportData)
       .then(() => {
         toast({
           title: 'Monthly Report Created',
@@ -126,7 +124,7 @@ export default function MonthlyReportPage() {
       })
       .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: `projects/${data.projectId}/monthlyReports`,
+          path: 'monthlyReports',
           operation: 'create',
           requestResourceData: reportData,
         });

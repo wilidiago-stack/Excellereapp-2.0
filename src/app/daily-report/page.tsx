@@ -15,7 +15,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useUser, useCollection } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
-import { collection, addDoc, collectionGroup } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -172,11 +172,11 @@ export default function DailyReportPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const dailyReportsQuery = firestore
-    ? collectionGroup(firestore, 'dailyReports')
+  const dailyReportsCollection = firestore
+    ? collection(firestore, 'dailyReports')
     : null;
   const { data: dailyReports, loading: reportsLoading } =
-    useCollection(dailyReportsQuery);
+    useCollection(dailyReportsCollection);
 
   const projectsCollection = firestore
     ? collection(firestore, 'projects')
@@ -251,7 +251,7 @@ export default function DailyReportPage() {
   );
 
   const onSubmit = (data: DailyReportFormValues) => {
-    if (!firestore || !user) {
+    if (!firestore || !user || !dailyReportsCollection) {
       toast({
         variant: 'destructive',
         title: 'Authentication Error',
@@ -260,12 +260,7 @@ export default function DailyReportPage() {
       return;
     }
 
-    const reportsCollection = collection(
-      firestore,
-      `projects/${data.projectId}/dailyReports`
-    );
-
-    addDoc(reportsCollection, {
+    addDoc(dailyReportsCollection, {
       ...data,
       authorId: user.uid,
     })
@@ -282,7 +277,7 @@ export default function DailyReportPage() {
       })
       .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: `projects/${data.projectId}/dailyReports`,
+          path: 'dailyReports',
           operation: 'create',
           requestResourceData: { ...data, authorId: user.uid },
         });

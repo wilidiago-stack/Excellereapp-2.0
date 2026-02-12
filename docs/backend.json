@@ -416,17 +416,17 @@
       },
       "description": "Contractor documents"
     },
-    "/projects/{projectId}/dailyReports/{reportId}": {
+    "/dailyReports/{reportId}": {
       "schema": {
         "$ref": "#/entities/dailyReport"
       },
-      "description": "Daily reports for a specific project"
+      "description": "Daily reports for all projects"
     },
-    "/projects/{projectId}/monthlyReports/{reportId}": {
+    "/monthlyReports/{reportId}": {
       "schema": {
         "$ref": "#/entities/monthlyReport"
       },
-      "description": "Monthly reports for a specific project"
+      "description": "Monthly reports for all projects"
     }
   }
 }
