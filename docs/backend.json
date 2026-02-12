@@ -390,6 +390,17 @@
         "authorId",
         "projectId"
       ]
+    },
+    "systemMetadata": {
+      "title": "System Metadata",
+      "description": "Stores global metadata for the application.",
+      "type": "object",
+      "properties": {
+        "userCount": {
+          "type": "integer",
+          "description": "The total number of users in the system."
+        }
+      }
     }
   },
   "auth": {
@@ -427,6 +438,12 @@
         "$ref": "#/entities/monthlyReport"
       },
       "description": "Monthly reports for all projects"
+    },
+    "/system/{docId}": {
+      "schema": {
+        "$ref": "#/entities/systemMetadata"
+      },
+      "description": "System-wide metadata documents."
     }
   }
 }

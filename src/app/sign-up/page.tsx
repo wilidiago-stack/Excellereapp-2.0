@@ -24,10 +24,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { setDoc, doc, getDocs, collection } from 'firebase/firestore';
+import { runTransaction, doc, increment } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
 
 const signUpSchema = z
   .object({
@@ -52,6 +54,10 @@ export default function SignUpPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [authError, setAuthError] = useState<{
+    code: string;
+    message: string;
+  } | null>(null);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -76,6 +82,7 @@ export default function SignUpPage() {
       return;
     }
     setLoading(true);
+    setAuthError(null);
 
     try {
       // Create user in Firebase Auth
@@ -86,30 +93,40 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      // Check if this is the first user.
-      const usersCollectionRef = collection(firestore, 'users');
-      const usersSnapshot = await getDocs(usersCollectionRef);
-      const isFirstUser = usersSnapshot.docs.length === 0;
-      const role = isFirstUser ? 'admin' : 'viewer';
-
-      if (isFirstUser) {
-        toast({
-          title: 'Admin Account Created!',
-          description: "You're the first user, so you've been made an admin.",
-        });
-      }
-
-      // Create user profile in Firestore
+      // Use a transaction to atomically create the user profile and check for the first user
+      const metadataRef = doc(firestore, 'system', 'metadata');
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, {
-        name: data.name,
-        email: data.email,
-        position: data.position,
-        company: data.company,
-        phoneNumber: data.phoneNumber,
-        role: role,
-        status: 'active', // New users are active by default
+
+      await runTransaction(firestore, async (transaction) => {
+        const metadataDoc = await transaction.get(metadataRef);
+        let role = 'viewer';
+
+        if (!metadataDoc.exists() || metadataDoc.data().userCount === 0) {
+          // This is the first user
+          role = 'admin';
+          toast({
+            title: 'Admin Account Created!',
+            description: "You're the first user, so you've been made an admin.",
+          });
+          // Set or update the user count
+          transaction.set(metadataRef, { userCount: increment(1) }, { merge: true });
+        } else {
+          // Not the first user, just increment the count
+          transaction.update(metadataRef, { userCount: increment(1) });
+        }
+
+        // Create the user profile document
+        transaction.set(userDocRef, {
+          name: data.name,
+          email: data.email,
+          position: data.position,
+          company: data.company,
+          phoneNumber: data.phoneNumber,
+          role: role,
+          status: 'active',
+        });
       });
+
 
       toast({
         title: 'Account Created',
@@ -118,14 +135,22 @@ export default function SignUpPage() {
       });
       router.push('/login');
     } catch (error: any) {
-      let description = error.message || 'An unexpected error occurred.';
-      if (error.code === 'auth/operation-not-allowed') {
-        description =
-          'Email/Password sign-in is not enabled. Please enable it in your Firebase Console under Authentication > Sign-in method.';
-      } else if (error.code === 'auth/requests-from-referer-are-blocked') {
-        description = `The current domain is not authorized for authentication. Please go to the Firebase Console -> Authentication -> Settings -> Authorized domains and add this domain: ${window.location.hostname}`;
-      }
+      console.error('Sign-up error:', error);
+      let description = 'An unexpected error occurred. Please try again.';
+      let code = error.code || 'unknown-error';
 
+      if (code === 'auth/operation-not-allowed') {
+        description =
+          'Email/Password sign-in is not enabled in your Firebase Console.';
+      } else if (code === 'auth/requests-from-referer-are-blocked') {
+        const domain =
+          typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
+        description = `The current domain (${domain}) is not authorized for authentication. Please add it to the list of authorized domains in your Firebase Console.`;
+      } else if (code === 'permission-denied') {
+        description =
+          "You don't have permission to perform this action. This could be due to Firestore Security Rules. Please check the console for more details.";
+      }
+      setAuthError({ code, message: description });
       toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
@@ -134,6 +159,75 @@ export default function SignUpPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const renderAuthError = () => {
+    if (!authError) return null;
+
+    if (authError.code === 'auth/requests-from-referer-are-blocked') {
+      const domain =
+        typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Authorize Domain</AlertTitle>
+          <AlertDescription>
+            <p>
+              Your current domain is not authorized to perform authentication
+              requests.
+            </p>
+            <p className="font-mono bg-slate-800 text-white rounded-md p-2 my-2 break-all">
+              {domain}
+            </p>
+            <p>
+              Please go to the{' '}
+              <a
+                href="https://console.firebase.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Firebase Console
+              </a>
+              , navigate to **Authentication → Settings → Authorized domains**, and add
+              the domain shown above.
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (authError.code === 'auth/operation-not-allowed') {
+         return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Enable Sign-in Provider</AlertTitle>
+          <AlertDescription>
+             <p>Email/Password sign-in is not enabled.</p>
+            <p>
+              Please go to the{' '}
+              <a
+                href="https://console.firebase.google.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline"
+              >
+                Firebase Console
+              </a>
+              , navigate to **Authentication → Sign-in method**, and enable the **Email/Password** provider.
+            </p>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <Alert variant="destructive">
+         <Terminal className="h-4 w-4" />
+        <AlertTitle>Sign Up Failed</AlertTitle>
+        <AlertDescription>{authError.message}</AlertDescription>
+      </Alert>
+    );
   };
 
   return (
@@ -148,6 +242,7 @@ export default function SignUpPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
+               {authError && renderAuthError()}
               <FormField
                 control={form.control}
                 name="name"
