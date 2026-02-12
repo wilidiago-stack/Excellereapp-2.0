@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, useFieldArray, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -10,11 +10,12 @@ import {
   PlusCircle,
   Trash2,
   Paperclip,
+  MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser } from '@/firebase';
+import { useUser, useCollection } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, collectionGroup } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -37,6 +38,12 @@ import {
   DialogTrigger,
   DialogClose,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {
   Form,
   FormControl,
@@ -164,6 +171,28 @@ export default function DailyReportPage() {
   const { user } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
+
+  const dailyReportsQuery = firestore
+    ? collectionGroup(firestore, 'dailyReports')
+    : null;
+  const { data: dailyReports, loading: reportsLoading } =
+    useCollection(dailyReportsQuery);
+
+  const projectsCollection = firestore
+    ? collection(firestore, 'projects')
+    : null;
+  const { data: projectsData, loading: projectsLoading } =
+    useCollection(projectsCollection);
+
+  const projectMap = useMemo(() => {
+    if (!projectsData) return {};
+    return projectsData.reduce((acc: any, p: any) => {
+      acc[p.id] = p.name;
+      return acc;
+    }, {});
+  }, [projectsData]);
+
+  const loading = reportsLoading || projectsLoading;
 
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
@@ -412,7 +441,10 @@ export default function DailyReportPage() {
                           <FormItem>
                             <FormLabel>City</FormLabel>
                             <FormControl>
-                              <Input placeholder="e.g. Cedar Rapids" {...field} />
+                              <Input
+                                placeholder="e.g. Cedar Rapids"
+                                {...field}
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -472,20 +504,104 @@ export default function DailyReportPage() {
                       />
                     </CardContent>
                   </Card>
-                  
+
                   {/* Safety Stats */}
                   <Card>
                     <CardHeader>
                       <CardTitle>Safety Stats</CardTitle>
                     </CardHeader>
                     <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
-                      <FormField control={form.control} name="safetyStats.recordableIncidents" render={({ field }) => (<FormItem><FormLabel>Recordable Incidents</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.lightFirstAids" render={({ field }) => (<FormItem><FormLabel>Light First Aids</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.safetyMeeting" render={({ field }) => (<FormItem><FormLabel>Safety Meeting</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.toolBoxTalks" render={({ field }) => (<FormItem><FormLabel>Tool Box Talks</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.admSiteOrientation" render={({ field }) => (<FormItem><FormLabel>Adm Site Orientation</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.bbsGemba" render={({ field }) => (<FormItem><FormLabel>Bbs Gemba</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="safetyStats.operationsStandDowns" render={({ field }) => (<FormItem><FormLabel>Ops Stand Downs</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.recordableIncidents"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Recordable Incidents</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.lightFirstAids"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Light First Aids</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.safetyMeeting"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Safety Meeting</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.toolBoxTalks"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tool Box Talks</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.admSiteOrientation"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Adm Site Orientation</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.bbsGemba"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Bbs Gemba</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="safetyStats.operationsStandDowns"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Ops Stand Downs</FormLabel>
+                            <FormControl>
+                              <Input type="number" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
                     </CardContent>
                   </Card>
 
@@ -501,7 +617,9 @@ export default function DailyReportPage() {
                             <TableHead>Event Type</TableHead>
                             <TableHead>Category</TableHead>
                             <TableHead>Responsible Contractor</TableHead>
-                            <TableHead className="w-1/3">Event Description</TableHead>
+                            <TableHead className="w-1/3">
+                              Event Description
+                            </TableHead>
                             <TableHead></TableHead>
                           </TableRow>
                         </TableHeader>
@@ -513,12 +631,21 @@ export default function DailyReportPage() {
                                   control={form.control}
                                   name={`safetyEvents.${index}.eventType`}
                                   render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
                                       <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select an event type" /></SelectTrigger>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select an event type" />
+                                        </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {eventTypes.map(e => <SelectItem key={e.id} value={e.id}>{e.label}</SelectItem>)}
+                                        {eventTypes.map((e) => (
+                                          <SelectItem key={e.id} value={e.id}>
+                                            {e.label}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   )}
@@ -529,12 +656,21 @@ export default function DailyReportPage() {
                                   control={form.control}
                                   name={`safetyEvents.${index}.category`}
                                   render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
                                       <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select a category" /></SelectTrigger>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select a category" />
+                                        </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {categories.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                                        {categories.map((c) => (
+                                          <SelectItem key={c.id} value={c.id}>
+                                            {c.label}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   )}
@@ -545,12 +681,21 @@ export default function DailyReportPage() {
                                   control={form.control}
                                   name={`safetyEvents.${index}.responsibleContractor`}
                                   render={({ field }) => (
-                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
                                       <FormControl>
-                                        <SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select contractor" />
+                                        </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                                        {contractors.map((c) => (
+                                          <SelectItem key={c.id} value={c.id}>
+                                            {c.label}
+                                          </SelectItem>
+                                        ))}
                                       </SelectContent>
                                     </Select>
                                   )}
@@ -560,11 +705,21 @@ export default function DailyReportPage() {
                                 <FormField
                                   control={form.control}
                                   name={`safetyEvents.${index}.eventDescription`}
-                                  render={({ field }) => <Textarea {...field} placeholder="Describe the event" />}
+                                  render={({ field }) => (
+                                    <Textarea
+                                      {...field}
+                                      placeholder="Describe the event"
+                                    />
+                                  )}
                                 />
                               </TableCell>
                               <TableCell>
-                                <Button type="button" variant="ghost" size="icon" onClick={() => removeSafetyEvent(index)}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeSafetyEvent(index)}
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </TableCell>
@@ -577,7 +732,14 @@ export default function DailyReportPage() {
                         variant="outline"
                         size="sm"
                         className="mt-4"
-                        onClick={() => appendSafetyEvent({ eventType: '', category: '', responsibleContractor: '', eventDescription: '' })}
+                        onClick={() =>
+                          appendSafetyEvent({
+                            eventType: '',
+                            category: '',
+                            responsibleContractor: '',
+                            eventDescription: '',
+                          })
+                        }
                       >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Event
                       </Button>
@@ -593,7 +755,9 @@ export default function DailyReportPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
-                            <TableHead className="w-2/5">Contractor Name</TableHead>
+                            <TableHead className="w-2/5">
+                              Contractor Name
+                            </TableHead>
                             <TableHead>Headcount</TableHead>
                             <TableHead>Hours</TableHead>
                             <TableHead>Total</TableHead>
@@ -602,8 +766,10 @@ export default function DailyReportPage() {
                         </TableHeader>
                         <TableBody>
                           {manHourFields.map((field, index) => {
-                            const headcount = form.watch(`manHours.${index}.headcount`) || 0;
-                            const hours = form.watch(`manHours.${index}.hours`) || 0;
+                            const headcount =
+                              form.watch(`manHours.${index}.headcount`) || 0;
+                            const hours =
+                              form.watch(`manHours.${index}.hours`) || 0;
                             const total = headcount * hours;
                             return (
                               <TableRow key={field.id}>
@@ -612,27 +778,73 @@ export default function DailyReportPage() {
                                     control={form.control}
                                     name={`manHours.${index}.contractorId`}
                                     render={({ field }) => (
-                                      <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                      <Select
+                                        onValueChange={field.onChange}
+                                        defaultValue={field.value}
+                                      >
                                         <FormControl>
-                                          <SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger>
+                                          <SelectTrigger>
+                                            <SelectValue placeholder="Select contractor" />
+                                          </SelectTrigger>
                                         </FormControl>
                                         <SelectContent>
-                                          {contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}
+                                          {contractors.map((c) => (
+                                            <SelectItem key={c.id} value={c.id}>
+                                              {c.label}
+                                            </SelectItem>
+                                          ))}
                                         </SelectContent>
                                       </Select>
                                     )}
                                   />
                                 </TableCell>
-                                <TableCell><FormField control={form.control} name={`manHours.${index}.headcount`} render={({ field }) => <Input type="number" {...field} />} /></TableCell>
-                                <TableCell><FormField control={form.control} name={`manHours.${index}.hours`} render={({ field }) => <Input type="number" {...field} />} /></TableCell>
+                                <TableCell>
+                                  <FormField
+                                    control={form.control}
+                                    name={`manHours.${index}.headcount`}
+                                    render={({ field }) => (
+                                      <Input type="number" {...field} />
+                                    )}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <FormField
+                                    control={form.control}
+                                    name={`manHours.${index}.hours`}
+                                    render={({ field }) => (
+                                      <Input type="number" {...field} />
+                                    )}
+                                  />
+                                </TableCell>
                                 <TableCell>{total.toFixed(1)}</TableCell>
-                                <TableCell><Button type="button" variant="ghost" size="icon" onClick={() => removeManHour(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                                <TableCell>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeManHour(index)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </TableCell>
                               </TableRow>
-                            )
+                            );
                           })}
                         </TableBody>
                       </Table>
-                      <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => appendManHour({ contractorId: '', headcount: 0, hours: 0 })}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={() =>
+                          appendManHour({
+                            contractorId: '',
+                            headcount: 0,
+                            hours: 0,
+                          })
+                        }
+                      >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Row
                       </Button>
                       <div className="flex justify-end mt-4 font-bold">
@@ -645,10 +857,12 @@ export default function DailyReportPage() {
                   <Card>
                     <CardHeader>
                       <CardTitle>Daily Activities</CardTitle>
-                      <CardDescription>Fill in the daily work activities and required permits.</CardDescription>
+                      <CardDescription>
+                        Fill in the daily work activities and required permits.
+                      </CardDescription>
                     </CardHeader>
                     <CardContent>
-                       <Table>
+                      <Table>
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-1/4">Name</TableHead>
@@ -662,45 +876,144 @@ export default function DailyReportPage() {
                         <TableBody>
                           {dailyActivityFields.map((field, index) => (
                             <TableRow key={field.id}>
-                              <TableCell><FormField control={form.control} name={`dailyActivities.${index}.contractorId`} render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select contractor" /></SelectTrigger></FormControl><SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>
-                              )} /></TableCell>
-                              <TableCell><FormField control={form.control} name={`dailyActivities.${index}.activity`} render={({ field }) => <Input {...field} />} /></TableCell>
-                              <TableCell><FormField control={form.control} name={`dailyActivities.${index}.location`} render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger></FormControl><SelectContent>{locations.map(l => <SelectItem key={l.id} value={l.id}>{l.label}</SelectItem>)}</SelectContent></Select>
-                              )} /></TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`dailyActivities.${index}.contractorId`}
+                                  render={({ field }) => (
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select contractor" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {contractors.map((c) => (
+                                          <SelectItem key={c.id} value={c.id}>
+                                            {c.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`dailyActivities.${index}.activity`}
+                                  render={({ field }) => <Input {...field} />}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`dailyActivities.${index}.location`}
+                                  render={({ field }) => (
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select location" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        {locations.map((l) => (
+                                          <SelectItem key={l.id} value={l.id}>
+                                            {l.label}
+                                          </SelectItem>
+                                        ))}
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
                               <TableCell>
                                 <FormField
                                   control={form.control}
                                   name={`dailyActivities.${index}.permits`}
                                   render={() => (
                                     <div className="flex flex-wrap gap-2">
-                                    {permitTypes.map((permit) => (
-                                      <FormField
-                                        key={permit.id}
-                                        control={form.control}
-                                        name={`dailyActivities.${index}.permits`}
-                                        render={({ field }) => (
-                                          <FormItem key={permit.id} className="flex flex-row items-start space-x-2 space-y-0">
-                                            <FormControl><Checkbox checked={field.value?.includes(permit.id)} onCheckedChange={(checked) => {
-                                              return checked ? field.onChange([...(field.value || []), permit.id]) : field.onChange(field.value?.filter((value) => value !== permit.id))
-                                            }} /></FormControl>
-                                            <FormLabel className="text-sm font-normal">{permit.label}</FormLabel>
-                                          </FormItem>
-                                        )}
-                                      />
-                                    ))}
+                                      {permitTypes.map((permit) => (
+                                        <FormField
+                                          key={permit.id}
+                                          control={form.control}
+                                          name={`dailyActivities.${index}.permits`}
+                                          render={({ field }) => (
+                                            <FormItem
+                                              key={permit.id}
+                                              className="flex flex-row items-start space-x-2 space-y-0"
+                                            >
+                                              <FormControl>
+                                                <Checkbox
+                                                  checked={field.value?.includes(
+                                                    permit.id
+                                                  )}
+                                                  onCheckedChange={(
+                                                    checked
+                                                  ) => {
+                                                    return checked
+                                                      ? field.onChange([
+                                                          ...(field.value || []),
+                                                          permit.id,
+                                                        ])
+                                                      : field.onChange(
+                                                          field.value?.filter(
+                                                            (value) =>
+                                                              value !== permit.id
+                                                          )
+                                                        );
+                                                  }}
+                                                />
+                                              </FormControl>
+                                              <FormLabel className="text-sm font-normal">
+                                                {permit.label}
+                                              </FormLabel>
+                                            </FormItem>
+                                          )}
+                                        />
+                                      ))}
                                     </div>
                                   )}
                                 />
                               </TableCell>
-                              <TableCell>{form.watch(`dailyActivities.${index}.permits`)?.length || 0}</TableCell>
-                              <TableCell><Button type="button" variant="ghost" size="icon" onClick={() => removeDailyActivity(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                              <TableCell>
+                                {form.watch(`dailyActivities.${index}.permits`)
+                                  ?.length || 0}
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeDailyActivity(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                      <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] })}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={() =>
+                          appendDailyActivity({
+                            contractorId: '',
+                            activity: '',
+                            location: '',
+                            permits: [],
+                          })
+                        }
+                      >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Row
                       </Button>
                       <div className="flex justify-end mt-4 font-bold">
@@ -711,34 +1024,94 @@ export default function DailyReportPage() {
 
                   {/* Notes */}
                   <Card>
-                    <CardHeader><CardTitle>Notes</CardTitle></CardHeader>
+                    <CardHeader>
+                      <CardTitle>Notes</CardTitle>
+                    </CardHeader>
                     <CardContent>
                       <Table>
-                        <TableHeader><TableRow><TableHead className="w-1/2">Note</TableHead><TableHead>Status</TableHead><TableHead>Image</TableHead><TableHead></TableHead></TableRow></TableHeader>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead className="w-1/2">Note</TableHead>
+                            <TableHead>Status</TableHead>
+                            <TableHead>Image</TableHead>
+                            <TableHead></TableHead>
+                          </TableRow>
+                        </TableHeader>
                         <TableBody>
                           {noteFields.map((field, index) => (
                             <TableRow key={field.id}>
-                              <TableCell><FormField control={form.control} name={`notes.${index}.note`} render={({ field }) => <Textarea {...field} />} /></TableCell>
-                              <TableCell><FormField control={form.control} name={`notes.${index}.status`} render={({ field }) => (
-                                <Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger></FormControl><SelectContent><SelectItem value="open">Open</SelectItem><SelectItem value="closed">Closed</SelectItem></SelectContent></Select>
-                              )} /></TableCell>
-                              <TableCell><Button type="button" variant="outline" size="sm"><Paperclip className="mr-2 h-4 w-4" /> Upload</Button></TableCell>
-                              <TableCell><Button type="button" variant="ghost" size="icon" onClick={() => removeNote(index)}><Trash2 className="h-4 w-4" /></Button></TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`notes.${index}.note`}
+                                  render={({ field }) => <Textarea {...field} />}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <FormField
+                                  control={form.control}
+                                  name={`notes.${index}.status`}
+                                  render={({ field }) => (
+                                    <Select
+                                      onValueChange={field.onChange}
+                                      defaultValue={field.value}
+                                    >
+                                      <FormControl>
+                                        <SelectTrigger>
+                                          <SelectValue placeholder="Select status" />
+                                        </SelectTrigger>
+                                      </FormControl>
+                                      <SelectContent>
+                                        <SelectItem value="open">Open</SelectItem>
+                                        <SelectItem value="closed">
+                                          Closed
+                                        </SelectItem>
+                                      </SelectContent>
+                                    </Select>
+                                  )}
+                                />
+                              </TableCell>
+                              <TableCell>
+                                <Button type="button" variant="outline" size="sm">
+                                  <Paperclip className="mr-2 h-4 w-4" /> Upload
+                                </Button>
+                              </TableCell>
+                              <TableCell>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeNote(index)}
+                                >
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </TableCell>
                             </TableRow>
                           ))}
                         </TableBody>
                       </Table>
-                      <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => appendNote({ note: '', status: '' })}>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="mt-4"
+                        onClick={() => appendNote({ note: '', status: '' })}
+                      >
                         <PlusCircle className="mr-2 h-4 w-4" /> Add Note
                       </Button>
                     </CardContent>
                   </Card>
-                  
+
                   <DialogFooter>
                     <DialogClose asChild>
-                      <Button variant="outline" type="button">Cancel</Button>
+                      <Button variant="outline" type="button">
+                        Cancel
+                      </Button>
                     </DialogClose>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                    <Button
+                      type="submit"
+                      disabled={form.formState.isSubmitting}
+                    >
                       {form.formState.isSubmitting
                         ? 'Creating...'
                         : 'Create report'}
@@ -751,10 +1124,60 @@ export default function DailyReportPage() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <p>Daily reports page under construction.</p>
-        <p className="text-sm text-muted-foreground">
-          Click 'Create new report' to get started.
-        </p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Project</TableHead>
+              <TableHead>Shift</TableHead>
+              <TableHead>Submitted By</TableHead>
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && dailyReports?.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  No daily reports found.
+                </TableCell>
+              </TableRow>
+            )}
+            {dailyReports?.map((report: any) => (
+              <TableRow key={report.id}>
+                <TableCell>
+                  {report.date ? format(report.date.toDate(), 'PPP') : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  {projectMap[report.projectId] || report.projectId}
+                </TableCell>
+                <TableCell>{report.shift}</TableCell>
+                <TableCell>{report.username}</TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem>View Details</DropdownMenuItem>
+                      <DropdownMenuItem>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

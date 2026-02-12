@@ -131,6 +131,16 @@
               }
             }
           }
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the project",
+          "enum": [
+            "Not Started",
+            "In Progress",
+            "Completed",
+            "On Hold"
+          ]
         }
       },
       "required": [

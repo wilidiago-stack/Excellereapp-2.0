@@ -45,14 +45,30 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { PlusCircle, Trash2, CalendarIcon, MoreHorizontal } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const workPermitSchema = z.object({
   name: z.string().min(1, 'Permit name is required'),
@@ -71,8 +87,11 @@ const projectSchema = z.object({
   cell: z.string().optional(),
   projectManagerId: z.string().optional(),
   generalContractorId: z.string().optional(),
-  workAreas: z.array(z.object({ value: z.string().min(1, 'Work area cannot be empty') })).default([]),
+  workAreas: z
+    .array(z.object({ value: z.string().min(1, 'Work area cannot be empty') }))
+    .default([]),
   workPermits: z.array(workPermitSchema).default([]),
+  status: z.string().optional(),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
@@ -92,6 +111,11 @@ export default function ProjectsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const projectsCollection = firestore
+    ? collection(firestore, 'projects')
+    : null;
+  const { data: projects, loading } = useCollection(projectsCollection);
+
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
@@ -108,6 +132,7 @@ export default function ProjectsPage() {
       generalContractorId: '',
       workAreas: [],
       workPermits: [],
+      status: 'Not Started',
     },
   });
 
@@ -193,7 +218,10 @@ export default function ProjectsPage() {
                         <FormItem>
                           <FormLabel>Project Name</FormLabel>
                           <FormControl>
-                            <Input placeholder="Name of your project" {...field} />
+                            <Input
+                              placeholder="Name of your project"
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -211,6 +239,32 @@ export default function ProjectsPage() {
                               {...field}
                             />
                           </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="status"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Status</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a status" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="Not Started">Not Started</SelectItem>
+                              <SelectItem value="In Progress">In Progress</SelectItem>
+                              <SelectItem value="Completed">Completed</SelectItem>
+                              <SelectItem value="On Hold">On Hold</SelectItem>
+                            </SelectContent>
+                          </Select>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -432,25 +486,41 @@ export default function ProjectsPage() {
                   <div>
                     <h3 className="text-lg font-medium mb-2">Work Areas</h3>
                     {workAreaFields.map((field, index) => (
-                      <div key={field.id} className="flex items-center gap-2 mb-2">
+                      <div
+                        key={field.id}
+                        className="flex items-center gap-2 mb-2"
+                      >
                         <FormField
                           control={form.control}
                           name={`workAreas.${index}.value`}
                           render={({ field }) => (
                             <FormItem className="flex-grow">
                               <FormControl>
-                                <Input placeholder="e.g., Level 1, Sector A" {...field} />
+                                <Input
+                                  placeholder="e.g., Level 1, Sector A"
+                                  {...field}
+                                />
                               </FormControl>
                               <FormMessage />
                             </FormItem>
                           )}
                         />
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeWorkArea(index)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeWorkArea(index)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendWorkArea({ value: '' })}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => appendWorkArea({ value: '' })}
+                    >
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Add Work Area
                     </Button>
@@ -459,8 +529,11 @@ export default function ProjectsPage() {
                   <div>
                     <h3 className="text-lg font-medium mb-2">Work Permits</h3>
                     {workPermitFields.map((field, index) => (
-                      <div key={field.id} className="flex items-center gap-2 mb-2">
-                         <FormField
+                      <div
+                        key={field.id}
+                        className="flex items-center gap-2 mb-2"
+                      >
+                        <FormField
                           control={form.control}
                           name={`workPermits.${index}.name`}
                           render={({ field }) => (
@@ -484,12 +557,22 @@ export default function ProjectsPage() {
                             </FormItem>
                           )}
                         />
-                        <Button type="button" variant="ghost" size="icon" onClick={() => removeWorkPermit(index)}>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => removeWorkPermit(index)}
+                        >
                           <Trash2 className="h-4 w-4" />
                         </Button>
                       </div>
                     ))}
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendWorkPermit({ name: '', code: '' })}>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => appendWorkPermit({ name: '', code: '' })}
+                    >
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Add Permit
                     </Button>
@@ -499,7 +582,10 @@ export default function ProjectsPage() {
                     <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
                     </DialogClose>
-                    <Button type="submit" disabled={form.formState.isSubmitting}>
+                    <Button
+                      type="submit"
+                      disabled={form.formState.isSubmitting}
+                    >
                       {form.formState.isSubmitting
                         ? 'Creating...'
                         : 'Create project'}
@@ -512,7 +598,63 @@ export default function ProjectsPage() {
         </Dialog>
       </CardHeader>
       <CardContent>
-        <p>Projects page under construction.</p>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Project Name</TableHead>
+              <TableHead>Company</TableHead>
+              <TableHead>Start Date</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>
+                <span className="sr-only">Actions</span>
+              </TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  Loading...
+                </TableCell>
+              </TableRow>
+            )}
+            {!loading && projects?.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={5} className="h-24 text-center">
+                  No projects found.
+                </TableCell>
+              </TableRow>
+            )}
+            {projects?.map((project: any) => (
+              <TableRow key={project.id}>
+                <TableCell className="font-medium">{project.name}</TableCell>
+                <TableCell>{project.companyName}</TableCell>
+                <TableCell>
+                  {project.startDate
+                    ? format(project.startDate.toDate(), 'PPP')
+                    : 'N/A'}
+                </TableCell>
+                <TableCell>
+                  <Badge variant="outline">{project.status}</Badge>
+                </TableCell>
+                <TableCell>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem>Edit</DropdownMenuItem>
+                      <DropdownMenuItem>Delete</DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </CardContent>
     </Card>
   );

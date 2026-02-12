@@ -43,14 +43,25 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuItem,
+  DropdownMenuLabel,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { PlusCircle } from 'lucide-react';
-import { useFirestore } from '@/firebase';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import {
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+} from '@/components/ui/table';
+import { Badge } from '@/components/ui/badge';
 
 const contractorSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
@@ -75,6 +86,11 @@ export default function ContractorsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
+  const contractorsCollection = firestore
+    ? collection(firestore, 'contractors')
+    : null;
+  const { data: contractors, loading } = useCollection(contractorsCollection);
+
   const form = useForm<ContractorFormValues>({
     resolver: zodResolver(contractorSchema),
     defaultValues: {
@@ -90,7 +106,6 @@ export default function ContractorsPage() {
   const onSubmit = (data: ContractorFormValues) => {
     if (!firestore) return;
 
-    const contractorsCollection = collection(firestore, 'contractors');
     addDoc(contractorsCollection, data)
       .then((docRef) => {
         toast({
@@ -299,7 +314,67 @@ export default function ContractorsPage() {
           </Dialog>
         </CardHeader>
         <CardContent>
-          <p>Contractors page under construction.</p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Company Name</TableHead>
+                <TableHead>Contact Person</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>
+                  <span className="sr-only">Actions</span>
+                </TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    Loading...
+                  </TableCell>
+                </TableRow>
+              )}
+              {!loading && contractors?.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={4} className="h-24 text-center">
+                    No contractors found.
+                  </TableCell>
+                </TableRow>
+              )}
+              {contractors?.map((contractor: any) => (
+                <TableRow key={contractor.id}>
+                  <TableCell className="font-medium">
+                    {contractor.name}
+                  </TableCell>
+                  <TableCell>{contractor.contactPerson}</TableCell>
+                  <TableCell>
+                    <Badge
+                      variant={
+                        contractor.status === 'Active'
+                          ? 'default'
+                          : 'destructive'
+                      }
+                    >
+                      {contractor.status}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent>
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        <DropdownMenuItem>Edit</DropdownMenuItem>
+                        <DropdownMenuItem>Delete</DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
     </>
