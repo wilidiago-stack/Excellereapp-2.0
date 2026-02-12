@@ -202,7 +202,7 @@ export default function LoginPage() {
                     )}
                   />
                   <FormField
-                    control={form.control}
+                    control={emailForm.control}
                     name="password"
                     render={({ field }) => (
                       <FormItem>
