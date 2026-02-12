@@ -49,8 +49,6 @@ import { PlusCircle } from 'lucide-react';
 import { useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -88,29 +86,28 @@ export default function UsersPage() {
     },
   });
 
-  const onSubmit = (data: UserFormValues) => {
+  const onSubmit = async (data: UserFormValues) => {
     if (!firestore) return;
 
     const usersCollection = collection(firestore, 'users');
     const userData = { ...data, status: 'invited' };
 
-    addDoc(usersCollection, userData)
-      .then((docRef) => {
-        toast({
-          title: 'User Invited',
-          description: `An invitation will be sent to ${data.name}.`,
-        });
-        setOpen(false);
-        form.reset();
-      })
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: usersCollection.path,
-          operation: 'create',
-          requestResourceData: userData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+    try {
+      await addDoc(usersCollection, userData);
+      toast({
+        title: 'User Invited',
+        description: `An invitation will be sent to ${data.name}.`,
       });
+      setOpen(false);
+      form.reset();
+    } catch (error: any) {
+      console.error("Error inviting user:", error);
+      toast({
+          variant: "destructive",
+          title: "Uh oh! Something went wrong.",
+          description: error.message || "Could not invite user.",
+      });
+    }
   };
 
   return (

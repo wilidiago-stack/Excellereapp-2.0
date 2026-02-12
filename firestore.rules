@@ -13,14 +13,15 @@ service cloud.firestore {
 
     match /users/{userId} {
       // Admins can manage any user.
-      // Authenticated users can read and update their own profile.
-      allow read, update: if isAdmin() || isOwner(userId);
+      allow read, update, delete: if isAdmin();
       
-      // TEMPORARY: Allow any authenticated user to create a user to debug permission issues.
-      allow create: if request.auth != null;
+      // Users can read and update their own profile.
+      allow read, update: if isOwner(userId);
       
-      // Only admins can delete.
-      allow delete: if isAdmin();
+      // Allow creation under two conditions:
+      // 1. A new user is creating their own profile document during sign-up.
+      // 2. An admin is creating a new user document (inviting them).
+      allow create: if isOwner(userId) || isAdmin();
     }
 
     match /projects/{projectId} {
