@@ -61,6 +61,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Separator } from '@/components/ui/separator';
 
 const userSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -107,7 +108,14 @@ export default function UsersPage() {
   });
 
   const onSubmit = async (data: UserFormValues) => {
-    if (!firestore || !usersCollection || !user) return;
+    if (!firestore || !usersCollection || !user) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'You must be logged in to create a user.',
+      });
+      return;
+    }
 
     const userData = { ...data, status: 'pending' };
 
@@ -162,161 +170,177 @@ export default function UsersPage() {
                 Create User
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
                 <DialogTitle>Create New User</DialogTitle>
                 <DialogDescription>
-                  Fill in the details below to create a new user.
+                  Fill in the details below to create a new user account.
                 </DialogDescription>
               </DialogHeader>
               <Form {...form}>
                 <form
                   onSubmit={form.handleSubmit(onSubmit)}
-                  className="space-y-4 py-4"
+                  className="space-y-6"
                 >
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="email"
-                            placeholder="john.doe@example.com"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="position"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Position</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. Project Manager" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="company"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Company</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g. Acme Inc." {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="role"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Role</FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
+                  <div className="space-y-4">
+                    <FormField
+                      control={form.control}
+                      name="name"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Full Name</FormLabel>
                           <FormControl>
-                            <SelectTrigger>
-                              <SelectValue placeholder="Select a role" />
-                            </SelectTrigger>
+                            <Input placeholder="John Doe" {...field} />
                           </FormControl>
-                          <SelectContent>
-                            <SelectItem value="admin">Admin</SelectItem>
-                            <SelectItem value="project_manager">
-                              Project Manager
-                            </SelectItem>
-                            <SelectItem value="viewer">Viewer</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="assignedProjects"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Assigned Projects</FormLabel>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start font-normal"
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="email"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Email</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="email"
+                              placeholder="john.doe@example.com"
+                              {...field}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="company"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g. Acme Inc." {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="position"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Position</FormLabel>
+                            <FormControl>
+                              <Input
+                                placeholder="e.g. Project Manager"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  <div className="space-y-4">
+                    <h3 className="text-sm font-medium">Permissions</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="role"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Role</FormLabel>
+                            <Select
+                              onValueChange={field.onChange}
+                              defaultValue={field.value}
                             >
-                              <span className="truncate">
-                                {field.value &&
-                                field.value.length > 0 &&
-                                projects
-                                  ? projects
-                                      .filter((p: any) =>
-                                        field.value?.includes(p.id)
-                                      )
-                                      .map((p: any) => p.name)
-                                      .join(', ')
-                                  : 'Select projects...'}
-                              </span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            className="w-[--radix-dropdown-menu-trigger-width]"
-                            align="start"
-                          >
-                            {projects?.map((project: any) => (
-                              <DropdownMenuCheckboxItem
-                                key={project.id}
-                                checked={field.value?.includes(project.id)}
-                                onSelect={(e) => e.preventDefault()}
-                                onCheckedChange={(checked) => {
-                                  const currentProjects = field.value || [];
-                                  if (checked) {
-                                    field.onChange([
-                                      ...currentProjects,
-                                      project.id,
-                                    ]);
-                                  } else {
-                                    field.onChange(
-                                      currentProjects.filter(
-                                        (id) => id !== project.id
-                                      )
-                                    );
-                                  }
-                                }}
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Select a role" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="project_manager">
+                                  Project Manager
+                                </SelectItem>
+                                <SelectItem value="viewer">Viewer</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="assignedProjects"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Assigned Projects</FormLabel>
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  className="w-full justify-start font-normal"
+                                >
+                                  <span className="truncate">
+                                    {field.value &&
+                                    field.value.length > 0 &&
+                                    projects
+                                      ? projects
+                                          .filter((p: any) =>
+                                            field.value?.includes(p.id)
+                                          )
+                                          .map((p: any) => p.name)
+                                          .join(', ')
+                                      : 'Select projects...'}
+                                  </span>
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent
+                                className="w-[--radix-dropdown-menu-trigger-width]"
+                                align="start"
                               >
-                                {project.name}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                                {projects?.map((project: any) => (
+                                  <DropdownMenuCheckboxItem
+                                    key={project.id}
+                                    checked={field.value?.includes(project.id)}
+                                    onSelect={(e) => e.preventDefault()}
+                                    onCheckedChange={(checked) => {
+                                      const currentProjects =
+                                        field.value || [];
+                                      if (checked) {
+                                        field.onChange([
+                                          ...currentProjects,
+                                          project.id,
+                                        ]);
+                                      } else {
+                                        field.onChange(
+                                          currentProjects.filter(
+                                            (id) => id !== project.id
+                                          )
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    {project.name}
+                                  </DropdownMenuCheckboxItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  </div>
                   <DialogFooter>
                     <DialogClose asChild>
                       <Button variant="outline">Cancel</Button>
