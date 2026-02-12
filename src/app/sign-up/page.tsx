@@ -24,12 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import {
-  collection,
-  setDoc,
-  doc,
-  getCountFromServer,
-} from 'firebase/firestore';
+import { setDoc, doc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -83,12 +78,6 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // Check if this is the first user
-      const usersCollection = collection(firestore, 'users');
-      const snapshot = await getCountFromServer(usersCollection);
-      const isFirstUser = snapshot.data().count === 0;
-      const role = isFirstUser ? 'admin' : 'viewer';
-
       // Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
@@ -96,6 +85,10 @@ export default function SignUpPage() {
         data.password
       );
       const user = userCredential.user;
+
+      // By default, new users are viewers. The first user can be promoted to admin
+      // manually or via the user management page by an existing admin.
+      const role = 'viewer';
 
       // Create user profile in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
@@ -106,7 +99,7 @@ export default function SignUpPage() {
         company: data.company,
         phoneNumber: data.phoneNumber,
         role: role,
-        status: 'active',
+        status: 'active', // New users are active by default
       });
 
       toast({
