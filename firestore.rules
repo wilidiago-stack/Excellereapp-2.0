@@ -12,9 +12,12 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // TEMPORARY DEBUGGING: Allow all writes to the users collection to diagnose the permission issue.
-      // This is insecure and will be reverted.
-      allow read, write: if true;
+      // Admins can manage any user.
+      // Authenticated users can read and update their own profile.
+      allow read, update: if isAdmin() || isOwner(userId);
+      
+      // Admins can create and delete users.
+      allow create, delete: if isAdmin();
     }
 
     match /projects/{projectId} {

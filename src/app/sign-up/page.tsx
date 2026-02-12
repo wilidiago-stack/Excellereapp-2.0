@@ -4,7 +4,7 @@ import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -41,13 +41,21 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-const signUpSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  email: z.string().email('Invalid email address'),
-  position: z.string().min(1, 'Position is required'),
-  company: z.string().min(1, 'Company is required'),
-  phoneNumber: z.string().optional(),
-});
+const signUpSchema = z
+  .object({
+    name: z.string().min(1, 'Name is required'),
+    email: z.string().email('Invalid email address'),
+    position: z.string().min(1, 'Position is required'),
+    company: z.string().min(1, 'Company is required'),
+    phoneNumber: z.string().optional(),
+    password: z.string().min(8, 'Password must be at least 8 characters'),
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: 'Passwords do not match',
+    path: ['confirmPassword'],
+  });
+
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 const signInSchema = z.object({
@@ -73,6 +81,8 @@ export default function SignUpPage() {
       position: '',
       company: '',
       phoneNumber: '',
+      password: '',
+      confirmPassword: '',
     },
   });
 
@@ -81,43 +91,54 @@ export default function SignUpPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const handleRequestAccount = (data: SignUpFormValues) => {
-    if (!firestore) {
-      setAuthError(
-        'Firestore is not available. Please try again in a moment.'
-      );
+  const handleEmailSignUp = async (data: SignUpFormValues) => {
+    if (!auth || !firestore) {
+      setAuthError('Firebase is not available. Please try again in a moment.');
       return;
     }
     setIsLoading(true);
     setAuthError(null);
 
-    const usersCollection = collection(firestore, 'users');
-    const userData = {
-      ...data,
-      status: 'pending',
-    };
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
+      const user = userCredential.user;
 
-    addDoc(usersCollection, userData)
-      .then(() => {
-        toast({
-          title: 'Account Request Sent',
-          description:
-            'Thank you! Your request has been sent to an administrator for approval.',
-        });
-        signUpForm.reset();
-        setActiveTab('sign-in');
-      })
-      .catch((serverError) => {
+      const userData = {
+        name: data.name,
+        email: data.email,
+        position: data.position,
+        company: data.company,
+        phoneNumber: data.phoneNumber,
+        role: 'admin', // First user is an admin
+        status: 'active',
+      };
+
+      const userDocRef = doc(firestore, 'users', user.uid);
+      await setDoc(userDocRef, userData).catch((serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: usersCollection.path,
+          path: userDocRef.path,
           operation: 'create',
           requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
-      })
-      .finally(() => {
-        setIsLoading(false);
+        // Re-throw to be caught by the outer catch block
+        throw permissionError;
       });
+
+      toast({
+        title: 'Account Created',
+        description: 'Your administrator account has been created successfully.',
+      });
+      router.push('/');
+    } catch (error: any) {
+      setAuthError(error.message);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleEmailSignIn = async (data: SignInFormValues) => {
@@ -205,16 +226,15 @@ export default function SignUpPage() {
         </TabsContent>
         <TabsContent value="sign-up">
           <CardHeader className="text-center">
-            <CardTitle>Request an Account</CardTitle>
+            <CardTitle>Create Admin Account</CardTitle>
             <CardDescription>
-              Enter your details below. An administrator will review your
-              request.
+              Create the first administrator account for this application.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <Form {...signUpForm}>
               <form
-                onSubmit={signUpForm.handleSubmit(handleRequestAccount)}
+                onSubmit={signUpForm.handleSubmit(handleEmailSignUp)}
                 className="space-y-4"
               >
                 <FormField
@@ -291,11 +311,45 @@ export default function SignUpPage() {
                   name="phoneNumber"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Phone Number</FormLabel>
+                      <FormLabel>Phone Number (Optional)</FormLabel>
                       <FormControl>
                         <Input
                           type="tel"
                           placeholder="(123) 456-7890"
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
+                          {...field}
+                          disabled={isLoading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="confirmPassword"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Confirm Password</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="password"
                           {...field}
                           disabled={isLoading}
                         />
@@ -312,7 +366,7 @@ export default function SignUpPage() {
                   {isLoading && activeTab === 'sign-up' ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
-                  Request Account
+                  Create Account
                 </Button>
               </form>
             </Form>
