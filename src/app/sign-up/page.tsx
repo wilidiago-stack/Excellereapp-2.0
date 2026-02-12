@@ -24,12 +24,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { runTransaction, doc, increment } from 'firebase/firestore';
+import { runTransaction, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, Copy, Check } from 'lucide-react';
 
 const signUpSchema = z
   .object({
@@ -58,6 +58,7 @@ export default function SignUpPage() {
     code: string;
     message: string;
   } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -93,29 +94,30 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      // Use a transaction to atomically create the user profile and check for the first user
       const metadataRef = doc(firestore, 'system', 'metadata');
       const userDocRef = doc(firestore, 'users', user.uid);
 
       await runTransaction(firestore, async (transaction) => {
         const metadataDoc = await transaction.get(metadataRef);
         let role = 'viewer';
+        let userCount = metadataDoc.exists() ? metadataDoc.data().userCount || 0 : 0;
 
-        if (!metadataDoc.exists() || metadataDoc.data().userCount === 0) {
-          // This is the first user
+        if (userCount === 0) {
           role = 'admin';
           toast({
             title: 'Admin Account Created!',
             description: "You're the first user, so you've been made an admin.",
           });
-          // Set or update the user count
-          transaction.set(metadataRef, { userCount: increment(1) }, { merge: true });
+        }
+        
+        const newUserCount = userCount + 1;
+
+        if (metadataDoc.exists()) {
+          transaction.update(metadataRef, { userCount: newUserCount });
         } else {
-          // Not the first user, just increment the count
-          transaction.update(metadataRef, { userCount: increment(1) });
+          transaction.set(metadataRef, { userCount: newUserCount });
         }
 
-        // Create the user profile document
         transaction.set(userDocRef, {
           name: data.name,
           email: data.email,
@@ -138,66 +140,71 @@ export default function SignUpPage() {
       console.error('Sign-up error:', error);
       let description = 'An unexpected error occurred. Please try again.';
       let code = error.code || 'unknown-error';
+      
+      description = error.message;
 
-      if (code === 'auth/operation-not-allowed') {
-        description =
-          'Email/Password sign-in is not enabled in your Firebase Console.';
-      } else if (code === 'auth/requests-from-referer-are-blocked') {
-        const domain =
-          typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
-        description = `The current domain (${domain}) is not authorized for authentication. Please add it to the list of authorized domains in your Firebase Console.`;
-      } else if (code === 'permission-denied') {
-        description =
-          "You don't have permission to perform this action. This could be due to Firestore Security Rules. Please check the console for more details.";
-      }
       setAuthError({ code, message: description });
-      toast({
-        variant: 'destructive',
-        title: 'Sign Up Failed',
-        description: description,
-      });
     } finally {
       setLoading(false);
     }
   };
-
   const renderAuthError = () => {
     if (!authError) return null;
+
+    const handleCopy = (text: string) => {
+      navigator.clipboard.writeText(text).then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      });
+    };
 
     if (authError.code === 'auth/requests-from-referer-are-blocked') {
       const domain =
         typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
+      const firebaseProjectId = 'studio-2845988015-3b127';
+      const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
+
       return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
           <AlertTitle>Action Required: Authorize Domain</AlertTitle>
           <AlertDescription>
-            <p>
-              Your current domain is not authorized to perform authentication
-              requests.
+            <p className="mb-2">
+              To fix this, you must add the following domain to your Firebase
+              project's list of authorized domains.
             </p>
-            <p className="font-mono bg-slate-800 text-white rounded-md p-2 my-2 break-all">
+            <div className="relative font-mono text-xs bg-slate-800 text-white rounded-md p-2 my-2 pr-10 break-all">
               {domain}
-            </p>
-            <p>
-              Please go to the{' '}
-              <a
-                href="https://console.firebase.google.com/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline"
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 text-white hover:bg-slate-700"
+                onClick={() => handleCopy(domain)}
               >
-                Firebase Console
-              </a>
-              , navigate to **Authentication → Settings → Authorized domains**, and add
-              the domain shown above.
+                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+              </Button>
+            </div>
+            <p>
+              Click the link below, then click "Add domain" and paste the copied text.
             </p>
+             <Button asChild variant="link" className="p-0 h-auto">
+                 <a
+                    href={consoleLink}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                   Go to Firebase Authentication Settings
+                  </a>
+             </Button>
           </AlertDescription>
         </Alert>
       );
     }
 
     if (authError.code === 'auth/operation-not-allowed') {
+      const firebaseProjectId = 'studio-2845988015-3b127';
+      const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/sign-in-method`;
          return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
@@ -207,14 +214,14 @@ export default function SignUpPage() {
             <p>
               Please go to the{' '}
               <a
-                href="https://console.firebase.google.com/"
+                href={consoleLink}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="underline"
               >
                 Firebase Console
               </a>
-              , navigate to **Authentication → Sign-in method**, and enable the **Email/Password** provider.
+              , and enable the **Email/Password** provider.
             </p>
           </AlertDescription>
         </Alert>
