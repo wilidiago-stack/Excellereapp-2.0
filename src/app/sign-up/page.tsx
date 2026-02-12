@@ -87,12 +87,11 @@ export default function SignUpPage() {
       const user = userCredential.user;
 
       // Check if this is the first user.
-      // This is safe because it runs after the user is authenticated.
       const usersCollectionRef = collection(firestore, 'users');
       const usersSnapshot = await getDocs(usersCollectionRef);
       const isFirstUser = usersSnapshot.size === 0;
       const role = isFirstUser ? 'admin' : 'viewer';
-      
+
       if (isFirstUser) {
         toast({
           title: 'Admin Account Created!',
@@ -119,10 +118,15 @@ export default function SignUpPage() {
       });
       router.push('/login');
     } catch (error: any) {
+      let description = error.message || 'An unexpected error occurred.';
+      if (error.code === 'auth/operation-not-allowed') {
+        description =
+          'Email/Password sign-in is not enabled. Please enable it in your Firebase Console under Authentication > Sign-in method.';
+      }
       toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
-        description: error.message || 'An unexpected error occurred.',
+        description: description,
       });
     } finally {
       setLoading(false);
