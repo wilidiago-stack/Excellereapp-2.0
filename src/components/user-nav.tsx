@@ -11,11 +11,10 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User, Settings, Mail, LogIn } from 'lucide-react';
+import { LogOut, User, Settings, Mail } from 'lucide-react';
 import { useAuth, useUser } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Skeleton } from './ui/skeleton';
 
 export function UserNav() {
@@ -36,14 +35,7 @@ export function UserNav() {
   }
 
   if (!user) {
-    return (
-      <Button asChild>
-        <Link href="/sign-up">
-          <LogIn className="mr-2" />
-          Sign In
-        </Link>
-      </Button>
-    );
+    return null;
   }
 
   return (
