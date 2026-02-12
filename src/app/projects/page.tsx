@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -111,9 +111,10 @@ export default function ProjectsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const projectsCollection = firestore
-    ? collection(firestore, 'projects')
-    : null;
+  const projectsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
   const { data: projects, loading } = useCollection(projectsCollection);
 
   const form = useForm<ProjectFormValues>({
@@ -155,9 +156,7 @@ export default function ProjectsPage() {
   });
 
   const onSubmit = (data: ProjectFormValues) => {
-    if (!firestore) return;
-
-    const projectsCollection = collection(firestore, 'projects');
+    if (!firestore || !projectsCollection) return;
 
     const dataToSave = {
       ...data,

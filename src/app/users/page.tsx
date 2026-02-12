@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -76,7 +76,10 @@ export default function UsersPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const usersCollection = firestore ? collection(firestore, 'users') : null;
+  const usersCollection = useMemo(
+    () => (firestore ? collection(firestore, 'users') : null),
+    [firestore]
+  );
   const { data: users, loading } = useCollection(usersCollection);
 
   const form = useForm<UserFormValues>({
@@ -91,13 +94,12 @@ export default function UsersPage() {
   });
 
   const onSubmit = async (data: UserFormValues) => {
-    if (!firestore) return;
+    if (!firestore || !usersCollection) return;
 
-    const usersCollectionRef = collection(firestore, 'users');
     const userData = { ...data, status: 'invited' };
 
     try {
-      await addDoc(usersCollectionRef, userData);
+      await addDoc(usersCollection, userData);
       toast({
         title: 'User Invited',
         description: `An invitation will be sent to ${data.name}.`,
@@ -105,12 +107,12 @@ export default function UsersPage() {
       setOpen(false);
       form.reset();
     } catch (error: any) {
-        const permissionError = new FirestorePermissionError({
-            path: usersCollectionRef.path,
-            operation: 'create',
-            requestResourceData: userData,
-        });
-        errorEmitter.emit('permission-error', permissionError);
+      const permissionError = new FirestorePermissionError({
+        path: usersCollection.path,
+        operation: 'create',
+        requestResourceData: userData,
+      });
+      errorEmitter.emit('permission-error', permissionError);
     }
   };
 

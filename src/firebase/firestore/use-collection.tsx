@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, collection, Query } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { onSnapshot, Query } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
@@ -10,33 +10,36 @@ export function useCollection<T>(query: Query<T> | null | undefined) {
   const [loading, setLoading] = useState(true);
 
   const firestore = useFirestore();
-  const stableQuery = useMemo(() => query, [query]);
 
   useEffect(() => {
-    if (!stableQuery || !firestore) {
+    if (!query || !firestore) {
+      setData(null);
       setLoading(false);
       return;
     }
     setLoading(true);
     const unsubscribe = onSnapshot(
-        stableQuery,
+      query,
       (snapshot) => {
-        const data = snapshot.docs.map((doc) => ({ ...doc.data(), id: doc.id }));
+        const data = snapshot.docs.map((doc) => ({
+          ...(doc.data() as object),
+          id: doc.id,
+        })) as T[];
         setData(data);
         setLoading(false);
       },
       (error) => {
         const permissionError = new FirestorePermissionError({
-            path: (stableQuery as any).path || 'unknown_collection_path',
-            operation: 'list',
-          });
+          path: (query as any)._query.path.segments.join('/'),
+          operation: 'list',
+        });
         errorEmitter.emit('permission-error', permissionError);
         console.error('Error fetching collection:', error);
         setLoading(false);
       }
     );
     return () => unsubscribe();
-  }, [stableQuery, firestore]);
+  }, [query, firestore]);
 
   return { data, loading };
 }

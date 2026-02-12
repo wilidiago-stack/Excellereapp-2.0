@@ -76,15 +76,17 @@ export default function MonthlyReportPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const projectsCollection = firestore
-    ? collection(firestore, 'projects')
-    : null;
+  const projectsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
-    
-  const monthlyReportsCollection = firestore
-    ? collection(firestore, 'monthlyReports')
-    : null;
+
+  const monthlyReportsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'monthlyReports') : null),
+    [firestore]
+  );
   const { data: monthlyReports, loading: reportsLoading } =
     useCollection(monthlyReportsCollection);
 

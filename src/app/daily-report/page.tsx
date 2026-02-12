@@ -172,15 +172,17 @@ export default function DailyReportPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const dailyReportsCollection = firestore
-    ? collection(firestore, 'dailyReports')
-    : null;
+  const dailyReportsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'dailyReports') : null),
+    [firestore]
+  );
   const { data: dailyReports, loading: reportsLoading } =
     useCollection(dailyReportsCollection);
 
-  const projectsCollection = firestore
-    ? collection(firestore, 'projects')
-    : null;
+  const projectsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
   const { data: projectsData, loading: projectsLoading } =
     useCollection(projectsCollection);
 

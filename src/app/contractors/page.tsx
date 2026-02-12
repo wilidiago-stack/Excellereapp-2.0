@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -86,9 +86,10 @@ export default function ContractorsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const contractorsCollection = firestore
-    ? collection(firestore, 'contractors')
-    : null;
+  const contractorsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'contractors') : null),
+    [firestore]
+  );
   const { data: contractors, loading } = useCollection(contractorsCollection);
 
   const form = useForm<ContractorFormValues>({
@@ -104,7 +105,7 @@ export default function ContractorsPage() {
   });
 
   const onSubmit = (data: ContractorFormValues) => {
-    if (!firestore) return;
+    if (!firestore || !contractorsCollection) return;
 
     addDoc(contractorsCollection, data)
       .then((docRef) => {

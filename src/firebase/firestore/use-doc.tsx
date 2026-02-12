@@ -1,6 +1,6 @@
 'use client';
-import { useState, useEffect, useMemo } from 'react';
-import { onSnapshot, doc, DocumentReference } from 'firebase/firestore';
+import { useState, useEffect } from 'react';
+import { onSnapshot, DocumentReference } from 'firebase/firestore';
 import { useFirestore } from '@/firebase/provider';
 import { errorEmitter } from '../error-emitter';
 import { FirestorePermissionError } from '../errors';
@@ -11,10 +11,9 @@ export function useDoc<T>(ref: DocumentReference<T> | null | undefined) {
 
   const firestore = useFirestore();
 
-  const stableRef = useMemo(() => ref, [ref]);
-
   useEffect(() => {
-    if (!stableRef || !firestore) {
+    if (!ref || !firestore) {
+      setData(null);
       setLoading(false);
       return;
     }
@@ -22,14 +21,14 @@ export function useDoc<T>(ref: DocumentReference<T> | null | undefined) {
     setLoading(true);
 
     const unsubscribe = onSnapshot(
-      stableRef,
+      ref,
       (snapshot) => {
         setData(snapshot.data() ?? null);
         setLoading(false);
       },
       (error) => {
         const permissionError = new FirestorePermissionError({
-          path: stableRef.path,
+          path: ref.path,
           operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -39,7 +38,7 @@ export function useDoc<T>(ref: DocumentReference<T> | null | undefined) {
     );
 
     return () => unsubscribe();
-  }, [stableRef, firestore]);
+  }, [ref, firestore]);
 
   return { data, loading };
 }
