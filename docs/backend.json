@@ -384,9 +384,6 @@
   },
   "auth": {
     "providers": [
-      "google.com",
-      "microsoft.com",
-      "apple.com",
       "password"
     ]
   },
