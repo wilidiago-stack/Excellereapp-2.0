@@ -386,7 +386,8 @@
     "providers": [
       "google.com",
       "microsoft.com",
-      "apple.com"
+      "apple.com",
+      "password"
     ]
   },
   "firestore": {

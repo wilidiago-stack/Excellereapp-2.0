@@ -5,6 +5,8 @@ import {
   OAuthProvider,
   signInWithRedirect,
   getRedirectResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -20,9 +22,27 @@ import {
   CardContent,
   CardFooter,
 } from '@/components/ui/card';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { Loader2 } from 'lucide-react';
+import * as z from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/components/ui/form';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -81,49 +101,76 @@ const AppleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   </svg>
 );
 
+const signUpSchema = z.object({
+  name: z.string().min(1, 'Name is required'),
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(6, 'Password must be at least 6 characters'),
+});
+type SignUpFormValues = z.infer<typeof signUpSchema>;
+
+const signInSchema = z.object({
+  email: z.string().email('Invalid email address'),
+  password: z.string().min(1, 'Password is required'),
+});
+type SignInFormValues = z.infer<typeof signInSchema>;
+
 export default function SignUpPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const processUser = async (user: FirebaseUser) => {
-    if (!firestore) return;
+  const signUpForm = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: { name: '', email: '', password: '' },
+  });
 
-    if (!user.email) {
-      toast({
-        variant: 'destructive',
-        title: 'Email not provided',
-        description:
-          'Your social account did not provide an email. Please try another provider.',
-      });
-      setIsLoading(false);
-      return;
-    }
+  const signInForm = useForm<SignInFormValues>({
+    resolver: zodResolver(signInSchema),
+    defaultValues: { email: '', password: '' },
+  });
 
-    const userDocRef = doc(firestore, 'users', user.uid);
-    const userDocSnap = await getDoc(userDocRef);
+  const processUser = useCallback(
+    async (user: FirebaseUser, name?: string) => {
+      if (!firestore) return;
 
-    if (!userDocSnap.exists()) {
-      await setDoc(userDocRef, {
-        name: user.displayName || user.email,
-        email: user.email,
-        role: 'viewer',
-        status: 'active',
-        position: '',
-        company: '',
-        phoneNumber: user.phoneNumber || '',
-        assignedProjects: [],
-      });
-      toast({
-        title: 'Account Created',
-        description: 'Welcome! Your account has been successfully created.',
-      });
-    }
+      if (!user.email) {
+        toast({
+          variant: 'destructive',
+          title: 'Email not provided',
+          description:
+            'Your social account did not provide an email. Please try another provider.',
+        });
+        setIsLoading(false);
+        return;
+      }
 
-    router.push('/');
-  };
+      const userDocRef = doc(firestore, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (!userDocSnap.exists()) {
+        await setDoc(userDocRef, {
+          name: name || user.displayName || user.email,
+          email: user.email,
+          role: 'viewer',
+          status: 'active',
+          position: '',
+          company: '',
+          phoneNumber: user.phoneNumber || '',
+          assignedProjects: [],
+        });
+        toast({
+          title: 'Account Created',
+          description: 'Welcome! Your account has been successfully created.',
+        });
+      }
+
+      router.push('/');
+    },
+    [firestore, router, toast]
+  );
 
   useEffect(() => {
     if (!auth) {
@@ -147,11 +194,11 @@ export default function SignUpPage() {
           description:
             error.code === 'auth/account-exists-with-different-credential'
               ? 'An account already exists with the same email address but different sign-in credentials. Please sign in using the original method.'
-              : error.message || 'Could not sign in.',
+              : error.message || 'Could not complete sign in.',
         });
         setIsLoading(false);
       });
-  }, [auth, firestore, router, toast]);
+  }, [auth, processUser, toast]);
 
   const handleSocialLogin = async (
     providerName: 'google' | 'microsoft' | 'apple'
@@ -179,13 +226,43 @@ export default function SignUpPage() {
     await signInWithRedirect(auth, provider);
   };
 
+  const handleEmailSignUp = async (data: SignUpFormValues) => {
+    if (!auth) return;
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      const userCredential = await createUserWithEmailAndPassword(
+        auth,
+        data.email,
+        data.password
+      );
+      await processUser(userCredential.user, data.name);
+    } catch (error: any) {
+      setAuthError(error.message);
+      setIsLoading(false);
+    }
+  };
+
+  const handleEmailSignIn = async (data: SignInFormValues) => {
+    if (!auth) return;
+    setIsLoading(true);
+    setAuthError(null);
+    try {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
+      router.push('/');
+    } catch (error: any) {
+      setAuthError(error.message);
+      setIsLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle>Signing in...</CardTitle>
+          <CardTitle>Just a moment...</CardTitle>
           <CardDescription>
-            Please wait while we verify your credentials.
+            Please wait while we prepare the sign-in process.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -199,12 +276,150 @@ export default function SignUpPage() {
 
   return (
     <Card className="w-full max-w-md">
-      <CardHeader className="text-center">
-        <CardTitle>Sign In / Sign Up</CardTitle>
-        <CardDescription>
-          Use a provider below to sign in or create an account.
-        </CardDescription>
-      </CardHeader>
+      <Tabs defaultValue="sign-in" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="sign-in">Sign In</TabsTrigger>
+          <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
+        </TabsList>
+        <TabsContent value="sign-in">
+          <CardHeader className="text-center">
+            <CardTitle>Sign In</CardTitle>
+            <CardDescription>
+              Enter your email and password to access your account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Form {...signInForm}>
+              <form
+                onSubmit={signInForm.handleSubmit(handleEmailSignIn)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={signInForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="john.doe@example.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signInForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={signInForm.formState.isSubmitting}
+                >
+                  {signInForm.formState.isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Sign In
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </TabsContent>
+        <TabsContent value="sign-up">
+          <CardHeader className="text-center">
+            <CardTitle>Create an Account</CardTitle>
+            <CardDescription>
+              Enter your details below to create a new account.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Form {...signUpForm}>
+              <form
+                onSubmit={signUpForm.handleSubmit(handleEmailSignUp)}
+                className="space-y-4"
+              >
+                <FormField
+                  control={signUpForm.control}
+                  name="name"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input
+                          type="email"
+                          placeholder="john.doe@example.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={signUpForm.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <Button
+                  type="submit"
+                  className="w-full"
+                  disabled={signUpForm.formState.isSubmitting}
+                >
+                  {signUpForm.formState.isSubmitting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : null}
+                  Create Account
+                </Button>
+              </form>
+            </Form>
+          </CardContent>
+        </TabsContent>
+      </Tabs>
+
+      <div className="relative my-4">
+        <div className="absolute inset-0 flex items-center">
+          <span className="w-full border-t" />
+        </div>
+        <div className="relative flex justify-center text-xs uppercase">
+          <span className="bg-card px-2 text-muted-foreground">
+            Or continue with
+          </span>
+        </div>
+      </div>
 
       <CardContent className="space-y-4">
         <Button
@@ -233,9 +448,9 @@ export default function SignUpPage() {
         </Button>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
-        <p className="text-xs text-muted-foreground text-center px-4">
-          By continuing, you agree to our Terms of Service and Privacy Policy.
-        </p>
+        {authError && (
+          <p className="text-sm font-medium text-destructive">{authError}</p>
+        )}
         <Button variant="link" asChild>
           <Link href="/">Back to Home</Link>
         </Button>
