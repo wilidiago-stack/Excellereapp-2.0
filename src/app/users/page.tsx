@@ -53,7 +53,6 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -69,7 +68,6 @@ const userSchema = z.object({
   position: z.string().min(1, 'Position is required'),
   company: z.string().min(1, 'Company is required'),
   role: z.enum(['admin', 'project_manager', 'viewer']),
-  assignedProjects: z.array(z.string()).optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -86,14 +84,7 @@ export default function UsersPage() {
   );
   const { data: users, loading: usersLoading } = useCollection(usersCollection);
 
-  const projectsCollection = useMemo(
-    () => (user && firestore ? collection(firestore, 'projects') : null),
-    [user, firestore]
-  );
-  const { data: projects, loading: projectsLoading } =
-    useCollection(projectsCollection);
-
-  const loading = userLoading || usersLoading || projectsLoading;
+  const loading = userLoading || usersLoading;
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -103,7 +94,6 @@ export default function UsersPage() {
       position: '',
       company: '',
       role: 'viewer',
-      assignedProjects: [],
     },
   });
 
@@ -250,96 +240,33 @@ export default function UsersPage() {
 
                   <div className="space-y-4">
                     <h3 className="text-sm font-medium">Permissions</h3>
-                    <div className="grid grid-cols-2 gap-4">
-                      <FormField
-                        control={form.control}
-                        name="role"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Role</FormLabel>
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select a role" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="admin">Admin</SelectItem>
-                                <SelectItem value="project_manager">
-                                  Project Manager
-                                </SelectItem>
-                                <SelectItem value="viewer">Viewer</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="assignedProjects"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Assigned Projects</FormLabel>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  className="w-full justify-start font-normal"
-                                >
-                                  <span className="truncate">
-                                    {field.value &&
-                                    field.value.length > 0 &&
-                                    projects
-                                      ? projects
-                                          .filter((p: any) =>
-                                            field.value?.includes(p.id)
-                                          )
-                                          .map((p: any) => p.name)
-                                          .join(', ')
-                                      : 'Select projects...'}
-                                  </span>
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent
-                                className="w-[--radix-dropdown-menu-trigger-width]"
-                                align="start"
-                              >
-                                {projects?.map((project: any) => (
-                                  <DropdownMenuCheckboxItem
-                                    key={project.id}
-                                    checked={field.value?.includes(project.id)}
-                                    onSelect={(e) => e.preventDefault()}
-                                    onCheckedChange={(checked) => {
-                                      const currentProjects =
-                                        field.value || [];
-                                      if (checked) {
-                                        field.onChange([
-                                          ...currentProjects,
-                                          project.id,
-                                        ]);
-                                      } else {
-                                        field.onChange(
-                                          currentProjects.filter(
-                                            (id) => id !== project.id
-                                          )
-                                        );
-                                      }
-                                    }}
-                                  >
-                                    {project.name}
-                                  </DropdownMenuCheckboxItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
+                    <FormField
+                      control={form.control}
+                      name="role"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Role</FormLabel>
+                          <Select
+                            onValueChange={field.onChange}
+                            defaultValue={field.value}
+                          >
+                            <FormControl>
+                              <SelectTrigger>
+                                <SelectValue placeholder="Select a role" />
+                              </SelectTrigger>
+                            </FormControl>
+                            <SelectContent>
+                              <SelectItem value="admin">Admin</SelectItem>
+                              <SelectItem value="project_manager">
+                                Project Manager
+                              </SelectItem>
+                              <SelectItem value="viewer">Viewer</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                   </div>
                   <DialogFooter>
                     <DialogClose asChild>
