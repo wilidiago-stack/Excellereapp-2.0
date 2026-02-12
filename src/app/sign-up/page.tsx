@@ -3,7 +3,8 @@
 import {
   GoogleAuthProvider,
   OAuthProvider,
-  signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   User as FirebaseUser,
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -20,6 +21,8 @@ import {
   CardFooter,
 } from '@/components/ui/card';
 import Link from 'next/link';
+import { useEffect, useState } from 'react';
+import { Loader2 } from 'lucide-react';
 
 const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
   <svg
@@ -83,11 +86,77 @@ export default function SignUpPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [isLoading, setIsLoading] = useState(true);
+
+  const processUser = async (user: FirebaseUser) => {
+    if (!firestore) return;
+
+    if (!user.email) {
+      toast({
+        variant: 'destructive',
+        title: 'Email not provided',
+        description:
+          'Your social account did not provide an email. Please try another provider.',
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const userDocSnap = await getDoc(userDocRef);
+
+    if (!userDocSnap.exists()) {
+      await setDoc(userDocRef, {
+        name: user.displayName || user.email,
+        email: user.email,
+        role: 'viewer',
+        status: 'active',
+        position: '',
+        company: '',
+        phoneNumber: user.phoneNumber || '',
+        assignedProjects: [],
+      });
+      toast({
+        title: 'Account Created',
+        description: 'Welcome! Your account has been successfully created.',
+      });
+    }
+
+    router.push('/');
+  };
+
+  useEffect(() => {
+    if (!auth) {
+      setIsLoading(false);
+      return;
+    }
+
+    getRedirectResult(auth)
+      .then((result) => {
+        if (result) {
+          processUser(result.user);
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch((error) => {
+        console.error(error);
+        toast({
+          variant: 'destructive',
+          title: 'Uh oh! Something went wrong.',
+          description:
+            error.code === 'auth/account-exists-with-different-credential'
+              ? 'An account already exists with the same email address but different sign-in credentials. Please sign in using the original method.'
+              : error.message || 'Could not sign in.',
+        });
+        setIsLoading(false);
+      });
+  }, [auth, firestore, router, toast]);
 
   const handleSocialLogin = async (
     providerName: 'google' | 'microsoft' | 'apple'
   ) => {
-    if (!auth || !firestore) {
+    if (!auth) {
       toast({
         variant: 'destructive',
         title: 'Firebase not initialized',
@@ -96,64 +165,37 @@ export default function SignUpPage() {
       return;
     }
 
+    setIsLoading(true);
+
     let provider;
     if (providerName === 'google') {
       provider = new GoogleAuthProvider();
     } else if (providerName === 'microsoft') {
       provider = new OAuthProvider('microsoft.com');
     } else {
-      // apple
       provider = new OAuthProvider('apple.com');
     }
 
-    try {
-      const result = await signInWithPopup(auth, provider);
-      const user = result.user;
-
-      if (!user.email) {
-        toast({
-          variant: 'destructive',
-          title: 'Email not provided',
-          description:
-            'Your social account did not provide an email. Please try another provider.',
-        });
-        return;
-      }
-
-      const userDocRef = doc(firestore, 'users', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (!userDocSnap.exists()) {
-        // New user, create a document
-        await setDoc(userDocRef, {
-          name: user.displayName || user.email,
-          email: user.email,
-          role: 'viewer',
-          status: 'active',
-          position: '',
-          company: '',
-          phoneNumber: user.phoneNumber || '',
-          assignedProjects: [],
-        });
-        toast({
-          title: 'Account Created',
-          description: 'Welcome! Your account has been successfully created.',
-        });
-      }
-
-      router.push('/');
-    } catch (error: any) {
-      console.error(error);
-      toast({
-        variant: 'destructive',
-        title: 'Uh oh! Something went wrong.',
-        description:
-          error.code === 'auth/account-exists-with-different-credential'
-            ? 'An account already exists with the same email address but different sign-in credentials. Please sign in using the original method.'
-            : error.message || 'Could not sign in.',
-      });
-    }
+    await signInWithRedirect(auth, provider);
   };
+
+  if (isLoading) {
+    return (
+      <Card className="w-full max-w-md">
+        <CardHeader className="text-center">
+          <CardTitle>Signing in...</CardTitle>
+          <CardDescription>
+            Please wait while we verify your credentials.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex justify-center items-center p-8">
+            <Loader2 className="h-12 w-12 animate-spin" />
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
 
   return (
     <Card className="w-full max-w-md">
