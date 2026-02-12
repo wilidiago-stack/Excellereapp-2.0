@@ -89,7 +89,7 @@ export default function SignUpPage() {
       // Check if this is the first user.
       const usersCollectionRef = collection(firestore, 'users');
       const usersSnapshot = await getDocs(usersCollectionRef);
-      const isFirstUser = usersSnapshot.size === 0;
+      const isFirstUser = usersSnapshot.docs.length === 0;
       const role = isFirstUser ? 'admin' : 'viewer';
 
       if (isFirstUser) {
@@ -122,7 +122,10 @@ export default function SignUpPage() {
       if (error.code === 'auth/operation-not-allowed') {
         description =
           'Email/Password sign-in is not enabled. Please enable it in your Firebase Console under Authentication > Sign-in method.';
+      } else if (error.code === 'auth/requests-from-referer-are-blocked') {
+        description = `The current domain is not authorized for authentication. Please go to the Firebase Console -> Authentication -> Settings -> Authorized domains and add this domain: ${window.location.hostname}`;
       }
+
       toast({
         variant: 'destructive',
         title: 'Sign Up Failed',
