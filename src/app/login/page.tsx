@@ -61,19 +61,6 @@ export default function LoginPage() {
   // This ref will hold the RecaptchaVerifier instance
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
-  // Setup reCAPTCHA verifier
-  useEffect(() => {
-    if (auth && !recaptchaVerifierRef.current) {
-      recaptchaVerifierRef.current = new RecaptchaVerifier(
-        auth,
-        'recaptcha-container',
-        {
-          size: 'invisible',
-        }
-      );
-    }
-  }, [auth]);
-
   const emailForm = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
@@ -105,7 +92,7 @@ export default function LoginPage() {
   };
 
   const handleSendCode = async () => {
-    if (!auth || !recaptchaVerifierRef.current || !phoneNumber) {
+    if (!auth || !phoneNumber) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -115,6 +102,17 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
+      // Lazily initialize the verifier if it doesn't exist.
+      if (!recaptchaVerifierRef.current) {
+        recaptchaVerifierRef.current = new RecaptchaVerifier(
+          auth,
+          'recaptcha-container',
+          {
+            size: 'invisible',
+          }
+        );
+      }
+
       const result = await signInWithPhoneNumber(
         auth,
         phoneNumber,
@@ -253,6 +251,7 @@ export default function LoginPage() {
                   />
                 </div>
               )}
+               <div id="recaptcha-container"></div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               {step === 'enter-phone' ? (
@@ -284,7 +283,6 @@ export default function LoginPage() {
             </CardFooter>
           </TabsContent>
         </Tabs>
-        <div id="recaptcha-container"></div>
         <CardFooter className="flex-col gap-4 border-t pt-6">
           <div className="text-sm text-center text-muted-foreground">
             Don't have an account?{' '}
