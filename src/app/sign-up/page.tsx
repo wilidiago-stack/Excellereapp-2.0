@@ -2,9 +2,9 @@
 
 import {
   signInWithEmailAndPassword,
-  User as FirebaseUser,
+  createUserWithEmailAndPassword,
 } from 'firebase/auth';
-import { doc, getDoc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useAuth, useFirestore } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
@@ -25,7 +25,7 @@ import {
 } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import Link from 'next/link';
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import * as z from 'zod';
 import { useForm } from 'react-hook-form';
@@ -38,6 +38,8 @@ import {
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const signUpSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -61,6 +63,7 @@ export default function SignUpPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState('sign-in');
 
   const signUpForm = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -78,7 +81,7 @@ export default function SignUpPage() {
     defaultValues: { email: '', password: '' },
   });
 
-  const handleRequestAccount = async (data: SignUpFormValues) => {
+  const handleRequestAccount = (data: SignUpFormValues) => {
     if (!firestore) {
       setAuthError(
         'Firestore is not available. Please try again in a moment.'
@@ -87,28 +90,34 @@ export default function SignUpPage() {
     }
     setIsLoading(true);
     setAuthError(null);
-    try {
-      const usersCollection = collection(firestore, 'users');
-      await addDoc(usersCollection, {
-        ...data,
-        assignedProjects: [],
-        role: 'viewer',
-        status: 'pending',
+
+    const usersCollection = collection(firestore, 'users');
+    const userData = {
+      ...data,
+      status: 'pending',
+    };
+
+    addDoc(usersCollection, userData)
+      .then(() => {
+        toast({
+          title: 'Account Request Sent',
+          description:
+            'Thank you! Your request has been sent to an administrator for approval.',
+        });
+        signUpForm.reset();
+        setActiveTab('sign-in');
+      })
+      .catch((serverError) => {
+        const permissionError = new FirestorePermissionError({
+          path: usersCollection.path,
+          operation: 'create',
+          requestResourceData: userData,
+        });
+        errorEmitter.emit('permission-error', permissionError);
+      })
+      .finally(() => {
+        setIsLoading(false);
       });
-      toast({
-        title: 'Account Request Sent',
-        description:
-          'Thank you! Your request has been sent to an administrator for approval.',
-      });
-      signUpForm.reset();
-    } catch (error: any) {
-      console.error('Error requesting account:', error);
-      setAuthError(
-        'There was an error submitting your request. Please try again.'
-      );
-    } finally {
-      setIsLoading(false);
-    }
   };
 
   const handleEmailSignIn = async (data: SignInFormValues) => {
@@ -120,31 +129,14 @@ export default function SignUpPage() {
       router.push('/');
     } catch (error: any) {
       setAuthError(error.message);
+    } finally {
       setIsLoading(false);
     }
   };
 
-  if (isLoading) {
-    return (
-      <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
-          <CardTitle>Just a moment...</CardTitle>
-          <CardDescription>
-            Please wait while we process your request.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="flex justify-center items-center p-8">
-            <Loader2 className="h-12 w-12 animate-spin" />
-          </div>
-        </CardContent>
-      </Card>
-    );
-  }
-
   return (
     <Card className="w-full max-w-md">
-      <Tabs defaultValue="sign-in" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="sign-in">Sign In</TabsTrigger>
           <TabsTrigger value="sign-up">Sign Up</TabsTrigger>
@@ -173,6 +165,7 @@ export default function SignUpPage() {
                           type="email"
                           placeholder="john.doe@example.com"
                           {...field}
+                          disabled={isLoading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -186,7 +179,11 @@ export default function SignUpPage() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" {...field} />
+                        <Input
+                          type="password"
+                          {...field}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -195,9 +192,9 @@ export default function SignUpPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={signInForm.formState.isSubmitting}
+                  disabled={isLoading}
                 >
-                  {signInForm.formState.isSubmitting ? (
+                  {isLoading && activeTab === 'sign-in' ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
                   Sign In
@@ -227,7 +224,11 @@ export default function SignUpPage() {
                     <FormItem>
                       <FormLabel>Name</FormLabel>
                       <FormControl>
-                        <Input placeholder="John Doe" {...field} />
+                        <Input
+                          placeholder="John Doe"
+                          {...field}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -244,6 +245,7 @@ export default function SignUpPage() {
                           type="email"
                           placeholder="john.doe@example.com"
                           {...field}
+                          disabled={isLoading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -257,7 +259,11 @@ export default function SignUpPage() {
                     <FormItem>
                       <FormLabel>Position</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Project Manager" {...field} />
+                        <Input
+                          placeholder="e.g. Project Manager"
+                          {...field}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -270,7 +276,11 @@ export default function SignUpPage() {
                     <FormItem>
                       <FormLabel>Company</FormLabel>
                       <FormControl>
-                        <Input placeholder="e.g. Acme Inc." {...field} />
+                        <Input
+                          placeholder="e.g. Acme Inc."
+                          {...field}
+                          disabled={isLoading}
+                        />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -287,6 +297,7 @@ export default function SignUpPage() {
                           type="tel"
                           placeholder="(123) 456-7890"
                           {...field}
+                          disabled={isLoading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -296,9 +307,9 @@ export default function SignUpPage() {
                 <Button
                   type="submit"
                   className="w-full"
-                  disabled={signUpForm.formState.isSubmitting}
+                  disabled={isLoading}
                 >
-                  {signUpForm.formState.isSubmitting ? (
+                  {isLoading && activeTab === 'sign-up' ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : null}
                   Request Account
