@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, Trash2, CalendarIcon, MoreHorizontal } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -110,12 +110,15 @@ export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, loading: userLoading } = useUser();
 
   const projectsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'projects') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'projects') : null),
+    [firestore, user]
   );
-  const { data: projects, loading } = useCollection(projectsCollection);
+  const { data: projects, loading: projectsLoading } =
+    useCollection(projectsCollection);
+  const loading = userLoading || projectsLoading;
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),

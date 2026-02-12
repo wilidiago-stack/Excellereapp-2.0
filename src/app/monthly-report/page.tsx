@@ -72,25 +72,25 @@ type MonthlyReportFormValues = z.infer<typeof monthlyReportSchema>;
 
 export default function MonthlyReportPage() {
   const [open, setOpen] = useState(false);
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
   const projectsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'projects') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'projects') : null),
+    [firestore, user]
   );
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
 
   const monthlyReportsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'monthlyReports') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'monthlyReports') : null),
+    [firestore, user]
   );
   const { data: monthlyReports, loading: reportsLoading } =
     useCollection(monthlyReportsCollection);
 
-  const loading = projectsLoading || reportsLoading;
+  const loading = userLoading || projectsLoading || reportsLoading;
 
   const projectMap = useMemo(() => {
     if (!projects) return {};

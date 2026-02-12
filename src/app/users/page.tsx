@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -75,12 +75,15 @@ export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, loading: userLoading } = useUser();
 
   const usersCollection = useMemo(
-    () => (firestore ? collection(firestore, 'users') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'users') : null),
+    [firestore, user]
   );
-  const { data: users, loading } = useCollection(usersCollection);
+  const { data: users, loading: usersLoading } = useCollection(usersCollection);
+
+  const loading = userLoading || usersLoading;
 
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),

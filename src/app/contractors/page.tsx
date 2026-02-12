@@ -42,13 +42,13 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuTrigger,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useUser } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -85,12 +85,15 @@ export default function ContractorsPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { user, loading: userLoading } = useUser();
 
   const contractorsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'contractors') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'contractors') : null),
+    [firestore, user]
   );
-  const { data: contractors, loading } = useCollection(contractorsCollection);
+  const { data: contractors, loading: contractorsLoading } =
+    useCollection(contractorsCollection);
+  const loading = userLoading || contractorsLoading;
 
   const form = useForm<ContractorFormValues>({
     resolver: zodResolver(contractorSchema),

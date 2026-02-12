@@ -34,7 +34,6 @@ export function useCollection<T>(query: Query<T> | null | undefined) {
           operation: 'list',
         });
         errorEmitter.emit('permission-error', permissionError);
-        console.error('Error fetching collection:', error);
         setLoading(false);
       }
     );

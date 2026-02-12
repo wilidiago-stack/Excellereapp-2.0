@@ -168,20 +168,20 @@ const categories = [
 
 export default function DailyReportPage() {
   const [open, setOpen] = useState(false);
-  const { user } = useUser();
+  const { user, loading: userLoading } = useUser();
   const firestore = useFirestore();
   const { toast } = useToast();
 
   const dailyReportsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'dailyReports') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'dailyReports') : null),
+    [firestore, user]
   );
   const { data: dailyReports, loading: reportsLoading } =
     useCollection(dailyReportsCollection);
 
   const projectsCollection = useMemo(
-    () => (firestore ? collection(firestore, 'projects') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'projects') : null),
+    [firestore, user]
   );
   const { data: projectsData, loading: projectsLoading } =
     useCollection(projectsCollection);
@@ -194,7 +194,7 @@ export default function DailyReportPage() {
     }, {});
   }, [projectsData]);
 
-  const loading = reportsLoading || projectsLoading;
+  const loading = userLoading || reportsLoading || projectsLoading;
 
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),

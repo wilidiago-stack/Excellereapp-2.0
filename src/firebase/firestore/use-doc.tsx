@@ -32,7 +32,6 @@ export function useDoc<T>(ref: DocumentReference<T> | null | undefined) {
           operation: 'get',
         });
         errorEmitter.emit('permission-error', permissionError);
-        console.error('Error fetching document:', error);
         setLoading(false);
       }
     );
