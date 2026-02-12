@@ -24,7 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { setDoc, doc } from 'firebase/firestore';
+import { setDoc, doc, getDocs, collection } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -86,9 +86,19 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      // By default, new users are viewers. The first user can be promoted to admin
-      // manually or via the user management page by an existing admin.
-      const role = 'viewer';
+      // Check if this is the first user.
+      // This is safe because it runs after the user is authenticated.
+      const usersCollectionRef = collection(firestore, 'users');
+      const usersSnapshot = await getDocs(usersCollectionRef);
+      const isFirstUser = usersSnapshot.size === 0;
+      const role = isFirstUser ? 'admin' : 'viewer';
+      
+      if (isFirstUser) {
+        toast({
+          title: 'Admin Account Created!',
+          description: "You're the first user, so you've been made an admin.",
+        });
+      }
 
       // Create user profile in Firestore
       const userDocRef = doc(firestore, 'users', user.uid);
