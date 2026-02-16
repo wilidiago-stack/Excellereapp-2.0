@@ -3,66 +3,73 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // Helper function to get the role from a user's document.
+    // This is the most reliable way to check roles, as it avoids client-side
+    // token latency issues after claims are updated.
+    function getRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
     // /users collection
     match /users/{userId} {
-      // Create: A user can create their own doc during sign-up. An admin can create any user.
-      allow create: if request.auth.uid == userId || request.auth.token.role == 'admin';
+      // Create: A user can create their own document, or an admin can create any user doc.
+      allow create: if request.auth.uid == userId || getRole(request.auth.uid) == 'admin';
       
-      // Read: A user can read their own profile. An admin can read any profile.
-      allow get: if request.auth.uid == userId || request.auth.token.role == 'admin';
+      // Read (Single Doc): A user can read their own profile, or an admin can read any profile.
+      allow get: if request.auth.uid == userId || getRole(request.auth.uid) == 'admin';
       
-      // List: Only admins can see the full list of users.
-      allow list: if request.auth.token.role == 'admin';
+      // Read (Multiple Docs): Only admins can list all users.
+      allow list: if getRole(request.auth.uid) == 'admin';
       
-      // Update: A user can update their own doc but cannot change their role. An admin can update any doc, including roles.
-      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || request.auth.token.role == 'admin';
+      // Update: A user can update their own doc (but not their role), or an admin can update anything.
+      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || getRole(request.auth.uid) == 'admin';
       
       // Delete: Only admins can delete users.
-      allow delete: if request.auth.token.role == 'admin';
+      allow delete: if getRole(request.auth.uid) == 'admin';
     }
 
     // /projects collection
     match /projects/{projectId} {
-      // Read: All authenticated roles can read project data.
-      allow get, list: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager' || request.auth.token.role == 'viewer';
+      // Read: Any user with a valid role can read project data.
+      allow get, list: if getRole(request.auth.uid) in ['admin', 'project_manager', 'viewer'];
       
-      // Write: Only Admins and Project Managers can create/edit/delete projects.
-      allow create, update, delete: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager';
+      // Write: Only Admins and Project Managers can manage projects.
+      allow create, update, delete: if getRole(request.auth.uid) in ['admin', 'project_manager'];
     }
 
     // /contractors collection
     match /contractors/{contractorId} {
-      // Read: All authenticated roles can read contractor data.
-      allow get, list: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager' || request.auth.token.role == 'viewer';
+      // Read: Any user with a valid role can read contractor data.
+      allow get, list: if getRole(request.auth.uid) in ['admin', 'project_manager', 'viewer'];
       
-      // Write: Only Admins and Project Managers can create/edit/delete contractors.
-      allow create, update, delete: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager';
+      // Write: Only Admins and Project Managers can manage contractors.
+      allow create, update, delete: if getRole(request.auth.uid) in ['admin', 'project_manager'];
     }
 
     // /dailyReports collection
     match /dailyReports/{reportId} {
-      // Read: All authenticated roles can read daily reports.
-      allow get, list: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager' || request.auth.token.role == 'viewer';
+      // Read: Any user with a valid role can read reports.
+      allow get, list: if getRole(request.auth.uid) in ['admin', 'project_manager', 'viewer'];
       
-      // Write: Only Admins and Project Managers can create/edit/delete daily reports.
-      allow create, update, delete: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager';
+      // Write: Only Admins and Project Managers can manage reports.
+      allow create, update, delete: if getRole(request.auth.uid) in ['admin', 'project_manager'];
     }
     
     // /monthlyReports collection
     match /monthlyReports/{reportId} {
-       // Read: All authenticated roles can read monthly reports.
-       allow get, list: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager' || request.auth.token.role == 'viewer';
+       // Read: Any user with a valid role can read reports.
+       allow get, list: if getRole(request.auth.uid) in ['admin', 'project_manager', 'viewer'];
 
-       // Write: Only Admins and Project Managers can create/edit/delete monthly reports.
-       allow create, update, delete: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager';
+       // Write: Only Admins and Project Managers can manage reports.
+       allow create, update, delete: if getRole(request.auth.uid) in ['admin', 'project_manager'];
     }
 
     // /system collection
     match /system/{docId} {
-      // Read: All authenticated roles can read system metadata (like user count).
-      allow get: if request.auth.token.role == 'admin' || request.auth.token.role == 'project_manager' || request.auth.token.role == 'viewer';
+      // Read: Any user with a valid role can read system metadata.
+      allow get: if getRole(request.auth.uid) in ['admin', 'project_manager', 'viewer'];
       
-      // Write: No one can write to system metadata from the client. This is managed by Cloud Functions.
+      // Write: No client can write to system metadata.
       allow write: if false; 
     }
   }
