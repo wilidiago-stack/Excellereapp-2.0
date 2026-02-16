@@ -60,6 +60,19 @@ export default function SignUpPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      position: '',
+      company: '',
+      phoneNumber: '',
+      password: '',
+      confirmPassword: '',
+    },
+  });
+
   const onSubmit = async (data: SignUpFormValues) => {
     if (!auth || !firestore) {
       toast({
