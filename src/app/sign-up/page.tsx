@@ -97,8 +97,9 @@ export default function SignUpPage() {
       // 2. Set user's display name in Auth
       await updateProfile(user, { displayName: data.name });
 
-      // 3. Create user document in Firestore.
-      // A Cloud Function will listen for this user's creation and securely assign the role.
+      // 3. Create/merge user document in Firestore.
+      // The Cloud Function is responsible for setting the role. The client
+      // only provides the profile information.
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, {
         name: data.name,
@@ -106,9 +107,9 @@ export default function SignUpPage() {
         position: data.position,
         company: data.company,
         phoneNumber: data.phoneNumber || '',
-        role: 'pending_role', // Backend function will update this
-        status: 'pending', // Backend function will update this to 'active'
-      });
+        // The `role` and `status` fields are now exclusively set by the Cloud Function
+        // to prevent race conditions and ensure the first user is always an admin.
+      }, { merge: true });
 
       toast({
         title: 'Account Created',
@@ -128,6 +129,38 @@ export default function SignUpPage() {
 
   const renderAuthError = () => {
     if (!authError) return null;
+
+    if (authError.code === 'auth/operation-not-allowed') {
+       return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Enable Email/Password Provider</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+                <p>
+                    This error means that you haven't enabled the "Email/Password" sign-in provider in your Firebase project.
+                </p>
+                <ol className="list-decimal list-inside space-y-2">
+                    <li>
+                        Go to the Authentication providers tab in your Firebase Console:
+                        <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
+                            <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer">
+                                Open Firebase Auth Settings
+                            </a>
+                        </Button>
+                    </li>
+                    <li>
+                        Click on **Email/Password** and enable it.
+                    </li>
+                </ol>
+                <p className="font-semibold">
+                    After enabling it, please try signing up again.
+                </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
 
     if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
       return (

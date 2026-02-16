@@ -37,8 +37,10 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       // 1. Set Custom Claim for backend access control
       await admin.auth().setCustomUserClaims(uid, { role });
 
-      // 2. Update the user's document in Firestore with the correct role and active status
-      transaction.update(userDocRef, { role, status: 'active' });
+      // 2. Create/merge the user's document in Firestore with the correct role and active status
+      // This is more robust as it creates the doc if it doesn't exist (handling race conditions)
+      // or merges the role if the client created the doc first.
+      transaction.set(userDocRef, { role, status: 'active' }, { merge: true });
 
       // 3. Update the system metadata user count
       const newUserCount = userCount + 1;
