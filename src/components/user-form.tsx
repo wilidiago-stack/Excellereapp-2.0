@@ -21,12 +21,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -38,14 +38,20 @@ const userSchema = z.object({
   company: z.string().min(1, 'Company is required'),
   phoneNumber: z.string().optional(),
   role: z.enum(['admin', 'project_manager', 'viewer']),
+  status: z.enum(['pending', 'active', 'invited', 'rejected']).optional(),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
 
-export function UserForm() {
+interface UserFormProps {
+    initialData?: UserFormValues & { id: string };
+}
+
+export function UserForm({ initialData }: UserFormProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const isEditMode = !!initialData;
 
   const usersCollection = useMemo(
     () => (firestore ? collection(firestore, 'users') : null),
@@ -62,10 +68,17 @@ export function UserForm() {
       company: '',
       phoneNumber: '',
       role: 'viewer',
+      status: 'pending',
     },
   });
 
-  const onSubmit = async (data: UserFormValues) => {
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    }
+  }, [initialData, form]);
+
+  const onSubmit = (data: UserFormValues) => {
     if (!firestore || !usersCollection) {
       toast({
         variant: 'destructive',
@@ -75,21 +88,26 @@ export function UserForm() {
       return;
     }
 
-    const userData = { ...data, status: 'pending' };
+    const userData = { ...data, status: data.status || 'pending' };
 
-    addDoc(usersCollection, userData)
+    const operation = isEditMode
+      ? updateDoc(doc(firestore, 'users', initialData.id), userData)
+      : addDoc(usersCollection, userData);
+
+    operation
       .then(() => {
         toast({
-          title: 'User Created',
-          description: `User ${data.firstName} ${data.lastName} has been created.`,
+          title: isEditMode ? 'User Updated' : 'User Created',
+          description: `User ${data.firstName} ${data.lastName} has been ${isEditMode ? 'updated' : 'created'}.`,
         });
         router.push('/users');
+        router.refresh();
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({
-          path: usersCollection.path,
-          operation: 'create',
-          requestResourceData: userData,
+          path: isEditMode ? `users/${initialData.id}` : usersCollection.path,
+          operation: isEditMode ? 'update' : 'create',
+          requestResourceData: data,
         });
         errorEmitter.emit('permission-error', permissionError);
       });
@@ -200,7 +218,9 @@ export function UserForm() {
         <Separator />
 
         <div className="space-y-4">
-            <h3 className="text-sm font-medium">Permissions</h3>
+            <h3 className="text-sm font-medium">Permissions & Status</h3>
+            <div className="grid grid-cols-2 gap-4">
+
             <FormField
             control={form.control}
             name="role"
@@ -209,7 +229,7 @@ export function UserForm() {
                 <FormLabel>Role</FormLabel>
                 <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                 >
                     <FormControl>
                     <SelectTrigger>
@@ -228,6 +248,33 @@ export function UserForm() {
                 </FormItem>
             )}
             />
+            <FormField
+            control={form.control}
+            name="status"
+            render={({ field }) => (
+                <FormItem>
+                <FormLabel>Status</FormLabel>
+                <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                >
+                    <FormControl>
+                    <SelectTrigger>
+                        <SelectValue placeholder="Select a status" />
+                    </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        <SelectItem value="pending">Pending</SelectItem>
+                        <SelectItem value="active">Active</SelectItem>
+                        <SelectItem value="invited">Invited</SelectItem>
+                        <SelectItem value="rejected">Rejected</SelectItem>
+                    </SelectContent>
+                </Select>
+                <FormMessage />
+                </FormItem>
+            )}
+            />
+            </div>
         </div>
         <div className="flex justify-end gap-4">
             <Button variant="outline" type="button" asChild>
@@ -238,8 +285,8 @@ export function UserForm() {
             disabled={form.formState.isSubmitting}
             >
             {form.formState.isSubmitting
-                ? 'Creating...'
-                : 'Create User'}
+                ? isEditMode ? 'Saving...' : 'Creating...'
+                : isEditMode ? 'Save Changes' : 'Create User'}
             </Button>
         </div>
         </form>

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -29,7 +29,7 @@ import {
 } from '@/components/ui/popover';
 import { PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useAuth } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -59,16 +59,21 @@ const projectSchema = z.object({
     .array(z.object({ value: z.string().min(1, 'Work area cannot be empty') }))
     .default([]),
   workPermits: z.array(workPermitSchema).default([]),
-  status: z.string().optional(),
+  status: z.enum(["Not Started", "In Progress", "Completed", "On Hold"]),
 });
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-export function ProjectForm() {
+interface ProjectFormProps {
+    initialData?: ProjectFormValues & { id: string };
+}
+
+export function ProjectForm({ initialData }: ProjectFormProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
+  const isEditMode = !!initialData;
 
   const projectsCollection = useMemo(
     () => (firestore && user ? collection(firestore, 'projects') : null),
@@ -114,6 +119,20 @@ export function ProjectForm() {
     },
   });
 
+  useEffect(() => {
+    if (initialData) {
+      form.reset({
+        ...initialData,
+        // @ts-ignore
+        startDate: initialData.startDate?.toDate(),
+        // @ts-ignore
+        deliveryDate: initialData.deliveryDate?.toDate(),
+        // @ts-ignore
+        workAreas: initialData.workAreas?.map(wa => ({ value: wa })) || [],
+      });
+    }
+  }, [initialData, form]);
+
   const {
     fields: workAreaFields,
     append: appendWorkArea,
@@ -140,18 +159,23 @@ export function ProjectForm() {
       workAreas: data.workAreas?.map((wa) => wa.value),
     };
 
-    addDoc(projectsCollection, dataToSave)
+    const operation = isEditMode
+      ? updateDoc(doc(firestore, 'projects', initialData.id), dataToSave)
+      : addDoc(projectsCollection, dataToSave);
+
+    operation
       .then(() => {
         toast({
-          title: 'Project Created',
-          description: `Project ${data.name} has been created successfully.`,
+          title: isEditMode ? 'Project Updated' : 'Project Created',
+          description: `Project ${data.name} has been ${isEditMode ? 'updated' : 'created'} successfully.`,
         });
         router.push('/projects');
+        router.refresh();
       })
-      .catch((serverError) => {
+      .catch((error) => {
         const permissionError = new FirestorePermissionError({
-          path: projectsCollection.path,
-          operation: 'create',
+          path: isEditMode ? `projects/${initialData.id}` : projectsCollection.path,
+          operation: isEditMode ? 'update' : 'create',
           requestResourceData: dataToSave,
         });
         errorEmitter.emit('permission-error', permissionError);
@@ -205,7 +229,7 @@ export function ProjectForm() {
                     <FormLabel>Status</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -395,7 +419,7 @@ export function ProjectForm() {
                     <FormLabel>Project Manager</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -422,7 +446,7 @@ export function ProjectForm() {
                     <FormLabel>General Contractor</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    defaultValue={field.value}
+                    value={field.value}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -546,8 +570,8 @@ export function ProjectForm() {
                 disabled={form.formState.isSubmitting}
                 >
                 {form.formState.isSubmitting
-                    ? 'Creating...'
-                    : 'Create project'}
+                    ? isEditMode ? 'Saving...' : 'Creating...'
+                    : isEditMode ? 'Save Changes' : 'Create Project'}
                 </Button>
             </div>
         </form>

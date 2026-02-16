@@ -29,11 +29,11 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirestore, useCollection, useAuth } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import Link from 'next/link';
 
 const contractorSchema = z.object({
@@ -47,11 +47,16 @@ const contractorSchema = z.object({
 
 type ContractorFormValues = z.infer<typeof contractorSchema>;
 
-export function ContractorForm() {
+interface ContractorFormProps {
+    initialData?: ContractorFormValues & { id: string };
+}
+
+export function ContractorForm({ initialData }: ContractorFormProps) {
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
   const { user } = useAuth();
+  const isEditMode = !!initialData;
 
   const contractorsCollection = useMemo(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
@@ -81,22 +86,33 @@ export function ContractorForm() {
     },
   });
 
+  useEffect(() => {
+    if (initialData) {
+      form.reset(initialData);
+    }
+  }, [initialData, form]);
+
   const onSubmit = (data: ContractorFormValues) => {
     if (!firestore || !contractorsCollection) return;
 
-    addDoc(contractorsCollection, data)
-      .then((docRef) => {
+    const operation = isEditMode
+      ? updateDoc(doc(firestore, 'contractors', initialData.id), data)
+      : addDoc(contractorsCollection, data);
+
+    operation
+      .then(() => {
         toast({
-          title: 'Contractor created',
-          description: `Contractor ${data.name} has been created successfully.`,
+          title: isEditMode ? 'Contractor Updated' : 'Contractor Created',
+          description: `Contractor ${data.name} has been ${isEditMode ? 'updated' : 'created'} successfully.`,
         });
         router.push('/contractors');
+        router.refresh();
       })
-      .catch((serverError) => {
+      .catch((error) => {
         const permissionError = new FirestorePermissionError({
-          path: contractorsCollection.path,
-          operation: 'create',
-          requestResourceData: data,
+            path: isEditMode ? `contractors/${initialData.id}` : contractorsCollection.path,
+            operation: isEditMode ? 'update' : 'create',
+            requestResourceData: data,
         });
         errorEmitter.emit('permission-error', permissionError);
       });
@@ -235,7 +251,7 @@ export function ContractorForm() {
               <FormLabel>Status</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                defaultValue={field.value}
+                value={field.value}
               >
                 <FormControl>
                   <SelectTrigger>
@@ -260,8 +276,8 @@ export function ContractorForm() {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting
-                ? 'Creating...'
-                : 'Create contractor'}
+                ? isEditMode ? 'Saving...' : 'Creating...'
+                : isEditMode ? 'Save Changes' : 'Create contractor'}
             </Button>
         </div>
       </form>
