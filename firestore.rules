@@ -9,40 +9,55 @@ service cloud.firestore {
 
     // /users collection
     match /users/{userId} {
-      allow create: if (request.auth.uid == userId) || (isSignedIn() && request.auth.token.role == 'admin');
-      allow get: if request.auth.uid == userId || (isSignedIn() && request.auth.token.role == 'admin');
-      allow list: if isSignedIn() && request.auth.token.role == 'admin';
-      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || (isSignedIn() && request.auth.token.role == 'admin');
-      allow delete: if isSignedIn() && request.auth.token.role == 'admin';
+      // Allow user creation if:
+      // 1. A user is creating their own document (during sign-up).
+      // 2. The request is made by an admin.
+      allow create: if (request.auth.uid == userId) || (request.auth.token.role == 'admin');
+      
+      // Allow reading a user document if:
+      // 1. It's the user's own document.
+      // 2. The request is made by an admin.
+      allow get: if request.auth.uid == userId || request.auth.token.role == 'admin';
+      
+      // Only admins can list all users.
+      allow list: if request.auth.token.role == 'admin';
+      
+      // Allow updates if:
+      // 1. It's the user's own document, BUT they cannot change their own role.
+      // 2. The request is made by an admin (admins can change roles).
+      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || (request.auth.token.role == 'admin');
+      
+      // Only admins can delete users.
+      allow delete: if request.auth.token.role == 'admin';
     }
 
     // /projects collection
     match /projects/{projectId} {
-      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
-      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
+      allow get, list: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager', 'viewer'];
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager'];
     }
 
     // /contractors collection
     match /contractors/{contractorId} {
-      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
-      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
+      allow get, list: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager', 'viewer'];
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager'];
     }
 
     // /dailyReports collection
     match /dailyReports/{reportId} {
-      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
-      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
+      allow get, list: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager', 'viewer'];
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager'];
     }
     
     // /monthlyReports collection
     match /monthlyReports/{reportId} {
-       allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
-       allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
+       allow get, list: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager', 'viewer'];
+       allow create, update, delete: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager'];
     }
 
     // /system collection
     match /system/{docId} {
-      allow get: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
+      allow get: if isSignedIn() && request.auth.token.role in ['admin', 'project_manager', 'viewer'];
       allow write: if false; // No one can write to system from client
     }
   }
