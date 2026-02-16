@@ -5,9 +5,13 @@
       "description": "A user of the application",
       "type": "object",
       "properties": {
-        "name": {
+        "firstName": {
           "type": "string",
-          "description": "The user's name"
+          "description": "The user's first name"
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The user's last name"
         },
         "email": {
           "type": "string",
@@ -54,7 +58,8 @@
         }
       },
       "required": [
-        "name",
+        "firstName",
+        "lastName",
         "email",
         "role"
       ]

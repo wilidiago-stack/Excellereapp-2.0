@@ -18,39 +18,55 @@ setGlobalOptions({ maxInstances: 10 });
  * It also sets a custom claim and updates their Firestore document.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
-  const { uid } = event.data;
+  const { uid, email, displayName } = event.data;
   logger.info(`New Auth user created, UID: ${uid}. Setting up Firestore document and role.`);
 
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
+  const nameParts = (displayName || '').split(' ');
+  const firstName = nameParts.shift() || '';
+  const lastName = nameParts.join(' ');
+
   try {
-    await db.runTransaction(async (transaction) => {
+    // Determine the role and update Firestore within a single transaction.
+    const role = await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
       const isFirstUser = userCount === 0;
-      const role = isFirstUser ? "admin" : "viewer";
+      const newRole = isFirstUser ? "admin" : "viewer";
 
-      logger.info(`User count is ${userCount}. Assigning role '${role}' to user ${uid}.`);
+      logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
 
-      // 1. Set Custom Claim for backend access control
-      await admin.auth().setCustomUserClaims(uid, { role });
+      // Firestore write operations
+      // The client-side sign-up will also write user details. Using merge: true ensures
+      // that this function safely adds the role and status without overwriting client-side data
+      // and can also create the document if the client-side write hasn't happened yet.
+      transaction.set(userDocRef, { 
+        firstName,
+        lastName,
+        email: email || '',
+        role: newRole, 
+        status: 'active' 
+      }, { merge: true });
 
-      // 2. Create/merge the user's document in Firestore with the correct role and active status
-      // This is more robust as it creates the doc if it doesn't exist (handling race conditions)
-      // or merges the role if the client created the doc first.
-      transaction.set(userDocRef, { role, status: 'active' }, { merge: true });
-
-      // 3. Update the system metadata user count
       const newUserCount = userCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, { userCount: newUserCount });
       } else {
         transaction.set(metadataRef, { userCount: newUserCount });
       }
+      
+      // Return the determined role to be used outside the transaction
+      return newRole;
     });
-    logger.info(`Successfully set up role and metadata for user ${uid}.`);
+
+    // AFTER the transaction is successful, set the custom claim.
+    logger.info(`Transaction successful. Setting custom claim '${role}' for user ${uid}.`);
+    await admin.auth().setCustomUserClaims(uid, { role });
+
+    logger.info(`Successfully set up role, metadata, and custom claim for user ${uid}.`);
 
   } catch (error) {
     logger.error(`Error during initial user setup for ${uid}:`, error);
@@ -68,18 +84,23 @@ export const cleanupUser = onAuthUserDelete(async (event) => {
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc('system/metadata');
 
-  // Use a batch to perform multiple writes
-  const batch = db.batch();
-
-  // 1. Delete the user's document from Firestore
-  batch.delete(userDocRef);
-
-  // 2. Decrement the user count in system metadata atomically
-  batch.update(metadataRef, {
-    userCount: admin.firestore.FieldValue.increment(-1),
-  });
-
   try {
+    // Get the metadata document first to check if it exists
+    const metadataDoc = await metadataRef.get();
+
+    const batch = db.batch();
+
+    // 1. Delete the user's document from Firestore
+    batch.delete(userDocRef);
+
+    // 2. Atomically decrement the user count only if the metadata doc exists
+    // and the count is greater than 0. This prevents errors on a non-existent doc.
+    if (metadataDoc.exists && (metadataDoc.data()?.userCount || 0) > 0) {
+      batch.update(metadataRef, {
+        userCount: admin.firestore.FieldValue.increment(-1),
+      });
+    }
+
     await batch.commit();
     logger.info(`Successfully cleaned up data for user ${uid}.`);
   } catch (error) {

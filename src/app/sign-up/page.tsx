@@ -34,7 +34,8 @@ import { firebaseConfig } from '@/firebase/config';
 
 const signUpSchema = z
   .object({
-    name: z.string().min(1, 'Name is required'),
+    firstName: z.string().min(1, 'First name is required'),
+    lastName: z.string().min(1, 'Last name is required'),
     email: z.string().email('Invalid email address'),
     position: z.string().min(1, 'Position is required'),
     company: z.string().min(1, 'Company is required'),
@@ -63,7 +64,8 @@ export default function SignUpPage() {
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
     defaultValues: {
-      name: '',
+      firstName: '',
+      lastName: '',
       email: '',
       position: '',
       company: '',
@@ -95,14 +97,15 @@ export default function SignUpPage() {
       const user = userCredential.user;
 
       // 2. Set user's display name in Auth. This will be available to the Cloud Function.
-      await updateProfile(user, { displayName: data.name });
+      await updateProfile(user, { displayName: `${data.firstName} ${data.lastName}` });
 
       // 3. Create/merge user document in Firestore.
       // The client creates the doc with profile info. A Cloud Function will then
       // add the role and status, preventing race conditions.
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, {
-        name: data.name,
+        firstName: data.firstName,
+        lastName: data.lastName,
         email: data.email,
         position: data.position,
         company: data.company,
@@ -119,6 +122,10 @@ export default function SignUpPage() {
       console.error('Sign-up error:', error);
       let code = error.code || 'unknown-error';
       let description = error.message;
+
+      if (error.code === 'auth/email-already-in-use') {
+        description = 'This email address is already in use by another account.';
+      }
 
       setAuthError({ code, message: description });
     } finally {
@@ -165,13 +172,13 @@ export default function SignUpPage() {
       return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Disable App Check Enforcement</AlertTitle>
+          <AlertTitle>Action Required: Configure App Check</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-4 mt-2">
                 <p>
-                    This error means that your Firebase project is requiring a valid App Check token, but the app is not configured to provide one. To unblock development, you must disable this requirement.
+                    Your app is enforcing App Check, but it's not configured correctly for local development. To fix this:
                 </p>
-                <ol className="list-decimal list-inside space-y-2">
+                 <ol className="list-decimal list-inside space-y-2">
                     <li>
                         Go to the App Check section in your Firebase Console:
                         <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
@@ -188,7 +195,7 @@ export default function SignUpPage() {
                     </li>
                 </ol>
                 <p className="font-semibold">
-                    After saving, please try signing up again.
+                    After saving, refresh this page and try signing up again.
                 </p>
             </div>
           </AlertDescription>
@@ -218,19 +225,34 @@ export default function SignUpPage() {
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
                {authError && renderAuthError()}
-              <FormField
-                control={form.control}
-                name="name"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Full Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <FormField
                 control={form.control}
                 name="email"
