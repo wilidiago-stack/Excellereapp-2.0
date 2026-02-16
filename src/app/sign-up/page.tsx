@@ -60,19 +60,6 @@ export default function SignUpPage() {
   } | null>(null);
   const [copied, setCopied] = useState(false);
 
-  const form = useForm<SignUpFormValues>({
-    resolver: zodResolver(signUpSchema),
-    defaultValues: {
-      name: '',
-      email: '',
-      position: '',
-      company: '',
-      phoneNumber: '',
-      password: '',
-      confirmPassword: '',
-    },
-  });
-
   const onSubmit = async (data: SignUpFormValues) => {
     if (!auth || !firestore) {
       toast({
@@ -94,7 +81,7 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      // 2. Set user's display name in Auth (for the Cloud Function to see)
+      // 2. Set user's display name in Auth
       await updateProfile(user, { displayName: data.name });
 
       // 3. Create user document in Firestore.
@@ -117,10 +104,8 @@ export default function SignUpPage() {
       router.push('/login');
     } catch (error: any) {
       console.error('Sign-up error:', error);
-      let description = 'An unexpected error occurred. Please try again.';
       let code = error.code || 'unknown-error';
-      
-      description = error.message;
+      let description = error.message;
 
       setAuthError({ code, message: description });
     } finally {
@@ -137,7 +122,49 @@ export default function SignUpPage() {
         setTimeout(() => setCopied(false), 2000);
       });
     };
+    
+    const firebaseProjectId = 'studio-2845988015-3b127';
 
+    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
+        const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
+  
+        return (
+          <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Action Required: Use App Check Debug Token</AlertTitle>
+            <AlertDescription>
+              <p className="mb-3">
+                To bypass reCAPTCHA issues during development, we'll use a special debug token.
+              </p>
+              <p className="font-semibold mb-1">1. Open your browser's developer console.</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                (Usually by pressing F12 or Ctrl+Shift+I)
+              </p>
+              
+              <p className="font-semibold mt-4 mb-1">2. Find and copy the debug token.</p>
+              <p className="text-xs text-muted-foreground mb-3">
+                Look for a message like: `Firebase App Check debug token: [some-long-string-of-characters]`. Copy the token.
+              </p>
+    
+               <p className="font-semibold mt-4 mb-1">3. Add the token to Firebase:</p>
+               <Button asChild variant="link" className="p-0 h-auto">
+                   <a
+                      href={consoleLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                     Go to Firebase App Check Settings
+                    </a>
+               </Button>
+               <p className="text-xs text-muted-foreground mt-2">
+                In the Firebase console for your app, click the overflow menu (⋮) and select "Manage debug tokens". Click "Add debug token" and paste the token you copied.
+               </p>
+               <p className="font-semibold mt-4 mb-1">4. Reload the page and try again.</p>
+            </AlertDescription>
+          </Alert>
+        );
+    }
+    
     if (authError.code === 'auth/requests-from-referer-are-blocked') {
       const domain =
         typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
@@ -146,7 +173,6 @@ export default function SignUpPage() {
       console.log('Domain to authorize in Firebase:', domain);
       console.log('------------------------------');
       
-      const firebaseProjectId = 'studio-2845988015-3b127';
       const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
 
       return (
@@ -188,64 +214,28 @@ export default function SignUpPage() {
     }
 
     if (authError.code === 'auth/operation-not-allowed') {
-      const firebaseProjectId = 'studio-2845988015-3b127';
       const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/sign-in-method`;
          return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
           <AlertTitle>Action Required: Enable Sign-in Provider</AlertTitle>
           <AlertDescription>
-             <p>Email/Password sign-in is not enabled.</p>
+             <p className="mb-2">The Email/Password sign-in method is currently disabled for this project.</p>
             <p>
               Please go to the{' '}
               <a
                 href={consoleLink}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline"
+                className="underline font-semibold"
               >
-                Firebase Console
+                Firebase Authentication Console
               </a>
-              , and enable the **Email/Password** provider.
+              , select the "Sign-in method" tab, and enable the **Email/Password** provider.
             </p>
           </AlertDescription>
         </Alert>
       );
-    }
-
-    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
-        const firebaseProjectId = 'studio-2845988015-3b127';
-        const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
-  
-        return (
-          <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Action Required: Configure App Check</AlertTitle>
-            <AlertDescription>
-              <p className="mb-3">
-                Your app is protected by App Check, but it's not configured correctly. You must provide a reCAPTCHA v3 site key.
-              </p>
-              <p className="font-semibold mb-1">1. Open this file in your editor:</p>
-              <div className="font-mono text-xs bg-slate-800 text-white rounded-md p-2 my-2 break-all">
-                src/firebase/app-check-config.ts
-              </div>
-               <p className="font-semibold mt-4 mb-1">2. Get your key from Firebase:</p>
-               <Button asChild variant="link" className="p-0 h-auto">
-                   <a
-                      href={consoleLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                     Go to Firebase App Check Settings
-                    </a>
-               </Button>
-               <p className="text-xs text-muted-foreground mt-2">
-                In the Firebase console, find your web app and get its reCAPTCHA v3 "Site Key".
-               </p>
-               <p className="font-semibold mt-4 mb-1">3. Replace the placeholder value in the file with your site key.</p>
-            </AlertDescription>
-          </Alert>
-        );
     }
 
     return (

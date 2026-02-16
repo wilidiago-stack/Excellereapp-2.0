@@ -26,6 +26,10 @@ function initializeFirebase() {
 
   // Initialize App Check only on the client and only once
   if (typeof window !== 'undefined' && !appCheckInitialized) {
+    // IMPORTANT: Set the debug token flag BEFORE initializing App Check.
+    // This will print a debug token to the console for development.
+    (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+
     if (
       RECAPTCHA_V3_SITE_KEY &&
       RECAPTCHA_V3_SITE_KEY !== 'REPLACE_WITH_YOUR_RECAPTCHA_V3_SITE_KEY'
