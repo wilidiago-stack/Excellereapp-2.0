@@ -23,7 +23,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuthInstance, useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import {
   createUserWithEmailAndPassword,
@@ -56,7 +56,7 @@ type SignUpFormValues = z.infer<typeof signUpSchema>;
 
 export default function SignUpPage() {
   const { toast } = useToast();
-  const auth = useAuth();
+  const auth = useAuthInstance();
   const firestore = useFirestore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);

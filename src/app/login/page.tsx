@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { useAuth } from '@/firebase';
+import { useAuthInstance } from '@/firebase';
 import {
   signInWithEmailAndPassword,
   signInWithPhoneNumber,
@@ -49,7 +49,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [loading, setLoading] = useState(false);
-  const auth = useAuth();
+  const auth = useAuthInstance();
   const { toast } = useToast();
   const router = useRouter();
   const [step, setStep] = useState<'enter-phone' | 'enter-otp'>('enter-phone');
