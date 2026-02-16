@@ -2,66 +2,63 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function isOneOfRoles(roles) {
+      return request.auth.token.role in roles;
+    }
     
     match /users/{userId} {
-      // CREATE: A user can create their own document, but CANNOT assign their own role.
-      // The client is not allowed to set a role on creation; this is handled by a Cloud Function.
       allow create: if request.auth.uid == userId 
                       && !('role' in request.resource.data);
 
-      // READ: An admin or the user themselves can read the profile.
-      allow get: if request.auth.uid == userId || request.auth.token.role == 'admin';
+      allow get: if request.auth.uid == userId || isOneOfRoles(['admin']);
 
-      // UPDATE: A user can update their own profile, but CANNOT change their role.
-      // An admin can update any profile, including the role.
       allow update: if (request.auth.uid == userId && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
-                      || request.auth.token.role == 'admin';
+                      || isOneOfRoles(['admin']);
       
-      // DELETE: Only admins can delete users.
-      allow delete: if request.auth.token.role == 'admin';
+      allow delete: if isOneOfRoles(['admin']);
     }
 
     match /users {
-      // LIST: Only admins can list all users.
-      allow list: if request.auth.token.role == 'admin';
+      allow list: if isOneOfRoles(['admin']);
     }
 
-    // System metadata can be read by any authenticated user, but only written by backend services.
     match /system/{docId} {
         allow get: if request.auth != null;
         allow list, write: if false;
     }
 
+    // Rules for data collections
     match /projects/{projectId} {
       allow get: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if isOneOfRoles(['admin', 'project_manager']);
     }
     match /projects {
-      allow list: if request.auth != null;
+      allow list: if isOneOfRoles(['admin', 'project_manager']);
     }
 
     match /contractors/{contractorId} {
       allow get: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if isOneOfRoles(['admin', 'project_manager']);
     }
      match /contractors {
-      allow list: if request.auth != null;
+      allow list: if isOneOfRoles(['admin', 'project_manager']);
     }
 
     match /dailyReports/{reportId} {
       allow get: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if isOneOfRoles(['admin', 'project_manager']);
     }
     match /dailyReports {
-      allow list: if request.auth != null;
+      allow list: if isOneOfRoles(['admin', 'project_manager']);
     }
 
     match /monthlyReports/{reportId} {
       allow get: if request.auth != null;
-      allow write: if request.auth != null;
+      allow write: if isOneOfRoles(['admin', 'project_manager']);
     }
     match /monthlyReports {
-      allow list: if request.auth != null;
+      allow list: if isOneOfRoles(['admin', 'project_manager']);
     }
   }
 }
