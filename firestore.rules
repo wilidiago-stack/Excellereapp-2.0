@@ -14,7 +14,7 @@ service cloud.firestore {
 
       // UPDATE: A user can update their own profile, but CANNOT change their role.
       // An admin can update any profile, including the role.
-      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role)
+      allow update: if (request.auth.uid == userId && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
                       || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
       // DELETE: Only admins can delete users.
