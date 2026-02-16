@@ -31,14 +31,14 @@ function initializeFirebase() {
   // --- START EMULATOR CONNECTION ---
   // This block is crucial for local development. It tells the Firebase SDK
   // to connect to the local emulators for Auth and Firestore instead of the
-  // live production services. This is the root cause of the persistent
-  // permission errors, as local rule changes were being ignored.
+  // live production services.
   if (typeof window !== 'undefined' && !emulatorsConnected) {
     console.log('Connecting to Firebase Emulators...');
     try {
       // Note: The host and port must match your local emulator setup.
-      // These are the default ports.
-      connectAuthEmulator(auth, 'http://localhost:9099');
+      // The `disableAppCheck: true` is critical to prevent auth/network-request-failed
+      // errors when using the Auth emulator.
+      connectAuthEmulator(auth, 'http://localhost:9099', { disableAppCheck: true });
       connectFirestoreEmulator(firestore, 'localhost', 8080);
       emulatorsConnected = true;
       console.log('Successfully connected to Auth and Firestore Emulators.');
