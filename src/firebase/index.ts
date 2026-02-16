@@ -1,18 +1,13 @@
 'use client';
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth, connectAuthEmulator } from 'firebase/auth';
-import {
-  getFirestore,
-  type Firestore,
-  connectFirestoreEmulator,
-} from 'firebase/firestore';
+import { getAuth, type Auth } from 'firebase/auth';
+import { getFirestore, type Firestore } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { firebaseConfig } from './config';
 import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
 // To prevent initialization on server components or multiple times
 let appCheckInitialized = false;
-let emulatorsConnected = false; // Flag to prevent reconnecting
 
 function initializeFirebase() {
   let firebaseApp: FirebaseApp;
@@ -27,26 +22,6 @@ function initializeFirebase() {
 
   auth = getAuth(firebaseApp);
   firestore = getFirestore(firebaseApp);
-
-  // --- START EMULATOR CONNECTION ---
-  // This block is crucial for local development. It tells the Firebase SDK
-  // to connect to the local emulators for Auth and Firestore instead of the
-  // live production services.
-  if (typeof window !== 'undefined' && !emulatorsConnected) {
-    console.log('Connecting to Firebase Emulators...');
-    try {
-      // Note: The host and port must match your local emulator setup.
-      // The `disableAppCheck: true` is critical to prevent auth/network-request-failed
-      // errors when using the Auth emulator.
-      connectAuthEmulator(auth, 'http://localhost:9099', { disableAppCheck: true });
-      connectFirestoreEmulator(firestore, 'localhost', 8080);
-      emulatorsConnected = true;
-      console.log('Successfully connected to Auth and Firestore Emulators.');
-    } catch (e) {
-      console.error('Error connecting to Firebase emulators:', e);
-    }
-  }
-  // --- END EMULATOR CONNECTION ---
 
   // Temporarily disabling App Check to unblock user registration.
   // The root cause is Enforcement being turned on in the Firebase Console.
