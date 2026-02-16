@@ -1,3 +1,4 @@
+'use client';
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
 import * as admin from "firebase-admin";
@@ -25,36 +26,40 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const metadataRef = db.doc("system/metadata");
 
   try {
-    await db.runTransaction(async (transaction) => {
+    // Determine the role and update Firestore within a single transaction.
+    const role = await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
       const isFirstUser = userCount === 0;
-      const role = isFirstUser ? "admin" : "viewer";
+      const newRole = isFirstUser ? "admin" : "viewer";
 
-      logger.info(`User count is ${userCount}. Assigning role '${role}' to user ${uid}.`);
+      logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
 
-      // 1. Set Custom Claim for backend access control
-      await admin.auth().setCustomUserClaims(uid, { role });
-
-      // 2. Create/merge the user's document in Firestore with the correct role and active status
-      // Using set with merge:true handles the race condition where the client might create the doc first.
+      // Firestore write operations
       transaction.set(userDocRef, { 
         name: displayName || '',
         email: email || '',
-        role, 
+        role: newRole, 
         status: 'active' 
       }, { merge: true });
 
-      // 3. Update the system metadata user count
       const newUserCount = userCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, { userCount: newUserCount });
       } else {
         transaction.set(metadataRef, { userCount: newUserCount });
       }
+      
+      // Return the determined role to be used outside the transaction
+      return newRole;
     });
-    logger.info(`Successfully set up role and metadata for user ${uid}.`);
+
+    // AFTER the transaction is successful, set the custom claim.
+    logger.info(`Transaction successful. Setting custom claim '${role}' for user ${uid}.`);
+    await admin.auth().setCustomUserClaims(uid, { role });
+
+    logger.info(`Successfully set up role, metadata, and custom claim for user ${uid}.`);
 
   } catch (error) {
     logger.error(`Error during initial user setup for ${uid}:`, error);
