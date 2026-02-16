@@ -2,11 +2,10 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Development rule: Allows any authenticated user to read and write.
+    // This is secure enough for development, as it prevents anonymous access.
     match /{document=**} {
-      // THIS IS A TEMPORARY, INSECURE RULE FOR DEVELOPMENT
-      // It allows anyone, authenticated or not, to read and write to the entire database.
-      // This is to unblock development and diagnose the permission issue.
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
