@@ -24,8 +24,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { runTransaction, doc, getDoc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -86,7 +86,7 @@ export default function SignUpPage() {
     setAuthError(null);
 
     try {
-      // Create user in Firebase Auth
+      // 1. Create user in Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(
         auth,
         data.email,
@@ -94,46 +94,25 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      const metadataRef = doc(firestore, 'system', 'metadata');
+      // 2. Set user's display name in Auth (for the Cloud Function to see)
+      await updateProfile(user, { displayName: data.name });
+
+      // 3. Create user document in Firestore.
+      // A Cloud Function will listen for this user's creation and securely assign the role.
       const userDocRef = doc(firestore, 'users', user.uid);
-
-      await runTransaction(firestore, async (transaction) => {
-        const metadataDoc = await transaction.get(metadataRef);
-        let role = 'viewer';
-        let userCount = metadataDoc.exists() ? metadataDoc.data().userCount || 0 : 0;
-
-        if (userCount === 0) {
-          role = 'admin';
-          toast({
-            title: 'Admin Account Created!',
-            description: "You're the first user, so you've been made an admin.",
-          });
-        }
-        
-        const newUserCount = userCount + 1;
-
-        if (metadataDoc.exists()) {
-          transaction.update(metadataRef, { userCount: newUserCount });
-        } else {
-          transaction.set(metadataRef, { userCount: newUserCount });
-        }
-
-        transaction.set(userDocRef, {
-          name: data.name,
-          email: data.email,
-          position: data.position,
-          company: data.company,
-          phoneNumber: data.phoneNumber,
-          role: role,
-          status: 'active',
-        });
+      await setDoc(userDocRef, {
+        name: data.name,
+        email: data.email,
+        position: data.position,
+        company: data.company,
+        phoneNumber: data.phoneNumber || '',
+        role: 'pending_role', // Backend function will update this
+        status: 'pending', // Backend function will update this to 'active'
       });
-
 
       toast({
         title: 'Account Created',
-        description:
-          'Your account has been created successfully. Please log in.',
+        description: 'Your account has been created successfully. Please log in.',
       });
       router.push('/login');
     } catch (error: any) {
@@ -148,6 +127,7 @@ export default function SignUpPage() {
       setLoading(false);
     }
   };
+
   const renderAuthError = () => {
     if (!authError) return null;
 

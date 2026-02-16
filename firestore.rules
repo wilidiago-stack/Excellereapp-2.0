@@ -3,31 +3,32 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // Rule for the 'users' collection
     match /users/{userId} {
-      // CREATE: A user can create their own document upon signing up.
-      allow create: if request.auth.uid == userId;
+      // CREATE: A user can create their own document, but CANNOT assign their own role.
+      // The role must be 'pending_role' which a Cloud Function will then update.
+      allow create: if request.auth.uid == userId 
+                      && request.resource.data.role == 'pending_role';
 
-      // READ (single doc): An admin or the user themselves can read the profile.
+      // READ: An admin or the user themselves can read the profile.
       allow get: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
 
-      // UPDATE: A user can update their own profile, or an admin can update any profile.
-      allow update: if request.auth.uid == userId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      // UPDATE: A user can update their own profile, but CANNOT change their role.
+      // An admin can update any profile, including the role.
+      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role)
+                      || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
       // DELETE: Only admins can delete users.
       allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    // Rule for LISTING the 'users' collection - only admins can list all users.
+
     match /users {
+      // LIST: Only admins can list all users.
       allow list: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Rules for system metadata, used for first user admin assignment
-    match /system/metadata {
-        // Allow any authenticated user to read the metadata (needed for the signup transaction)
-        allow get: if request.auth != null;
-        // Allow an authenticated user to write to the metadata (as part of the signup transaction)
-        allow write: if request.auth != null;
+    // System metadata is only accessible by backend services (Cloud Functions).
+    match /system/{docId} {
+        allow read, write: if false;
     }
 
     match /projects/{projectId} {

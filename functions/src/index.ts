@@ -1,32 +1,56 @@
-/**
- * Import function triggers from their respective submodules:
- *
- * import {onCall} from "firebase-functions/v2/https";
- * import {onDocumentWritten} from "firebase-functions/v2/firestore";
- *
- * See a full list of supported triggers at https://firebase.google.com/docs/functions
- */
-
-import {setGlobalOptions} from "firebase-functions";
-import {onRequest} from "firebase-functions/https";
+import {setGlobalOptions} from "firebase-functions/v2";
+import {onAuthUserCreate} from "firebase-functions/v2/auth";
+import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Start writing functions
-// https://firebase.google.com/docs/functions/typescript
+// Initialize Firebase Admin SDK
+admin.initializeApp();
+const db = admin.firestore();
 
-// For cost control, you can set the maximum number of containers that can be
-// running at the same time. This helps mitigate the impact of unexpected
-// traffic spikes by instead downgrading performance. This limit is a
-// per-function limit. You can override the limit for each function using the
-// `maxInstances` option in the function's options, e.g.
-// `onRequest({ maxInstances: 5 }, (req, res) => { ... })`.
-// NOTE: setGlobalOptions does not apply to functions using the v1 API. V1
-// functions should each use functions.runWith({ maxInstances: 10 }) instead.
-// In the v1 API, each function can only serve one request per container, so
-// this will be the maximum concurrent request count.
+// Set global options for the function
 setGlobalOptions({ maxInstances: 10 });
 
-// export const helloWorld = onRequest((request, response) => {
-//   logger.info("Hello logs!", {structuredData: true});
-//   response.send("Hello from Firebase!");
-// });
+/**
+ * Triggered on new user creation in Firebase Authentication.
+ * This function determines if the user is the first user ever created.
+ * - If so, it assigns them the 'admin' role.
+ * - Otherwise, it assigns them the 'viewer' role.
+ * It also sets a custom claim and updates their Firestore document.
+ */
+export const setupInitialUserRole = onAuthUserCreate(async (event) => {
+  const { uid } = event.data;
+  logger.info(`New Auth user created, UID: ${uid}. Setting up Firestore document and role.`);
+
+  const userDocRef = db.doc(`users/${uid}`);
+  const metadataRef = db.doc("system/metadata");
+
+  try {
+    await db.runTransaction(async (transaction) => {
+      const metadataDoc = await transaction.get(metadataRef);
+      const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
+      
+      const isFirstUser = userCount === 0;
+      const role = isFirstUser ? "admin" : "viewer";
+
+      logger.info(`User count is ${userCount}. Assigning role '${role}' to user ${uid}.`);
+
+      // 1. Set Custom Claim for backend access control
+      await admin.auth().setCustomUserClaims(uid, { role });
+
+      // 2. Update the user's document in Firestore with the correct role and active status
+      transaction.update(userDocRef, { role, status: 'active' });
+
+      // 3. Update the system metadata user count
+      const newUserCount = userCount + 1;
+      if (metadataDoc.exists) {
+        transaction.update(metadataRef, { userCount: newUserCount });
+      } else {
+        transaction.set(metadataRef, { userCount: newUserCount });
+      }
+    });
+    logger.info(`Successfully set up role and metadata for user ${uid}.`);
+
+  } catch (error) {
+    logger.error(`Error during initial user setup for ${uid}:`, error);
+  }
+});
