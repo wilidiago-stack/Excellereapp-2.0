@@ -18,15 +18,11 @@ setGlobalOptions({ maxInstances: 10 });
  * It also sets a custom claim and updates their Firestore document.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
-  const { uid, email, displayName } = event.data;
+  const { uid } = event.data;
   logger.info(`New Auth user created, UID: ${uid}. Setting up Firestore document and role.`);
 
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
-
-  const nameParts = (displayName || '').split(' ');
-  const firstName = nameParts.shift() || '';
-  const lastName = nameParts.join(' ');
 
   try {
     // Determine the role and update Firestore within a single transaction.
@@ -39,14 +35,10 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
       logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
 
-      // Firestore write operations
-      // The client-side sign-up will also write user details. Using merge: true ensures
-      // that this function safely adds the role and status without overwriting client-side data
-      // and can also create the document if the client-side write hasn't happened yet.
+      // Update the user document with only the role and status.
+      // The client is responsible for creating the document with other profile details.
+      // Using set with merge is safe because it creates or merges fields without overwriting the whole document.
       transaction.set(userDocRef, { 
-        firstName,
-        lastName,
-        email: email || '',
         role: newRole, 
         status: 'active' 
       }, { merge: true });
