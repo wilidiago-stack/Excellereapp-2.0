@@ -22,13 +22,6 @@ import { FirestorePermissionError } from '@/firebase/errors';
 
 import { Button } from '@/components/ui/button';
 import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from '@/components/ui/card';
-import {
   Form,
   FormControl,
   FormField,
@@ -60,6 +53,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
+import { Separator } from './ui/separator';
 
 const safetyEventSchema = z.object({
   eventType: z.string().min(1, 'Please select an event type'),
@@ -137,7 +131,7 @@ export function DailyReportForm() {
     () => (firestore && user ? collection(firestore, 'dailyReports') : null),
     [firestore, user]
   );
-  
+
   const projectsCollection = useMemo(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
@@ -182,13 +176,13 @@ export function DailyReportForm() {
       notes: [],
     },
   });
-  
+
   useEffect(() => {
     if (user && !form.getValues('username')) {
       form.setValue('username', user.displayName || '');
     }
   }, [user, form]);
-  
+
   const {
     fields: safetyEventFields,
     append: appendSafetyEvent,
@@ -276,18 +270,13 @@ export function DailyReportForm() {
         errorEmitter.emit('permission-error', permissionError);
       });
   };
-  
+
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-8"
-      >
-        <Card>
-          <CardHeader>
-            <CardTitle>General Information</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">General Information</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
             <FormField
               control={form.control}
               name="date"
@@ -313,10 +302,7 @@ export function DailyReportForm() {
                         </Button>
                       </FormControl>
                     </PopoverTrigger>
-                    <PopoverContent
-                      className="w-auto p-0"
-                      align="start"
-                    >
+                    <PopoverContent className="w-auto p-0" align="start">
                       <Calendar
                         mode="single"
                         selected={field.value}
@@ -393,14 +379,14 @@ export function DailyReportForm() {
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Weather</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Weather</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             <FormField
               control={form.control}
               name="weather.city"
@@ -408,10 +394,7 @@ export function DailyReportForm() {
                 <FormItem>
                   <FormLabel>City</FormLabel>
                   <FormControl>
-                    <Input
-                      placeholder="e.g. Cedar Rapids"
-                      {...field}
-                    />
+                    <Input placeholder="e.g. Cedar Rapids" {...field} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -469,14 +452,14 @@ export function DailyReportForm() {
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Safety Stats</CardTitle>
-          </CardHeader>
-          <CardContent className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Safety Stats</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
             <FormField
               control={form.control}
               name="safetyStats.recordableIncidents"
@@ -568,83 +551,171 @@ export function DailyReportForm() {
                 </FormItem>
               )}
             />
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Safety Events</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Event Type</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Responsible Contractor</TableHead>
-                  <TableHead className="w-1/3">
-                    Event Description
-                  </TableHead>
-                  <TableHead></TableHead>
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Safety Events</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Event Type</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Responsible Contractor</TableHead>
+                <TableHead className="w-1/3">Event Description</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {safetyEventFields.map((field, index) => (
+                <TableRow key={field.id}>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`safetyEvents.${index}.eventType`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select an event type" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {eventTypes.map((e) => (
+                              <SelectItem key={e.id} value={e.id}>
+                                {e.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`safetyEvents.${index}.category`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select a category" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {categories.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`safetyEvents.${index}.responsibleContractor`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select contractor" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {contractors.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`safetyEvents.${index}.eventDescription`}
+                      render={({ field }) => (
+                        <Textarea
+                          {...field}
+                          placeholder="Describe the event"
+                        />
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeSafetyEvent(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {safetyEventFields.map((field, index) => (
+              ))}
+            </TableBody>
+          </Table>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() =>
+              appendSafetyEvent({
+                eventType: '',
+                category: '',
+                responsibleContractor: '',
+                eventDescription: '',
+              })
+            }
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Event
+          </Button>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Man Hours</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-2/5">Contractor Name</TableHead>
+                <TableHead>Headcount</TableHead>
+                <TableHead>Hours</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {manHourFields.map((field, index) => {
+                const headcount =
+                  form.watch(`manHours.${index}.headcount`) || 0;
+                const hours = form.watch(`manHours.${index}.hours`) || 0;
+                const total = headcount * hours;
+                return (
                   <TableRow key={field.id}>
                     <TableCell>
                       <FormField
                         control={form.control}
-                        name={`safetyEvents.${index}.eventType`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select an event type" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {eventTypes.map((e) => (
-                                <SelectItem key={e.id} value={e.id}>
-                                  {e.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`safetyEvents.${index}.category`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select a category" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {categories.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.label}
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`safetyEvents.${index}.responsibleContractor`}
+                        name={`manHours.${index}.contractorId`}
                         render={({ field }) => (
                           <Select
                             onValueChange={field.onChange}
@@ -669,423 +740,307 @@ export function DailyReportForm() {
                     <TableCell>
                       <FormField
                         control={form.control}
-                        name={`safetyEvents.${index}.eventDescription`}
+                        name={`manHours.${index}.headcount`}
                         render={({ field }) => (
-                          <Textarea
-                            {...field}
-                            placeholder="Describe the event"
-                          />
+                          <Input type="number" {...field} />
                         )}
                       />
                     </TableCell>
+                    <TableCell>
+                      <FormField
+                        control={form.control}
+                        name={`manHours.${index}.hours`}
+                        render={({ field }) => (
+                          <Input type="number" {...field} />
+                        )}
+                      />
+                    </TableCell>
+                    <TableCell>{total.toFixed(1)}</TableCell>
                     <TableCell>
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        onClick={() => removeSafetyEvent(index)}
+                        onClick={() => removeManHour(index)}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() =>
-                appendSafetyEvent({
-                  eventType: '',
-                  category: '',
-                  responsibleContractor: '',
-                  eventDescription: '',
-                })
-              }
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Event
-            </Button>
-          </CardContent>
-        </Card>
+                );
+              })}
+            </TableBody>
+          </Table>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() =>
+              appendManHour({
+                contractorId: '',
+                headcount: 0,
+                hours: 0,
+              })
+            }
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Row
+          </Button>
+          <div className="flex justify-end mt-4 font-bold">
+            Total General: {totalGeneralManHours?.toFixed(1) || '0.0'}
+          </div>
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Man Hours</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-2/5">
-                    Contractor Name
-                  </TableHead>
-                  <TableHead>Headcount</TableHead>
-                  <TableHead>Hours</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {manHourFields.map((field, index) => {
-                  const headcount =
-                    form.watch(`manHours.${index}.headcount`) || 0;
-                  const hours =
-                    form.watch(`manHours.${index}.hours`) || 0;
-                  const total = headcount * hours;
-                  return (
-                    <TableRow key={field.id}>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.contractorId`}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              defaultValue={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Select contractor" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                {contractors.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.headcount`}
-                          render={({ field }) => (
-                            <Input type="number" {...field} />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.hours`}
-                          render={({ field }) => (
-                            <Input type="number" {...field} />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell>{total.toFixed(1)}</TableCell>
-                      <TableCell>
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeManHour(index)}
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Daily Activities</h3>
+          <p className="text-sm text-muted-foreground">
+            Fill in the daily work activities and required permits.
+          </p>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-1/4">Name</TableHead>
+                <TableHead className="w-1/4">Activity</TableHead>
+                <TableHead className="w-1/4">Location</TableHead>
+                <TableHead>Permits</TableHead>
+                <TableHead>Total</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {dailyActivityFields.map((field, index) => (
+                <TableRow key={field.id}>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`dailyActivities.${index}.contractorId`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
                         >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() =>
-                appendManHour({
-                  contractorId: '',
-                  headcount: 0,
-                  hours: 0,
-                })
-              }
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Row
-            </Button>
-            <div className="flex justify-end mt-4 font-bold">
-              Total General: {totalGeneralManHours?.toFixed(1) || '0.0'}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Daily Activities</CardTitle>
-            <CardDescription>
-              Fill in the daily work activities and required permits.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-1/4">Name</TableHead>
-                  <TableHead className="w-1/4">Activity</TableHead>
-                  <TableHead className="w-1/4">Location</TableHead>
-                  <TableHead>Permits</TableHead>
-                  <TableHead>Total</TableHead>
-                  <TableHead></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dailyActivityFields.map((field, index) => (
-                  <TableRow key={field.id}>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`dailyActivities.${index}.contractorId`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select contractor" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {contractors.map((c) => (
-                                <SelectItem key={c.id} value={c.id}>
-                                  {c.label}
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select contractor" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {contractors.map((c) => (
+                              <SelectItem key={c.id} value={c.id}>
+                                {c.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`dailyActivities.${index}.activity`}
+                      render={({ field }) => <Input {...field} />}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`dailyActivities.${index}.location`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select location" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {locations.length > 0 ? (
+                              locations.map((l) => (
+                                <SelectItem key={l.id} value={l.id}>
+                                  {l.label}
                                 </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`dailyActivities.${index}.activity`}
-                        render={({ field }) => <Input {...field} />}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`dailyActivities.${index}.location`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select location" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {locations.length > 0 ? (
-                                locations.map((l) => (
-                                  <SelectItem
-                                    key={l.id}
-                                    value={l.id}
-                                  >
-                                    {l.label}
-                                  </SelectItem>
-                                ))
-                              ) : (
-                                <SelectItem value="loading" disabled>
-                                  Select project first
-                                </SelectItem>
-                              )}
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`dailyActivities.${index}.permits`}
-                        render={() => (
-                          <div className="flex flex-wrap gap-2">
-                            {permitTypes.length > 0 ? (
-                              permitTypes.map((permit) => (
-                                <FormField
-                                  key={permit.id}
-                                  control={form.control}
-                                  name={`dailyActivities.${index}.permits`}
-                                  render={({ field }) => (
-                                    <FormItem
-                                      key={permit.id}
-                                      className="flex flex-row items-start space-x-2 space-y-0"
-                                    >
-                                      <FormControl>
-                                        <Checkbox
-                                          checked={field.value?.includes(
-                                            permit.id
-                                          )}
-                                          onCheckedChange={(
-                                            checked
-                                          ) => {
-                                            return checked
-                                              ? field.onChange([
-                                                  ...(field.value ||
-                                                    []),
-                                                  permit.id,
-                                                ])
-                                              : field.onChange(
-                                                  field.value?.filter(
-                                                    (value) =>
-                                                      value !==
-                                                      permit.id
-                                                  )
-                                                );
-                                          }}
-                                        />
-                                      </FormControl>
-                                      <FormLabel className="text-sm font-normal">
-                                        {permit.label}
-                                      </FormLabel>
-                                    </FormItem>
-                                  )}
-                                />
                               ))
                             ) : (
-                              <p className="text-xs text-muted-foreground">
-                                Select a project to see permits.
-                              </p>
+                              <SelectItem value="loading" disabled>
+                                Select project first
+                              </SelectItem>
                             )}
-                          </div>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {form.watch(`dailyActivities.${index}.permits`)
-                        ?.length || 0}
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeDailyActivity(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() =>
-                appendDailyActivity({
-                  contractorId: '',
-                  activity: '',
-                  location: '',
-                  permits: [],
-                })
-              }
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Row
-            </Button>
-            <div className="flex justify-end mt-4 font-bold">
-              Total Permits: {totalPermits || 0}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-1/2">Note</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Image</TableHead>
-                  <TableHead></TableHead>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`dailyActivities.${index}.permits`}
+                      render={() => (
+                        <div className="flex flex-wrap gap-2">
+                          {permitTypes.length > 0 ? (
+                            permitTypes.map((permit) => (
+                              <FormField
+                                key={permit.id}
+                                control={form.control}
+                                name={`dailyActivities.${index}.permits`}
+                                render={({ field }) => (
+                                  <FormItem
+                                    key={permit.id}
+                                    className="flex flex-row items-start space-x-2 space-y-0"
+                                  >
+                                    <FormControl>
+                                      <Checkbox
+                                        checked={field.value?.includes(
+                                          permit.id
+                                        )}
+                                        onCheckedChange={(checked) => {
+                                          return checked
+                                            ? field.onChange([
+                                                ...(field.value || []),
+                                                permit.id,
+                                              ])
+                                            : field.onChange(
+                                                field.value?.filter(
+                                                  (value) =>
+                                                    value !== permit.id
+                                                )
+                                              );
+                                        }}
+                                      />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal">
+                                      {permit.label}
+                                    </FormLabel>
+                                  </FormItem>
+                                )}
+                              />
+                            ))
+                          ) : (
+                            <p className="text-xs text-muted-foreground">
+                              Select a project to see permits.
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    {form.watch(`dailyActivities.${index}.permits`)?.length ||
+                      0}
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeDailyActivity(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {noteFields.map((field, index) => (
-                  <TableRow key={field.id}>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`notes.${index}.note`}
-                        render={({ field }) => <Textarea {...field} />}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <FormField
-                        control={form.control}
-                        name={`notes.${index}.status`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Select status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              <SelectItem value="open">
-                                Open
-                              </SelectItem>
-                              <SelectItem value="closed">
-                                Closed
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                      >
-                        <Paperclip className="mr-2 h-4 w-4" /> Upload
-                      </Button>
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => removeNote(index)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="mt-4"
-              onClick={() => appendNote({ note: '', status: '' })}
-            >
-              <PlusCircle className="mr-2 h-4 w-4" /> Add Note
-            </Button>
-          </CardContent>
-        </Card>
+              ))}
+            </TableBody>
+          </Table>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() =>
+              appendDailyActivity({
+                contractorId: '',
+                activity: '',
+                location: '',
+                permits: [],
+              })
+            }
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Row
+          </Button>
+          <div className="flex justify-end mt-4 font-bold">
+            Total Permits: {totalPermits || 0}
+          </div>
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold">Notes</h3>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-1/2">Note</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Image</TableHead>
+                <TableHead></TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {noteFields.map((field, index) => (
+                <TableRow key={field.id}>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`notes.${index}.note`}
+                      render={({ field }) => <Textarea {...field} />}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <FormField
+                      control={form.control}
+                      name={`notes.${index}.status`}
+                      render={({ field }) => (
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select status" />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            <SelectItem value="open">Open</SelectItem>
+                            <SelectItem value="closed">Closed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      )}
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Button type="button" variant="outline" size="sm">
+                      <Paperclip className="mr-2 h-4 w-4" /> Upload
+                    </Button>
+                  </TableCell>
+                  <TableCell>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => removeNote(index)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="mt-4"
+            onClick={() => appendNote({ note: '', status: '' })}
+          >
+            <PlusCircle className="mr-2 h-4 w-4" /> Add Note
+          </Button>
+        </div>
 
         <div className="flex justify-end gap-4 pt-4">
           <Button
@@ -1095,13 +1050,8 @@ export function DailyReportForm() {
           >
             Cancel
           </Button>
-          <Button
-            type="submit"
-            disabled={form.formState.isSubmitting}
-          >
-            {form.formState.isSubmitting
-              ? 'Creating...'
-              : 'Create report'}
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting ? 'Creating...' : 'Create report'}
           </Button>
         </div>
       </form>

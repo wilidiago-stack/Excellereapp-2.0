@@ -4,6 +4,7 @@ import { DailyReportForm } from '@/components/daily-report-form';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
 
 export default function NewDailyReportPage() {
   return (
@@ -15,9 +16,15 @@ export default function NewDailyReportPage() {
             <span className="sr-only">Back</span>
           </Link>
         </Button>
-        <h1 className="text-2xl font-semibold tracking-tight">Create New Daily Report</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Create New Daily Report
+        </h1>
       </div>
-      <DailyReportForm />
+      <Card>
+        <CardContent className="p-6">
+          <DailyReportForm />
+        </CardContent>
+      </Card>
     </div>
   );
 }
