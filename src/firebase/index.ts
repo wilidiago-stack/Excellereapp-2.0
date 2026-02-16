@@ -25,15 +25,12 @@ function initializeFirebase() {
   }
 
   // Temporarily disabling App Check to unblock user registration.
-  // We can re-enable this later.
+  // The root cause is Enforcement being turned on in the Firebase Console.
+  // The sign-up page will now guide the user to disable it.
   /*
   if (typeof window !== 'undefined' && !appCheckInitialized) {
-    // IMPORTANT: Set the debug token flag BEFORE initializing App Check.
-    // This will print a debug token to the console for development.
-    (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+    (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.NODE_ENV !== 'production';
 
-    // Initialize App Check with the reCAPTCHA provider.
-    // The debug token will be used automatically if the flag above is set.
     initializeAppCheck(firebaseApp, {
       provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
       isTokenAutoRefreshEnabled: true,

@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal } from 'lucide-react';
+import { firebaseConfig } from '@/firebase/config';
 
 const signUpSchema = z
   .object({
@@ -128,6 +129,41 @@ export default function SignUpPage() {
   const renderAuthError = () => {
     if (!authError) return null;
 
+    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Disable App Check Enforcement</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+                <p>
+                    This error means that your Firebase project is requiring a valid App Check token, but the app is not configured to provide one. To unblock development, you must disable this requirement.
+                </p>
+                <ol className="list-decimal list-inside space-y-2">
+                    <li>
+                        Go to the App Check section in your Firebase Console:
+                        <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
+                            <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/appcheck/apps`} target="_blank" rel="noopener noreferrer">
+                                Open Firebase App Check Settings
+                            </a>
+                        </Button>
+                    </li>
+                    <li>
+                        Find **Authentication** in the list of services and click the menu to select **Manage enforcement**.
+                    </li>
+                    <li>
+                        In the dialog that appears, set the toggle to **Unenforced** and click **Save**.
+                    </li>
+                </ol>
+                <p className="font-semibold">
+                    After saving, please try signing up again.
+                </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
     return (
       <Alert variant="destructive">
         <Terminal className="h-4 w-4" />
@@ -149,7 +185,7 @@ export default function SignUpPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
-              {authError && renderAuthError()}
+               {authError && renderAuthError()}
               <FormField
                 control={form.control}
                 name="name"
