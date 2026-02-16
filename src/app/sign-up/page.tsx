@@ -94,12 +94,12 @@ export default function SignUpPage() {
       );
       const user = userCredential.user;
 
-      // 2. Set user's display name in Auth
+      // 2. Set user's display name in Auth. This will be available to the Cloud Function.
       await updateProfile(user, { displayName: data.name });
 
       // 3. Create/merge user document in Firestore.
-      // The Cloud Function is responsible for setting the role. The client
-      // only provides the profile information.
+      // The client creates the doc with profile info. A Cloud Function will then
+      // add the role and status, preventing race conditions.
       const userDocRef = doc(firestore, 'users', user.uid);
       await setDoc(userDocRef, {
         name: data.name,
@@ -107,8 +107,7 @@ export default function SignUpPage() {
         position: data.position,
         company: data.company,
         phoneNumber: data.phoneNumber || '',
-        // The `role` and `status` fields are now exclusively set by the Cloud Function
-        // to prevent race conditions and ensure the first user is always an admin.
+        // The `role` and `status` fields are now exclusively set by the Cloud Function.
       }, { merge: true });
 
       toast({
