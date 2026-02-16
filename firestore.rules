@@ -3,51 +3,105 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Default deny all access unless explicitly allowed
+    // Helper functions to make rules more readable and robust.
+
+    // Checks if a user is authenticated.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Safely gets user data from Firestore. This is a key part of handling token latency.
+    // It allows rules to look up a user's role directly in their document.
+    function getUserData(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data;
+    }
+
+    // Determines user's role, checking the token first, then falling back to a database read.
+    // This is the "dual-check" system to solve latency issues.
+    function getUserRole(userId) {
+      // Prefer the token as it's faster and doesn't require a read operation.
+      let tokenRole = request.auth.token.role;
+      // If the token doesn't have a role (e.g., during the first moments after sign-up),
+      // fall back to reading the role directly from the user's Firestore document.
+      return tokenRole != null ? tokenRole : getUserData(userId).role;
+    }
+
+    // Checks if the user's role is one of the roles provided in the list.
+    function isOneOfRoles(userId, allowedRoles) {
+      return getUserRole(userId) in allowedRoles;
+    }
+
+    // Default-deny all access. Access must be explicitly granted.
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Rules for /users/{userId}
+    // Rules for /users collection
     match /users/{userId} {
-      // CREATE:
-      // 1. A new user can create their own profile during sign-up, but cannot set their own role.
-      // 2. An admin can create a new user (and can set a role).
-      allow create: if (request.auth.uid == userId && !('role' in request.resource.data))
-                      || request.auth.token.role == 'admin';
+      // CREATE: Allow if a user is creating their own document (sign-up),
+      // or if an admin is creating a new user.
+      allow create: if (isSignedIn() && request.auth.uid == userId)
+                      || (isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']));
 
-      // READ:
-      // 1. A user can read their own profile.
-      // 2. An admin can read any profile.
-      allow get: if request.auth.uid == userId || request.auth.token.role == 'admin';
+      // READ: Allow a user to read their own profile, or an admin to read any profile.
+      allow get: if isSignedIn() && (request.auth.uid == userId || isOneOfRoles(request.auth.uid, ['admin']));
+      
+      // LIST: Only admins can list all users.
+      allow list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']);
 
-      // An admin can list all users.
-      allow list: if request.auth.token.role == 'admin';
-
-      // UPDATE:
-      // 1. A user can update their own profile, but cannot change their own role.
-      // 2. An admin can update any profile, including changing the role.
-      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role)
-                      || request.auth.token.role == 'admin';
+      // UPDATE: Allow a user to update their own profile (but not their role),
+      // or an admin to update any profile (including the role).
+      allow update: if isSignedIn() && 
+                      ( (request.auth.uid == userId && request.resource.data.role == resource.data.role)
+                        || isOneOfRoles(request.auth.uid, ['admin']) );
 
       // DELETE: Only an admin can delete a user.
-      allow delete: if request.auth.token.role == 'admin';
+      allow delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']);
     }
 
-    // Rules for /system/{docId}
+    // Rules for /projects collection
+    match /projects/{projectId} {
+      // READ access for all authenticated roles.
+      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
+      
+      // WRITE access for admins and project managers.
+      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+    }
+
+    // Rules for /contractors collection
+    match /contractors/{contractorId} {
+      // READ access for all authenticated roles.
+      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
+      
+      // WRITE access for admins and project managers.
+      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+    }
+
+    // Rules for /dailyReports collection
+    match /dailyReports/{reportId} {
+      // READ access for all authenticated roles.
+      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
+      
+      // WRITE access for admins and project managers.
+      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+    }
+    
+    // Rules for /monthlyReports collection
+    match /monthlyReports/{reportId} {
+       // READ access for all authenticated roles.
+      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
+      
+      // WRITE access for admins and project managers.
+      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+    }
+
+    // Rules for system-wide metadata
     match /system/{docId} {
-      // READ: Any authenticated user with a valid role can read system metadata.
-      allow get: if request.auth.token.role in ['admin', 'project_manager', 'viewer'];
-      // WRITE: Deny all client-side writes.
+      // READ access for all authenticated roles.
+      allow get: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
+      
+      // WRITE is denied from the client. Should only be handled by Cloud Functions.
       allow write: if false;
-    }
-
-    // Rules for the main data collections
-    match /{collection}/{docId} where collection in ['projects', 'contractors', 'dailyReports', 'monthlyReports'] {
-        // READ access for all valid roles
-        allow get, list: if request.auth.token.role in ['admin', 'project_manager', 'viewer'];
-        // WRITE access only for admins and project managers
-        allow create, update, delete: if request.auth.token.role in ['admin', 'project_manager'];
     }
   }
 }
