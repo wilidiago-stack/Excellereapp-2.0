@@ -8,7 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 
 export default function NewDailyReportPage() {
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="space-y-6">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/daily-report">
