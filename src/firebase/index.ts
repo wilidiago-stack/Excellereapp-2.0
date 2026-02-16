@@ -24,7 +24,9 @@ function initializeFirebase() {
     firestore = getFirestore(firebaseApp);
   }
 
-  // Initialize App Check only on the client and only once
+  // Temporarily disabling App Check to unblock user registration.
+  // We can re-enable this later.
+  /*
   if (typeof window !== 'undefined' && !appCheckInitialized) {
     // IMPORTANT: Set the debug token flag BEFORE initializing App Check.
     // This will print a debug token to the console for development.
@@ -38,6 +40,7 @@ function initializeFirebase() {
     });
     appCheckInitialized = true;
   }
+  */
 
   return { firebaseApp, auth, firestore };
 }

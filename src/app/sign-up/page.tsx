@@ -29,8 +29,7 @@ import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal, Copy, Check } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Terminal } from 'lucide-react';
 
 const signUpSchema = z
   .object({
@@ -59,7 +58,6 @@ export default function SignUpPage() {
     code: string;
     message: string;
   } | null>(null);
-  const [copied, setCopied] = useState(false);
 
   const form = useForm<SignUpFormValues>({
     resolver: zodResolver(signUpSchema),
@@ -130,131 +128,9 @@ export default function SignUpPage() {
   const renderAuthError = () => {
     if (!authError) return null;
 
-    const handleCopy = (text: string) => {
-      navigator.clipboard.writeText(text).then(() => {
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
-      });
-    };
-    
-    const firebaseProjectId = 'studio-2845988015-3b127';
-
-    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
-      const appCheckConsoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
-  
-        return (
-          <Alert variant="destructive">
-            <Terminal className="h-4 w-4" />
-            <AlertTitle>Action Required: App Check Configuration</AlertTitle>
-            <AlertDescription>
-                <p className="mb-3">
-                    Your app's security (App Check) is almost set up. Please follow these steps carefully.
-                </p>
-
-                <p className="font-semibold mb-1">Step 1: Get the Debug Token</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                    Open your browser's developer console (F12 or Ctrl+Shift+I). Look for a message like `Firebase App Check debug token: ...` and copy the long string of characters.
-                </p>
-                
-                <p className="font-semibold mt-4 mb-1">Step 2: Add the Token to Firebase</p>
-                <p className="text-xs text-muted-foreground mb-1">
-                    Go to the{' '}
-                    <a href={appCheckConsoleLink} target="_blank" rel="noopener noreferrer" className="underline">Firebase App Check console</a>,
-                    click the overflow menu (⋮) on your web app, and select "Manage debug tokens". Add the token you copied.
-                </p>
-
-                <Separator className="my-4" />
-
-                <p className="font-semibold mb-1">Step 3 (If it still fails): Enable Enforcement</p>
-                <p className="text-xs text-muted-foreground mb-3">
-                    If you have already added the debug token and still see this error, it means Firebase isn't yet requiring tokens for Authentication.
-                </p>
-                <p className="text-xs text-muted-foreground">
-                    In the same{' '}
-                    <a href={appCheckConsoleLink} target="_blank" rel="noopener noreferrer" className="underline">App Check console</a>,
-                    click on **Authentication** in the "Services" list and then click **Enforce**.
-                </p>
-            </AlertDescription>
-          </Alert>
-        );
-    }
-    
-    if (authError.code === 'auth/requests-from-referer-are-blocked') {
-      const domain =
-        typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
-      
-      console.log('--- DIAGNOSTIC INFORMATION ---');
-      console.log('Domain to authorize in Firebase:', domain);
-      console.log('------------------------------');
-      
-      const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
-
-      return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Authorize Your Cloud Domain</AlertTitle>
-          <AlertDescription>
-            <p className="mb-3">
-             This is a final security step. You must tell Firebase it&apos;s okay to
-              accept logins from this cloud address.
-            </p>
-            <p className="font-semibold mb-1">1. Copy this exact domain:</p>
-            <div className="relative font-mono text-xs bg-slate-800 text-white rounded-md p-2 my-2 pr-10 break-all">
-              {domain}
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon"
-                className="absolute top-1/2 right-1 -translate-y-1/2 h-8 w-8 text-white hover:bg-slate-700"
-                onClick={() => handleCopy(domain)}
-              >
-                {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
-              </Button>
-            </div>
-             <p className="font-semibold mt-4 mb-1">2. Click this link and paste the domain:</p>
-             <Button asChild variant="link" className="p-0 h-auto">
-                 <a
-                    href={consoleLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                   Go to Firebase Authentication Settings
-                  </a>
-             </Button>
-             <p className="text-xs text-muted-foreground mt-2">On the Firebase page that opens, click the "Add domain" button and paste what you just copied.</p>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (authError.code === 'auth/operation-not-allowed') {
-      const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/sign-in-method`;
-         return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Enable Sign-in Provider</AlertTitle>
-          <AlertDescription>
-             <p className="mb-2">The Email/Password sign-in method is currently disabled for this project.</p>
-            <p>
-              Please go to the{' '}
-              <a
-                href={consoleLink}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="underline font-semibold"
-              >
-                Firebase Authentication Console
-              </a>
-              , select the "Sign-in method" tab, and enable the **Email/Password** provider.
-            </p>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
     return (
       <Alert variant="destructive">
-         <Terminal className="h-4 w-4" />
+        <Terminal className="h-4 w-4" />
         <AlertTitle>Sign Up Failed</AlertTitle>
         <AlertDescription>{authError.message}</AlertDescription>
       </Alert>
@@ -273,7 +149,7 @@ export default function SignUpPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
-               {authError && renderAuthError()}
+              {authError && renderAuthError()}
               <FormField
                 control={form.control}
                 name="name"
