@@ -2,11 +2,11 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // WARNING: These rules are insecure and are for development purposes only.
-    // They allow public read and write access to your entire database.
-    // We will implement proper security rules later.
+    // Development rule: Allow any authenticated user full access.
+    // This ensures that as long as you are logged in, you can read and write.
+    // We will replace this with stricter, role-based rules for production.
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
