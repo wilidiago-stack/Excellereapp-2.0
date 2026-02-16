@@ -30,6 +30,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Copy, Check } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 const signUpSchema = z
   .object({
@@ -139,40 +140,40 @@ export default function SignUpPage() {
     const firebaseProjectId = 'studio-2845988015-3b127';
 
     if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
-        const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
+      const appCheckConsoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
   
         return (
           <Alert variant="destructive">
             <Terminal className="h-4 w-4" />
-            <AlertTitle>Action Required: Use App Check Debug Token</AlertTitle>
+            <AlertTitle>Action Required: App Check Configuration</AlertTitle>
             <AlertDescription>
-              <p className="mb-3">
-                To bypass reCAPTCHA issues during development, we'll use a special debug token.
-              </p>
-              <p className="font-semibold mb-1">1. Open your browser's developer console.</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                (Usually by pressing F12 or Ctrl+Shift+I)
-              </p>
-              
-              <p className="font-semibold mt-4 mb-1">2. Find and copy the debug token.</p>
-              <p className="text-xs text-muted-foreground mb-3">
-                Look for a message like: `Firebase App Check debug token: [some-long-string-of-characters]`. Copy the token.
-              </p>
-    
-               <p className="font-semibold mt-4 mb-1">3. Add the token to Firebase:</p>
-               <Button asChild variant="link" className="p-0 h-auto">
-                   <a
-                      href={consoleLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                     Go to Firebase App Check Settings
-                    </a>
-               </Button>
-               <p className="text-xs text-muted-foreground mt-2">
-                In the Firebase console for your app, click the overflow menu (⋮) and select "Manage debug tokens". Click "Add debug token" and paste the token you copied.
-               </p>
-               <p className="font-semibold mt-4 mb-1">4. Reload the page and try again.</p>
+                <p className="mb-3">
+                    Your app's security (App Check) is almost set up. Please follow these steps carefully.
+                </p>
+
+                <p className="font-semibold mb-1">Step 1: Get the Debug Token</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                    Open your browser's developer console (F12 or Ctrl+Shift+I). Look for a message like `Firebase App Check debug token: ...` and copy the long string of characters.
+                </p>
+                
+                <p className="font-semibold mt-4 mb-1">Step 2: Add the Token to Firebase</p>
+                <p className="text-xs text-muted-foreground mb-1">
+                    Go to the{' '}
+                    <a href={appCheckConsoleLink} target="_blank" rel="noopener noreferrer" className="underline">Firebase App Check console</a>,
+                    click the overflow menu (⋮) on your web app, and select "Manage debug tokens". Add the token you copied.
+                </p>
+
+                <Separator className="my-4" />
+
+                <p className="font-semibold mb-1">Step 3 (If it still fails): Enable Enforcement</p>
+                <p className="text-xs text-muted-foreground mb-3">
+                    If you have already added the debug token and still see this error, it means Firebase isn't yet requiring tokens for Authentication.
+                </p>
+                <p className="text-xs text-muted-foreground">
+                    In the same{' '}
+                    <a href={appCheckConsoleLink} target="_blank" rel="noopener noreferrer" className="underline">App Check console</a>,
+                    click on **Authentication** in the "Services" list and then click **Enforce**.
+                </p>
             </AlertDescription>
           </Alert>
         );
