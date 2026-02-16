@@ -10,8 +10,8 @@ service cloud.firestore {
     }
     
     match /users/{userId} {
-      allow create: if request.auth.uid == userId 
-                      && !('role' in request.resource.data);
+      allow create: if (request.auth.uid == userId && !('role' in request.resource.data)) 
+                      || isOneOfRoles({'admin': true});
 
       allow get: if request.auth.uid == userId || isOneOfRoles({'admin': true});
 
@@ -21,7 +21,7 @@ service cloud.firestore {
       allow delete: if isOneOfRoles({'admin': true});
     }
 
-    match /users {
+    match /users/{path=**} {
       allow list: if isOneOfRoles({'admin': true});
     }
 
@@ -32,35 +32,23 @@ service cloud.firestore {
 
     // Rules for data collections
     match /projects/{projectId} {
-      allow get: if request.auth != null;
+      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
       allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
-    }
-    match /projects {
-      allow list: if isOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     match /contractors/{contractorId} {
-      allow get: if request.auth != null;
+      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
       allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
-    }
-     match /contractors {
-      allow list: if isOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     match /dailyReports/{reportId} {
-      allow get: if request.auth != null;
+      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
       allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
-    }
-    match /dailyReports {
-      allow list: if isOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     match /monthlyReports/{reportId} {
-      allow get: if request.auth != null;
+      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
       allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
-    }
-    match /monthlyReports {
-      allow list: if isOneOfRoles({'admin': true, 'project_manager': true});
     }
   }
 }
