@@ -24,7 +24,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
-import { runTransaction, doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
+import { runTransaction, doc, getDoc, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -167,12 +167,13 @@ export default function SignUpPage() {
       return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Authorize Domain</AlertTitle>
+          <AlertTitle>Action Required: Authorize Your Cloud Domain</AlertTitle>
           <AlertDescription>
-            <p className="mb-2">
-              To fix this, you must add the following domain to your Firebase
-              project's list of authorized domains.
+            <p className="mb-3">
+             This is a final security step. You must tell Firebase it&apos;s okay to
+              accept logins from this cloud address.
             </p>
+            <p className="font-semibold mb-1">1. Copy this exact domain:</p>
             <div className="relative font-mono text-xs bg-slate-800 text-white rounded-md p-2 my-2 pr-10 break-all">
               {domain}
               <Button
@@ -185,9 +186,7 @@ export default function SignUpPage() {
                 {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
               </Button>
             </div>
-            <p>
-              Click the link below, then click "Add domain" and paste the copied text.
-            </p>
+             <p className="font-semibold mt-4 mb-1">2. Click this link and paste the domain:</p>
              <Button asChild variant="link" className="p-0 h-auto">
                  <a
                     href={consoleLink}
@@ -197,6 +196,7 @@ export default function SignUpPage() {
                    Go to Firebase Authentication Settings
                   </a>
              </Button>
+             <p className="text-xs text-muted-foreground mt-2">On the Firebase page that opens, click the "Add domain" button and paste what you just copied.</p>
           </AlertDescription>
         </Alert>
       );
