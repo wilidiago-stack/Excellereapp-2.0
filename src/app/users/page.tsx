@@ -48,7 +48,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle, ShieldAlert } from 'lucide-react';
-import { useFirestore, useCollection, useUserClaims } from '@/firebase';
+import { useFirestore, useCollection, useAuth } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -61,7 +61,6 @@ import {
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
-import { Skeleton } from '@/components/ui/skeleton';
 
 const userSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -75,14 +74,14 @@ const userSchema = z.object({
 
 type UserFormValues = z.infer<typeof userSchema>;
 
-function UsersPageContent({ isAdmin }: { isAdmin: boolean }) {
+function UsersPageContent() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
   
   const usersCollection = useMemo(
-    () => (isAdmin && firestore ? collection(firestore, 'users') : null),
-    [isAdmin, firestore]
+    () => (firestore ? collection(firestore, 'users') : null),
+    [firestore]
   );
   const { data: users, loading: usersLoading } = useCollection(usersCollection);
 
@@ -104,7 +103,7 @@ function UsersPageContent({ isAdmin }: { isAdmin: boolean }) {
       toast({
         variant: 'destructive',
         title: 'Error',
-        description: 'You must be an admin to create a user.',
+        description: 'Firestore is not available.',
       });
       return;
     }
@@ -156,7 +155,7 @@ function UsersPageContent({ isAdmin }: { isAdmin: boolean }) {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button disabled={!isAdmin}>
+            <Button>
               <PlusCircle className="mr-2 h-4 w-4" />
               Create User
             </Button>
@@ -391,23 +390,9 @@ function UsersPageContent({ isAdmin }: { isAdmin: boolean }) {
 
 
 export default function UsersPage() {
-  const { claims, loading: claimsLoading } = useUserClaims();
+  const { isAdmin } = useAuth();
 
-  if (claimsLoading) {
-    return (
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-8 w-32" />
-          <Skeleton className="h-4 w-64" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-40 w-full" />
-        </CardContent>
-      </Card>
-    );
-  }
-
-  if (claims?.role !== 'admin') {
+  if (!isAdmin) {
     return (
       <Card className="flex flex-col items-center justify-center p-8 text-center">
         <CardHeader>
@@ -428,5 +413,5 @@ export default function UsersPage() {
     );
   }
 
-  return <UsersPageContent isAdmin={true} />;
+  return <UsersPageContent />;
 }

@@ -1,14 +1,28 @@
 'use client';
-import { createContext, useContext, ReactNode, useMemo } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import type { FirebaseApp } from 'firebase/app';
-import type { Auth } from 'firebase/auth';
+import type { Auth, User, IdTokenResult } from 'firebase/auth';
+import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
 import type { Firestore } from 'firebase/firestore';
+import { usePathname, useRouter } from 'next/navigation';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
+function FullScreenLoader() {
+  return (
+    <div className="flex h-screen w-screen items-center justify-center">
+      <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+    </div>
+  );
+}
+
 interface FirebaseContextType {
-  firebaseApp: FirebaseApp | null;
-  auth: Auth | null;
-  firestore: Firestore | null;
+  firebaseApp: FirebaseApp;
+  auth: Auth;
+  firestore: Firestore;
+  user: User | null;
+  claims: IdTokenResult['claims'] | null;
+  authLoading: boolean;
+  isAdmin: boolean;
 }
 
 const FirebaseContext = createContext<FirebaseContextType | undefined>(undefined);
@@ -23,7 +37,77 @@ interface FirebaseProviderProps {
 }
 
 export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
-  const memoizedValue = useMemo(() => value, [value]);
+  const { auth, firestore, firebaseApp } = value;
+  const [user, setUser] = useState<User | null>(null);
+  const [claims, setClaims] = useState<IdTokenResult['claims'] | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  
+  const router = useRouter();
+  const pathname = usePathname();
+
+  useEffect(() => {
+    if (!auth) {
+      setAuthLoading(false);
+      return;
+    }
+
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setAuthLoading(true);
+      if (user) {
+        try {
+          const idTokenResult = await getIdTokenResult(user, true); // Force refresh for claims
+          setUser(user);
+          setClaims(idTokenResult.claims);
+        } catch (error) {
+          console.error("Error fetching user claims in provider:", error);
+          setUser(user);
+          setClaims(null);
+        }
+      } else {
+        setUser(null);
+        setClaims(null);
+      }
+      setAuthLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, [auth]);
+  
+  const publicPaths = ['/login', '/sign-up'];
+  const isPublicPath = publicPaths.some((p) => pathname.startsWith(p));
+  
+  useEffect(() => {
+    if (authLoading) return; // Don't do anything while loading
+
+    if (!user && !isPublicPath) {
+      router.push('/login');
+    }
+
+    if (user && isPublicPath) {
+      router.push('/');
+    }
+
+  }, [user, authLoading, isPublicPath, router, pathname]);
+  
+  const memoizedValue = useMemo(() => ({
+    firebaseApp,
+    auth,
+    firestore,
+    user,
+    claims,
+    authLoading,
+    isAdmin: claims?.role === 'admin'
+  }), [firebaseApp, auth, firestore, user, claims, authLoading]);
+
+  // Render a loader while auth state is resolving or redirects are happening
+  if (authLoading || (!user && !isPublicPath) || (user && isPublicPath)) {
+    return <FullScreenLoader />;
+  }
+  
+  if(isPublicPath && !user){
+    return <FirebaseContext.Provider value={memoizedValue}>{children}</FirebaseContext.Provider>;
+  }
+
   return (
     <FirebaseContext.Provider value={memoizedValue}>
       {children}
@@ -40,6 +124,13 @@ export const useFirebase = () => {
   return context;
 };
 
-export const useFirebaseApp = () => useFirebase()?.firebaseApp;
-export const useAuth = () => useFirebase()?.auth;
-export const useFirestore = () => useFirebase()?.firestore;
+// Main hook for accessing auth state
+export const useAuth = () => {
+  const { user, claims, authLoading, isAdmin } = useFirebase();
+  return { user, claims, loading: authLoading, isAdmin };
+}
+
+// Hooks for accessing specific firebase instances
+export const useFirebaseApp = () => useFirebase().firebaseApp;
+export const useAuthInstance = () => useFirebase().auth;
+export const useFirestore = () => useFirebase().firestore;

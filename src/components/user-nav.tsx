@@ -14,7 +14,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -23,31 +22,31 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { LogOut, User, Settings, Mail, ShieldCheck } from 'lucide-react';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useAuthInstance } from '@/firebase';
 import { signOut, getIdTokenResult } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import { Skeleton } from './ui/skeleton';
 import Link from 'next/link';
 
 export function UserNav() {
-  const { user, loading } = useUser();
-  const auth = useAuth();
+  const { user, claims, authLoading } = useAuth();
+  const auth = useAuthInstance();
   const router = useRouter();
   const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
-  const [claims, setClaims] = useState<any>(null);
+  const [visibleClaims, setVisibleClaims] = useState<any>(null);
 
   const handleLogout = () => {
     if (auth) {
       signOut(auth).then(() => {
-        router.push('/login');
+        // The FirebaseProvider will handle the redirect automatically.
       });
     }
   };
 
   const handleViewToken = async () => {
     if (user) {
-      const tokenResult = await getIdTokenResult(user);
-      setClaims(tokenResult.claims);
+      // The claims from the useAuth hook are already up-to-date
+      setVisibleClaims(claims);
       setIsTokenDialogOpen(true);
     }
   };
@@ -55,11 +54,11 @@ export function UserNav() {
   const handleForceRefresh = async () => {
     if (user) {
       const tokenResult = await getIdTokenResult(user, true); // Force refresh
-      setClaims(tokenResult.claims);
+      setVisibleClaims(tokenResult.claims);
     }
   };
 
-  if (loading) {
+  if (authLoading) {
     return <Skeleton className="h-9 w-9 rounded-full" />;
   }
 
@@ -134,7 +133,7 @@ export function UserNav() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="mt-2 w-full rounded-md bg-slate-950 p-4">
-            <pre><code className="text-white text-xs">{JSON.stringify(claims, null, 2)}</code></pre>
+            <pre><code className="text-white text-xs">{JSON.stringify(visibleClaims, null, 2)}</code></pre>
           </div>
           <AlertDialogFooter>
              <Button variant="secondary" onClick={handleForceRefresh}>

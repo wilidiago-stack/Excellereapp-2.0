@@ -13,7 +13,7 @@ import {
   MoreHorizontal,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useUser, useCollection } from '@/firebase';
+import { useAuth, useCollection } from '@/firebase';
 import { useFirestore } from '@/firebase/provider';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -148,7 +148,7 @@ const categories = [
 
 export default function DailyReportPage() {
   const [open, setOpen] = useState(false);
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: userLoading } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
 

@@ -47,7 +47,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useAuth } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -72,7 +72,7 @@ type MonthlyReportFormValues = z.infer<typeof monthlyReportSchema>;
 
 export default function MonthlyReportPage() {
   const [open, setOpen] = useState(false);
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: userLoading } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
 

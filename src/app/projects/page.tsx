@@ -46,7 +46,7 @@ import {
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { PlusCircle, Trash2, CalendarIcon, MoreHorizontal } from 'lucide-react';
-import { useFirestore, useCollection, useUser } from '@/firebase';
+import { useFirestore, useCollection, useAuth } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -100,7 +100,7 @@ export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user, loading: authLoading } = useUser();
+  const { user, loading: authLoading } = useAuth();
 
   const projectsCollection = useMemo(
     () => (firestore && user ? collection(firestore, 'projects') : null),
