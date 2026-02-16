@@ -3,52 +3,64 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOneOfRoles(roles) {
-      // The 'in' operator on a list checks for an index, not a value.
-      // By using a map, 'in' correctly checks for key existence.
-      return request.auth.token.role in roles;
+    // Helper function to get the role from the user's document in Firestore.
+    // This reads the user's own document to find their role.
+    function getRequestingUserRole() {
+      // Ensure the user is authenticated before trying to read their document.
+      if (request.auth != null) {
+        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+      }
+      return 'none'; // Return a non-existent role if not authenticated.
     }
-    
+
     match /users/{userId} {
-      allow create: if (request.auth.uid == userId && !('role' in request.resource.data)) 
-                      || isOneOfRoles({'admin': true});
+      // Allow user creation during sign-up (client sets profile data, but not role).
+      // Or allow an admin to create a new user.
+      allow create: if (request.auth.uid == userId && !('role' in request.resource.data))
+                      || getRequestingUserRole() == 'admin';
 
-      allow get: if request.auth.uid == userId || isOneOfRoles({'admin': true});
+      // Allow a user to get their own document, or an admin to get any user document.
+      allow get: if request.auth.uid == userId || getRequestingUserRole() == 'admin';
 
+      // Allow a user to update their own document (but not change their role),
+      // or an admin to update any user document.
       allow update: if (request.auth.uid == userId && (!('role' in request.resource.data) || request.resource.data.role == resource.data.role))
-                      || isOneOfRoles({'admin': true});
-      
-      allow delete: if isOneOfRoles({'admin': true});
-    }
+                      || getRequestingUserRole() == 'admin';
 
-    match /users/{path=**} {
-      allow list: if isOneOfRoles({'admin': true});
+      // Only admins can delete users.
+      allow delete: if getRequestingUserRole() == 'admin';
+      
+      // Only admins can list users.
+      allow list: if getRequestingUserRole() == 'admin';
     }
 
     match /system/{docId} {
-        allow get: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+        // Any user with a valid role can read system data.
+        // We check for existence of the role field on their user document.
+        allow get: if exists(/databases/$(database)/documents/users/$(request.auth.uid))
+                    && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'project_manager', 'viewer'];
         allow list, write: if false;
     }
 
     // Rules for data collections
     match /projects/{projectId} {
-      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if getRequestingUserRole() in ['admin', 'project_manager', 'viewer'];
+      allow write: if getRequestingUserRole() in ['admin', 'project_manager'];
     }
 
     match /contractors/{contractorId} {
-      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if getRequestingUserRole() in ['admin', 'project_manager', 'viewer'];
+      allow write: if getRequestingUserRole() in ['admin', 'project_manager'];
     }
 
     match /dailyReports/{reportId} {
-      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if getRequestingUserRole() in ['admin', 'project_manager', 'viewer'];
+      allow write: if getRequestingUserRole() in ['admin', 'project_manager'];
     }
 
     match /monthlyReports/{reportId} {
-      allow get, list: if isOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if isOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if getRequestingUserRole() in ['admin', 'project_manager', 'viewer'];
+      allow write: if getRequestingUserRole() in ['admin', 'project_manager'];
     }
   }
 }
