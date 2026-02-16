@@ -20,4 +20,4 @@
  * If you do not replace this placeholder, App Check will fail, and your users
  * will not be able to sign up or log in.
  */
-export const RECAPTCHA_V3_SITE_KEY = 'REPLACE_WITH_YOUR_RECAPTCHA_V3_SITE_KEY';
+export const RECAPTCHA_V3_SITE_KEY = 'BEF21844-03FE-409E-AEF8-9A507BF43B4E';
