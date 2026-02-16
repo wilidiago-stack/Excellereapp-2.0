@@ -74,13 +74,6 @@ const contractorSchema = z.object({
 
 type ContractorFormValues = z.infer<typeof contractorSchema>;
 
-// This should eventually come from your projects data
-const projects = [
-  { id: 'adm-dsm-pfas-replacement', label: 'ADM DSM - PFAS Replacement' },
-  { id: 'project-alpha', label: 'Project Alpha' },
-  { id: 'project-beta', label: 'Project Beta' },
-];
-
 export default function ContractorsPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
@@ -93,7 +86,20 @@ export default function ContractorsPage() {
   );
   const { data: contractors, loading: contractorsLoading } =
     useCollection(contractorsCollection);
-  const loading = userLoading || contractorsLoading;
+
+  const projectsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
+  const { data: projectsData, loading: projectsLoading } =
+    useCollection(projectsCollection);
+
+  const loading = userLoading || contractorsLoading || projectsLoading;
+
+  const projects = useMemo(
+    () => projectsData?.map((p: any) => ({ id: p.id, label: p.name })) || [],
+    [projectsData]
+  );
 
   const form = useForm<ContractorFormValues>({
     resolver: zodResolver(contractorSchema),

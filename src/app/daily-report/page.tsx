@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import { useForm, useFieldArray, Controller } from 'react-hook-form';
+import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format } from 'date-fns';
@@ -47,7 +47,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -69,7 +68,6 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
@@ -136,25 +134,7 @@ const dailyReportSchema = z.object({
 
 type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 
-// Mock data for selects
-const projects = [
-  { id: 'adm-dsm-pfas-replacement', label: 'ADM DSM - PFAS Replacement' },
-  { id: 'adm-biogas-upgrade', label: 'ADM - Biogas Upgrade' },
-  { id: 'project-alpha', label: 'Project Alpha' },
-];
-const contractors = [
-  { id: 'contractor-a', label: 'Contractor A' },
-  { id: 'contractor-b', label: 'Contractor B' },
-];
-const locations = [{ id: 'location-1', label: 'Area 1' }];
-const permitTypes = [
-  { id: 'SP', label: 'SP' },
-  { id: 'HW', label: 'HW' },
-  { id: 'WH', label: 'WH' },
-  { id: 'CS', label: 'CS' },
-  { id: 'CW', label: 'CW' },
-  { id: 'EX', label: 'EX' },
-];
+// Static data for selects that are not dependent on other collections
 const eventTypes = [
   { id: 'near-miss', label: 'Near Miss' },
   { id: 'incident', label: 'Incident' },
@@ -180,11 +160,18 @@ export default function DailyReportPage() {
     useCollection(dailyReportsCollection);
 
   const projectsCollection = useMemo(
-    () => (firestore && user ? collection(firestore, 'projects') : null),
-    [firestore, user]
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
   );
   const { data: projectsData, loading: projectsLoading } =
     useCollection(projectsCollection);
+
+  const contractorsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'contractors') : null),
+    [firestore]
+  );
+  const { data: contractorsData, loading: contractorsLoading } =
+    useCollection(contractorsCollection);
 
   const projectMap = useMemo(() => {
     if (!projectsData) return {};
@@ -194,7 +181,18 @@ export default function DailyReportPage() {
     }, {});
   }, [projectsData]);
 
-  const loading = userLoading || reportsLoading || projectsLoading;
+  const projects = useMemo(
+    () => projectsData?.map((p: any) => ({ id: p.id, label: p.name })) || [],
+    [projectsData]
+  );
+
+  const contractors = useMemo(
+    () => contractorsData?.map((c: any) => ({ id: c.id, label: c.name })) || [],
+    [contractorsData]
+  );
+
+  const loading =
+    userLoading || reportsLoading || projectsLoading || contractorsLoading;
 
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
@@ -239,6 +237,27 @@ export default function DailyReportPage() {
     append: appendNote,
     remove: removeNote,
   } = useFieldArray({ control: form.control, name: 'notes' });
+
+  const selectedProjectId = form.watch('projectId');
+  const selectedProject = useMemo(() => {
+    if (!selectedProjectId || !projectsData) return null;
+    return projectsData.find((p: any) => p.id === selectedProjectId);
+  }, [selectedProjectId, projectsData]);
+
+  const locations = useMemo(() => {
+    return (
+      selectedProject?.workAreas?.map((wa: string) => ({ id: wa, label: wa })) || []
+    );
+  }, [selectedProject]);
+
+  const permitTypes = useMemo(() => {
+    return (
+      selectedProject?.workPermits?.map((wp: { code: string; name: string }) => ({
+        id: wp.code,
+        label: `${wp.name} (${wp.code})`,
+      })) || []
+    );
+  }, [selectedProject]);
 
   const manHoursWatch = form.watch('manHours');
   const totalGeneralManHours = manHoursWatch?.reduce(
@@ -920,11 +939,20 @@ export default function DailyReportPage() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        {locations.map((l) => (
-                                          <SelectItem key={l.id} value={l.id}>
-                                            {l.label}
+                                        {locations.length > 0 ? (
+                                          locations.map((l) => (
+                                            <SelectItem
+                                              key={l.id}
+                                              value={l.id}
+                                            >
+                                              {l.label}
+                                            </SelectItem>
+                                          ))
+                                        ) : (
+                                          <SelectItem value="loading" disabled>
+                                            Select project first
                                           </SelectItem>
-                                        ))}
+                                        )}
                                       </SelectContent>
                                     </Select>
                                   )}
@@ -936,45 +964,53 @@ export default function DailyReportPage() {
                                   name={`dailyActivities.${index}.permits`}
                                   render={() => (
                                     <div className="flex flex-wrap gap-2">
-                                      {permitTypes.map((permit) => (
-                                        <FormField
-                                          key={permit.id}
-                                          control={form.control}
-                                          name={`dailyActivities.${index}.permits`}
-                                          render={({ field }) => (
-                                            <FormItem
-                                              key={permit.id}
-                                              className="flex flex-row items-start space-x-2 space-y-0"
-                                            >
-                                              <FormControl>
-                                                <Checkbox
-                                                  checked={field.value?.includes(
-                                                    permit.id
-                                                  )}
-                                                  onCheckedChange={(
-                                                    checked
-                                                  ) => {
-                                                    return checked
-                                                      ? field.onChange([
-                                                          ...(field.value || []),
-                                                          permit.id,
-                                                        ])
-                                                      : field.onChange(
-                                                          field.value?.filter(
-                                                            (value) =>
-                                                              value !== permit.id
-                                                          )
-                                                        );
-                                                  }}
-                                                />
-                                              </FormControl>
-                                              <FormLabel className="text-sm font-normal">
-                                                {permit.label}
-                                              </FormLabel>
-                                            </FormItem>
-                                          )}
-                                        />
-                                      ))}
+                                      {permitTypes.length > 0 ? (
+                                        permitTypes.map((permit) => (
+                                          <FormField
+                                            key={permit.id}
+                                            control={form.control}
+                                            name={`dailyActivities.${index}.permits`}
+                                            render={({ field }) => (
+                                              <FormItem
+                                                key={permit.id}
+                                                className="flex flex-row items-start space-x-2 space-y-0"
+                                              >
+                                                <FormControl>
+                                                  <Checkbox
+                                                    checked={field.value?.includes(
+                                                      permit.id
+                                                    )}
+                                                    onCheckedChange={(
+                                                      checked
+                                                    ) => {
+                                                      return checked
+                                                        ? field.onChange([
+                                                            ...(field.value ||
+                                                              []),
+                                                            permit.id,
+                                                          ])
+                                                        : field.onChange(
+                                                            field.value?.filter(
+                                                              (value) =>
+                                                                value !==
+                                                                permit.id
+                                                            )
+                                                          );
+                                                    }}
+                                                  />
+                                                </FormControl>
+                                                <FormLabel className="text-sm font-normal">
+                                                  {permit.label}
+                                                </FormLabel>
+                                              </FormItem>
+                                            )}
+                                          />
+                                        ))
+                                      ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                          Select a project to see permits.
+                                        </p>
+                                      )}
                                     </div>
                                   )}
                                 />
@@ -1059,7 +1095,9 @@ export default function DailyReportPage() {
                                         </SelectTrigger>
                                       </FormControl>
                                       <SelectContent>
-                                        <SelectItem value="open">Open</SelectItem>
+                                        <SelectItem value="open">
+                                          Open
+                                        </SelectItem>
                                         <SelectItem value="closed">
                                           Closed
                                         </SelectItem>
@@ -1069,7 +1107,11 @@ export default function DailyReportPage() {
                                 />
                               </TableCell>
                               <TableCell>
-                                <Button type="button" variant="outline" size="sm">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                >
                                   <Paperclip className="mr-2 h-4 w-4" /> Upload
                                 </Button>
                               </TableCell>

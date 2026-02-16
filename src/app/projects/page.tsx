@@ -96,21 +96,11 @@ const projectSchema = z.object({
 
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
-// Mock data (replace with real data from Firestore)
-const projectManagers = [
-  { id: 'pm-1', name: 'Alice Johnson' },
-  { id: 'pm-2', name: 'Bob Williams' },
-];
-const generalContractors = [
-  { id: 'gc-1', name: 'ConstructCo' },
-  { id: 'gc-2', name: 'BuildIt Wright' },
-];
-
 export default function ProjectsPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
-  const { user, loading: userLoading } = useUser();
+  const { user, loading: authLoading } = useUser();
 
   const projectsCollection = useMemo(
     () => (firestore && user ? collection(firestore, 'projects') : null),
@@ -118,7 +108,29 @@ export default function ProjectsPage() {
   );
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
-  const loading = userLoading || projectsLoading;
+
+  const usersCollection = useMemo(
+    () => (firestore ? collection(firestore, 'users') : null),
+    [firestore]
+  );
+  const { data: users, loading: usersLoading } = useCollection(usersCollection);
+
+  const contractorsCollection = useMemo(
+    () => (firestore ? collection(firestore, 'contractors') : null),
+    [firestore]
+  );
+  const { data: contractors, loading: contractorsLoading } =
+    useCollection(contractorsCollection);
+
+  const loading =
+    authLoading || projectsLoading || usersLoading || contractorsLoading;
+
+  const projectManagers = useMemo(
+    () => users?.filter((u: any) => u.role === 'project_manager') || [],
+    [users]
+  );
+
+  const generalContractors = useMemo(() => contractors || [], [contractors]);
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -245,7 +257,7 @@ export default function ProjectsPage() {
                         </FormItem>
                       )}
                     />
-                     <FormField
+                    <FormField
                       control={form.control}
                       name="status"
                       render={({ field }) => (
@@ -261,9 +273,15 @@ export default function ProjectsPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              <SelectItem value="Not Started">Not Started</SelectItem>
-                              <SelectItem value="In Progress">In Progress</SelectItem>
-                              <SelectItem value="Completed">Completed</SelectItem>
+                              <SelectItem value="Not Started">
+                                Not Started
+                              </SelectItem>
+                              <SelectItem value="In Progress">
+                                In Progress
+                              </SelectItem>
+                              <SelectItem value="Completed">
+                                Completed
+                              </SelectItem>
                               <SelectItem value="On Hold">On Hold</SelectItem>
                             </SelectContent>
                           </Select>
@@ -445,9 +463,9 @@ export default function ProjectsPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {projectManagers.map((pm) => (
+                              {projectManagers.map((pm: any) => (
                                 <SelectItem key={pm.id} value={pm.id}>
-                                  {pm.name}
+                                  {pm.firstName} {pm.lastName}
                                 </SelectItem>
                               ))}
                             </SelectContent>
@@ -472,7 +490,7 @@ export default function ProjectsPage() {
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {generalContractors.map((gc) => (
+                              {generalContractors.map((gc: any) => (
                                 <SelectItem key={gc.id} value={gc.id}>
                                   {gc.name}
                                 </SelectItem>
