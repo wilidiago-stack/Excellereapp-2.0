@@ -2,17 +2,18 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, type Auth } from 'firebase/auth';
 import { getFirestore, type Firestore } from 'firebase/firestore';
-import { initializeAppCheck } from 'firebase/app-check';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { firebaseConfig } from './config';
-
-let firebaseApp: FirebaseApp;
-let auth: Auth;
-let firestore: Firestore;
+import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
 // To prevent initialization on server components or multiple times
 let appCheckInitialized = false;
 
 function initializeFirebase() {
+  let firebaseApp: FirebaseApp;
+  let auth: Auth;
+  let firestore: Firestore;
+
   if (!getApps().length) {
     firebaseApp = initializeApp(firebaseConfig);
     auth = getAuth(firebaseApp);
@@ -29,8 +30,12 @@ function initializeFirebase() {
     // This will print a debug token to the console for development.
     (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
 
-    // Initialize App Check without a provider. This forces the use of the debug token.
-    initializeAppCheck(firebaseApp);
+    // Initialize App Check with the reCAPTCHA provider.
+    // The debug token will be used automatically if the flag above is set.
+    initializeAppCheck(firebaseApp, {
+      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+      isTokenAutoRefreshEnabled: true,
+    });
     appCheckInitialized = true;
   }
 
