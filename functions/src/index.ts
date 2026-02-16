@@ -21,7 +21,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const { uid, email } = event.data;
   logger.info(`New Auth user created, UID: ${uid}, Email: ${email}. Setting up role.`);
   
-  // The email of the designated admin user.
+  // The email of the designated admin user. This check is case-insensitive.
   const designatedAdminEmail = "Andres.diago@outlook.com";
 
   const userDocRef = db.doc(`users/${uid}`);
@@ -35,8 +35,8 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const isFirstUser = userCount === 0;
       let newRole = "viewer"; // Default to the most restrictive role.
 
-      // Grant 'admin' role if the email matches the designated admin OR if it's the first user ever.
-      if (email === designatedAdminEmail || isFirstUser) {
+      // Grant 'admin' role if the email matches the designated admin (case-insensitive) OR if it's the first user ever.
+      if (email?.toLowerCase() === designatedAdminEmail.toLowerCase() || isFirstUser) {
         newRole = "admin";
       }
 
