@@ -25,7 +25,11 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth, useFirestore } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import {
+  createUserWithEmailAndPassword,
+  updateProfile,
+  signOut,
+} from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -97,25 +101,37 @@ export default function SignUpPage() {
       const user = userCredential.user;
 
       // 2. Set user's display name in Auth. This will be available to the Cloud Function.
-      await updateProfile(user, { displayName: `${data.firstName} ${data.lastName}` });
+      await updateProfile(user, {
+        displayName: `${data.firstName} ${data.lastName}`,
+      });
 
       // 3. Create/merge user document in Firestore.
       // The client creates the doc with profile info. A Cloud Function will then
       // add the role and status, preventing race conditions.
       const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(userDocRef, {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        position: data.position,
-        company: data.company,
-        phoneNumber: data.phoneNumber || '',
-        // The `role` and `status` fields are now exclusively set by the Cloud Function.
-      }, { merge: true });
+      await setDoc(
+        userDocRef,
+        {
+          firstName: data.firstName,
+          lastName: data.lastName,
+          email: data.email,
+          position: data.position,
+          company: data.company,
+          phoneNumber: data.phoneNumber || '',
+          // The `role` and `status` fields are now exclusively set by the Cloud Function.
+        },
+        { merge: true }
+      );
+
+      // 4. Sign out the user immediately. This forces a clean login, ensuring
+      // that the custom claims (like the 'admin' role) set by the Cloud Function
+      // are present in the user's token when they log in.
+      await signOut(auth);
 
       toast({
         title: 'Account Created',
-        description: 'Your account has been created successfully. Please log in.',
+        description:
+          'Your account has been created successfully. Please log in.',
       });
       router.push('/login');
     } catch (error: any) {
@@ -124,7 +140,8 @@ export default function SignUpPage() {
       let description = error.message;
 
       if (error.code === 'auth/email-already-in-use') {
-        description = 'This email address is already in use by another account.';
+        description =
+          'This email address is already in use by another account.';
       }
 
       setAuthError({ code, message: description });
@@ -137,66 +154,87 @@ export default function SignUpPage() {
     if (!authError) return null;
 
     if (authError.code === 'auth/operation-not-allowed') {
-       return (
+      return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Enable Email/Password Provider</AlertTitle>
+          <AlertTitle>
+            Action Required: Enable Email/Password Provider
+          </AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-4 mt-2">
-                <p>
-                    This error means that you haven't enabled the "Email/Password" sign-in provider in your Firebase project.
-                </p>
-                <ol className="list-decimal list-inside space-y-2">
-                    <li>
-                        Go to the Authentication providers tab in your Firebase Console:
-                        <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
-                            <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`} target="_blank" rel="noopener noreferrer">
-                                Open Firebase Auth Settings
-                            </a>
-                        </Button>
-                    </li>
-                    <li>
-                        Click on **Email/Password** and enable it.
-                    </li>
-                </ol>
-                <p className="font-semibold">
-                    After enabling it, please try signing up again.
-                </p>
+              <p>
+                This error means that you haven't enabled the "Email/Password"
+                sign-in provider in your Firebase project.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to the Authentication providers tab in your Firebase
+                  Console:
+                  <Button
+                    variant="link"
+                    asChild
+                    className="p-1 h-auto -translate-x-1"
+                  >
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Firebase Auth Settings
+                    </a>
+                  </Button>
+                </li>
+                <li>Click on **Email/Password** and enable it.</li>
+              </ol>
+              <p className="font-semibold">
+                After enabling it, please try signing up again.
+              </p>
             </div>
           </AlertDescription>
         </Alert>
       );
     }
 
-    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
+    if (authError.code === 'auth/app-check-token-is-invalid') {
       return (
         <Alert variant="destructive">
           <Terminal className="h-4 w-4" />
           <AlertTitle>Action Required: Configure App Check</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-4 mt-2">
-                <p>
-                    Your app is enforcing App Check, but it's not configured correctly for local development. To fix this:
-                </p>
-                 <ol className="list-decimal list-inside space-y-2">
-                    <li>
-                        Go to the App Check section in your Firebase Console:
-                        <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
-                            <a href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/appcheck/apps`} target="_blank" rel="noopener noreferrer">
-                                Open Firebase App Check Settings
-                            </a>
-                        </Button>
-                    </li>
-                    <li>
-                        Find **Authentication** in the list of services and click the menu to select **Manage enforcement**.
-                    </li>
-                    <li>
-                        In the dialog that appears, set the toggle to **Unenforced** and click **Save**.
-                    </li>
-                </ol>
-                <p className="font-semibold">
-                    After saving, refresh this page and try signing up again.
-                </p>
+              <p>
+                Your app is enforcing App Check, but it's not configured
+                correctly for local development. To fix this:
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to the App Check section in your Firebase Console:
+                  <Button
+                    variant="link"
+                    asChild
+                    className="p-1 h-auto -translate-x-1"
+                  >
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/appcheck/apps`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Firebase App Check Settings
+                    </a>
+                  </Button>
+                </li>
+                <li>
+                  Find **Authentication** in the list of services and click the
+                  menu to select **Manage enforcement**.
+                </li>
+                <li>
+                  In the dialog that appears, set the toggle to **Unenforced** and
+                  click **Save**.
+                </li>
+              </ol>
+              <p className="font-semibold">
+                After saving, refresh this page and try signing up again.
+              </p>
             </div>
           </AlertDescription>
         </Alert>
@@ -224,7 +262,7 @@ export default function SignUpPage() {
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)}>
             <CardContent className="space-y-4">
-               {authError && renderAuthError()}
+              {authError && renderAuthError()}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
