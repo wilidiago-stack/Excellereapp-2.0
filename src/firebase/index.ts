@@ -29,8 +29,10 @@ function initializeFirebase() {
   // The sign-up page will now guide the user to disable it.
   /*
   if (typeof window !== 'undefined' && !appCheckInitialized) {
+    // Set the debug token provider.
     (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.NODE_ENV !== 'production';
 
+    // Initialize App Check
     initializeAppCheck(firebaseApp, {
       provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
       isTokenAutoRefreshEnabled: true,
