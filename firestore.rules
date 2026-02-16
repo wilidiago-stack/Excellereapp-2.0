@@ -7,11 +7,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Default-deny all access
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
     // /users collection
     match /users/{userId} {
       allow create: if (request.auth.uid == userId) || (isSignedIn() && request.auth.token.role == 'admin');
@@ -48,7 +43,7 @@ service cloud.firestore {
     // /system collection
     match /system/{docId} {
       allow get: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
-      allow write: if false;
+      allow write: if false; // No one can write to system from client
     }
   }
 }
