@@ -3,32 +3,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to make rules more readable and robust.
-
-    // Checks if a user is authenticated.
+    // Helper function to check if the user is authenticated.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Safely gets user data from Firestore. This is a key part of handling token latency.
-    // It allows rules to look up a user's role directly in their document.
-    function getUserData(userId) {
-      return get(/databases/$(database)/documents/users/$(userId)).data;
-    }
-
-    // Determines user's role, checking the token first, then falling back to a database read.
-    // This is the "dual-check" system to solve latency issues.
-    function getUserRole(userId) {
-      // Prefer the token as it's faster and doesn't require a read operation.
-      let tokenRole = request.auth.token.role;
-      // If the token doesn't have a role (e.g., during the first moments after sign-up),
-      // fall back to reading the role directly from the user's Firestore document.
-      return tokenRole != null ? tokenRole : getUserData(userId).role;
-    }
-
-    // Checks if the user's role is one of the roles provided in the list.
-    function isOneOfRoles(userId, allowedRoles) {
-      return getUserRole(userId) in allowedRoles;
+    // Helper function to check if the user's token has one of the allowed roles.
+    function hasOneOfRoles(allowedRoles) {
+      return isSignedIn() && request.auth.token.role in allowedRoles;
     }
 
     // Default-deny all access. Access must be explicitly granted.
@@ -38,69 +20,47 @@ service cloud.firestore {
 
     // Rules for /users collection
     match /users/{userId} {
-      // CREATE: Allow if a user is creating their own document (sign-up),
-      // or if an admin is creating a new user.
-      allow create: if (isSignedIn() && request.auth.uid == userId)
-                      || (isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']));
+      // CREATE: A user can create their own doc on signup. An admin can create any user doc.
+      allow create: if (request.auth.uid == userId) || hasOneOfRoles({'admin': true});
 
-      // READ: Allow a user to read their own profile, or an admin to read any profile.
-      allow get: if isSignedIn() && (request.auth.uid == userId || isOneOfRoles(request.auth.uid, ['admin']));
+      // READ: A user can get their own doc. An admin can get any doc. Admins can list all.
+      allow get: if request.auth.uid == userId || hasOneOfRoles({'admin': true});
+      allow list: if hasOneOfRoles({'admin': true});
+
+      // UPDATE: A user can update their own doc (but not their role). An admin can update any doc.
+      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || hasOneOfRoles({'admin': true});
       
-      // LIST: Only admins can list all users.
-      allow list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']);
-
-      // UPDATE: Allow a user to update their own profile (but not their role),
-      // or an admin to update any profile (including the role).
-      allow update: if isSignedIn() && 
-                      ( (request.auth.uid == userId && request.resource.data.role == resource.data.role)
-                        || isOneOfRoles(request.auth.uid, ['admin']) );
-
-      // DELETE: Only an admin can delete a user.
-      allow delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin']);
+      // DELETE: Only admins can delete users.
+      allow delete: if hasOneOfRoles({'admin':true});
     }
 
     // Rules for /projects collection
     match /projects/{projectId} {
-      // READ access for all authenticated roles.
-      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
-      
-      // WRITE access for admins and project managers.
-      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     // Rules for /contractors collection
     match /contractors/{contractorId} {
-      // READ access for all authenticated roles.
-      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
-      
-      // WRITE access for admins and project managers.
-      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     // Rules for /dailyReports collection
     match /dailyReports/{reportId} {
-      // READ access for all authenticated roles.
-      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
-      
-      // WRITE access for admins and project managers.
-      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
     }
     
     // Rules for /monthlyReports collection
     match /monthlyReports/{reportId} {
-       // READ access for all authenticated roles.
-      allow get, list: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
-      
-      // WRITE access for admins and project managers.
-      allow create, update, delete: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager']);
+       allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+       allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
     }
 
     // Rules for system-wide metadata
     match /system/{docId} {
-      // READ access for all authenticated roles.
-      allow get: if isSignedIn() && isOneOfRoles(request.auth.uid, ['admin', 'project_manager', 'viewer']);
-      
-      // WRITE is denied from the client. Should only be handled by Cloud Functions.
+      allow get: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
       allow write: if false;
     }
   }
