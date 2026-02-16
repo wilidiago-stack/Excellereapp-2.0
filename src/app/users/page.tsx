@@ -47,8 +47,8 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, ShieldAlert } from 'lucide-react';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
+import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { useFirestore, useCollection } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -74,7 +74,7 @@ const userSchema = z.object({
 
 type UserFormValues = z.infer<typeof userSchema>;
 
-function UsersPageContent() {
+export default function UsersPage() {
   const [open, setOpen] = useState(false);
   const firestore = useFirestore();
   const { toast } = useToast();
@@ -386,32 +386,4 @@ function UsersPageContent() {
       </CardContent>
     </Card>
   );
-}
-
-
-export default function UsersPage() {
-  const { isAdmin } = useAuth();
-
-  if (!isAdmin) {
-    return (
-      <Card className="flex flex-col items-center justify-center p-8 text-center">
-        <CardHeader>
-          <div className="mx-auto bg-destructive/10 p-3 rounded-full">
-            <ShieldAlert className="h-8 w-8 text-destructive" />
-          </div>
-          <CardTitle className="mt-4">Permission Denied</CardTitle>
-          <CardDescription>
-            You do not have the necessary permissions to view or manage users.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground">
-            This page is restricted to administrators only. If you believe this is an error, please contact your system administrator.
-          </p>
-        </CardContent>
-      </Card>
-    );
-  }
-
-  return <UsersPageContent />;
 }
