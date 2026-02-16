@@ -3,64 +3,51 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper function to check if the user is authenticated.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Helper function to check if the user's token has one of the allowed roles.
-    function hasOneOfRoles(allowedRoles) {
-      return isSignedIn() && request.auth.token.role in allowedRoles;
-    }
-
-    // Default-deny all access. Access must be explicitly granted.
+    // Default-deny all access
     match /{document=**} {
       allow read, write: if false;
     }
 
-    // Rules for /users collection
+    // /users collection
     match /users/{userId} {
-      // CREATE: A user can create their own doc on signup. An admin can create any user doc.
-      allow create: if (request.auth.uid == userId) || hasOneOfRoles({'admin': true});
-
-      // READ: A user can get their own doc. An admin can get any doc. Admins can list all.
-      allow get: if request.auth.uid == userId || hasOneOfRoles({'admin': true});
-      allow list: if hasOneOfRoles({'admin': true});
-
-      // UPDATE: A user can update their own doc (but not their role). An admin can update any doc.
-      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || hasOneOfRoles({'admin': true});
-      
-      // DELETE: Only admins can delete users.
-      allow delete: if hasOneOfRoles({'admin':true});
+      allow create: if (request.auth.uid == userId) || (isSignedIn() && request.auth.token.role == 'admin');
+      allow get: if request.auth.uid == userId || (isSignedIn() && request.auth.token.role == 'admin');
+      allow list: if isSignedIn() && request.auth.token.role == 'admin';
+      allow update: if (request.auth.uid == userId && request.resource.data.role == resource.data.role) || (isSignedIn() && request.auth.token.role == 'admin');
+      allow delete: if isSignedIn() && request.auth.token.role == 'admin';
     }
 
-    // Rules for /projects collection
+    // /projects collection
     match /projects/{projectId} {
-      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
     }
 
-    // Rules for /contractors collection
+    // /contractors collection
     match /contractors/{contractorId} {
-      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
     }
 
-    // Rules for /dailyReports collection
+    // /dailyReports collection
     match /dailyReports/{reportId} {
-      allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-      allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
+      allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
+      allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
     }
     
-    // Rules for /monthlyReports collection
+    // /monthlyReports collection
     match /monthlyReports/{reportId} {
-       allow read: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
-       allow write: if hasOneOfRoles({'admin': true, 'project_manager': true});
+       allow get, list: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
+       allow create, update, delete: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true};
     }
 
-    // Rules for system-wide metadata
+    // /system collection
     match /system/{docId} {
-      allow get: if hasOneOfRoles({'admin': true, 'project_manager': true, 'viewer': true});
+      allow get: if isSignedIn() && request.auth.token.role in {'admin': true, 'project_manager': true, 'viewer': true};
       allow write: if false;
     }
   }
