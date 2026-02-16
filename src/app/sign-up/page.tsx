@@ -141,6 +141,11 @@ export default function SignUpPage() {
     if (authError.code === 'auth/requests-from-referer-are-blocked') {
       const domain =
         typeof window !== 'undefined' ? window.location.hostname : 'your-domain.com';
+      
+      console.log('--- DIAGNOSTIC INFORMATION ---');
+      console.log('Domain to authorize in Firebase:', domain);
+      console.log('------------------------------');
+      
       const firebaseProjectId = 'studio-2845988015-3b127';
       const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/authentication/settings`;
 
