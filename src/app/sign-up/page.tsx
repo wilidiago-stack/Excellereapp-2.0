@@ -213,6 +213,41 @@ export default function SignUpPage() {
       );
     }
 
+    if (authError.code === 'auth/firebase-app-check-token-is-invalid') {
+        const firebaseProjectId = 'studio-2845988015-3b127';
+        const consoleLink = `https://console.firebase.google.com/project/${firebaseProjectId}/appcheck/apps`;
+  
+        return (
+          <Alert variant="destructive">
+            <Terminal className="h-4 w-4" />
+            <AlertTitle>Action Required: Configure App Check</AlertTitle>
+            <AlertDescription>
+              <p className="mb-3">
+                Your app is protected by App Check, but it's not configured correctly. You must provide a reCAPTCHA v3 site key.
+              </p>
+              <p className="font-semibold mb-1">1. Open this file in your editor:</p>
+              <div className="font-mono text-xs bg-slate-800 text-white rounded-md p-2 my-2 break-all">
+                src/firebase/app-check-config.ts
+              </div>
+               <p className="font-semibold mt-4 mb-1">2. Get your key from Firebase:</p>
+               <Button asChild variant="link" className="p-0 h-auto">
+                   <a
+                      href={consoleLink}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                     Go to Firebase App Check Settings
+                    </a>
+               </Button>
+               <p className="text-xs text-muted-foreground mt-2">
+                In the Firebase console, find your web app and get its reCAPTCHA v3 "Site Key".
+               </p>
+               <p className="font-semibold mt-4 mb-1">3. Replace the placeholder value in the file with your site key.</p>
+            </AlertDescription>
+          </Alert>
+        );
+    }
+
     return (
       <Alert variant="destructive">
          <Terminal className="h-4 w-4" />
