@@ -410,7 +410,9 @@
   },
   "auth": {
     "providers": [
-      "password"
+      "password",
+      "google.com",
+      "microsoft.com"
     ]
   },
   "firestore": {
@@ -452,3 +454,4 @@
     }
   }
 }
+    
