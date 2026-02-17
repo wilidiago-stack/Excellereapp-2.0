@@ -34,22 +34,26 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
       
       const nameParts = displayName?.split(' ') || [];
-      const firstName = nameParts[0] || '';
-      const lastName = nameParts.slice(1).join(' ') || '';
+      let firstName = nameParts[0] || '';
+      let lastName = nameParts.slice(1).join(' ') || '';
+
+      // Fallback logic to ensure name fields are never empty
+      if (!firstName && email) {
+        firstName = email.split('@')[0];
+        lastName = '(No Last Name)';
+      }
+      if (!firstName) {
+        firstName = 'New';
+        lastName = 'User';
+      }
 
       const userData: { [key: string]: any } = {
         role: newRole,
         status: 'active',
+        email: email || '',
+        firstName,
+        lastName,
       };
-
-      if (email) userData.email = email;
-      // Only set name if displayName exists. For email/pass sign up, the client provides a more detailed
-      // user document, and this function will simply merge the role and status.
-      // For social sign up, this creates the initial document with the name from the provider.
-      if (displayName) {
-        userData.firstName = firstName;
-        userData.lastName = lastName;
-      }
 
       transaction.set(userDocRef, userData, { merge: true });
 
