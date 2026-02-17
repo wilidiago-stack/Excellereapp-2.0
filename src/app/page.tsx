@@ -21,20 +21,20 @@ export default function Home() {
     () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
     [firestore, user]
   );
-  const { data: systemMetadata, loading: metadataLoading } = useDoc(metadataDoc);
+  const { data: systemMetadata, isLoading: metadataLoading } = useDoc(metadataDoc);
 
   const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user]
   );
-  const { data: projects, loading: projectsLoading } =
+  const { data: projects, isLoading: projectsLoading } =
     useCollection(projectsCollection);
 
   const contractorsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
     [firestore, user]
   );
-  const { data: contractors, loading: contractorsLoading } =
+  const { data: contractors, isLoading: contractorsLoading } =
     useCollection(contractorsCollection);
 
   const loading = metadataLoading || projectsLoading || contractorsLoading;

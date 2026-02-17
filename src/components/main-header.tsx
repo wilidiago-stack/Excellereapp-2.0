@@ -35,16 +35,18 @@ import {
 import { useAuth } from '@/firebase';
 
 export function MainHeader() {
-  const { claims } = useAuth();
-  const isAdmin = claims?.role === 'admin';
-  const isProjectManager = claims?.role === 'project_manager';
+  const { role } = useAuth();
+  
+  // El rol viene directamente de Firestore a través del hook useAuth
+  const isAdmin = role === 'admin';
+  const isProjectManager = role === 'project_manager';
   const isManager = isAdmin || isProjectManager;
 
   const menuItems = [
     { href: '/', label: 'Dashboard', icon: Home, show: true },
     { href: '/customers', label: 'Customers', icon: Building, show: true },
     { href: '/projects', label: 'Projects', icon: FolderKanban, show: isManager },
-    { href: '/users', label: 'Users', icon: Users, show: isManager },
+    { href: '/users', label: 'Users', icon: Users, show: isAdmin },
     { href: '/contractors', label: 'Contractors', icon: HardHat, show: isManager },
     { href: '/daily-report', label: 'Daily Report', icon: FileText, show: isManager },
     { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays, show: isManager },
@@ -79,7 +81,7 @@ export function MainHeader() {
             <span className="sr-only">Toggle menu</span>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent align="start" className="w-56 max-h-[80vh] overflow-y-auto">
           {menuItems.map((item) =>
             item.show ? (
               <DropdownMenuItem key={item.label} asChild>
