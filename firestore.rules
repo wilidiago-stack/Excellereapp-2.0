@@ -3,12 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - FIRESTORE SECURITY RULES
-     * 
-     * Implementa RBAC (Role-Based Access Control) con independencia de autorización.
+     * EXCELLERE REVIVE - REGLAS DE SEGURIDAD ROBUSTAS
      */
-
-    // --- Funciones de Ayuda ---
 
     function isSignedIn() {
       return request.auth != null;
@@ -19,16 +15,18 @@ service cloud.firestore {
     }
 
     /** 
-     * Verifica privilegios administrativos.
-     * Basado en la colección denormalizada para rendimiento óptimo.
+     * Verifica privilegios administrativos de forma híbrida:
+     * 1. Mediante el Token (rápido)
+     * 2. Mediante el Marcador en DB (independencia de autorización)
      */
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid));
+      return isSignedIn() && (
+        request.auth.token.role == 'admin' || 
+        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
+      );
     }
 
-    // --- Reglas de Colecciones ---
-
-    /** Datos del sistema - Estadísticas del Dashboard */
+    /** Metadatos del sistema (Estadísticas del Dashboard) */
     match /system/metadata {
       allow read: if isSignedIn();
       allow write: if isAdmin();
@@ -36,11 +34,10 @@ service cloud.firestore {
 
     /** Perfiles de Usuario */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin(); // Solo admins pueden ver la lista completa
-      
-      allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
-      allow update: if (isOwner(userId) || isAdmin());
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create: if isSignedIn();
+      allow update: if isOwner(userId) || isAdmin();
       allow delete: if isAdmin();
     }
 
@@ -67,21 +64,14 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /** Roles y Módulos (Datos de Referencia) */
-    match /roles/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /modules/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    /** Marcadores de Seguridad (Admin Lookup) */
+    /** Marcadores de Seguridad */
     match /system_roles_admin/{adminUid} {
-      allow get, list: if isSignedIn();
+      allow read: if isSignedIn();
       allow write: if isAdmin();
     }
+
+    /** Roles y Módulos */
+    match /roles/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /modules/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
   }
 }

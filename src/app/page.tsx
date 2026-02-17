@@ -9,29 +9,30 @@ import {
 } from '@/components/ui/card';
 import { Activity, FolderKanban, HardHat, Users } from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
-import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
+  const { user } = useAuth();
   const firestore = useFirestore();
 
   const metadataDoc = useMemoFirebase(
-    () => (firestore ? doc(firestore, 'system', 'metadata') : null),
-    [firestore]
+    () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
+    [firestore, user]
   );
   const { data: systemMetadata, loading: metadataLoading } = useDoc(metadataDoc);
 
   const projectsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'projects') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'projects') : null),
+    [firestore, user]
   );
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
 
   const contractorsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'contractors') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'contractors') : null),
+    [firestore, user]
   );
   const { data: contractors, loading: contractorsLoading } =
     useCollection(contractorsCollection);

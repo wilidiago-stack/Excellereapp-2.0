@@ -24,7 +24,6 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     const lastName = nameParts.slice(1).join(' ') || 'User';
 
     const userData = {
-      id: uid,
       firstName,
       lastName,
       email: email || '',
@@ -64,10 +63,10 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
   if (!newRole) return;
 
   try {
-    // 1. Actualizar Custom Claims (para acceso en UI y reglas .token.role)
+    // 1. Actualizar Custom Claims (para acceso rápido en .token.role)
     await admin.auth().setCustomUserClaims(userId, { role: newRole });
     
-    // 2. Sincronizar marcador de Admin (para independencia de autorización en reglas exists())
+    // 2. Sincronizar marcador de Admin (para independencia de autorización con exists())
     const adminMarkerRef = db.doc(`system_roles_admin/${userId}`);
     if (newRole === 'admin') {
       await adminMarkerRef.set({ 
@@ -84,6 +83,9 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
   }
 });
 
+/**
+ * Limpieza al borrar un usuario.
+ */
 export const cleanupUser = onAuthUserDelete(async (event) => {
   const { uid } = event.data;
   const userDocRef = db.doc(`users/${uid}`);
