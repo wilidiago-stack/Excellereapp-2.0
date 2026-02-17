@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - REGLAS DE SEGURIDAD ROBUSTAS
+     * EXCELLERE REVIVE - REGLAS DE SEGURIDAD ROBUSTAS (Firestore-First)
      */
 
     function isSignedIn() {
@@ -15,14 +15,13 @@ service cloud.firestore {
     }
 
     /** 
-     * Verifica privilegios administrativos de forma híbrida:
-     * 1. Mediante el Token (rápido)
-     * 2. Mediante el Marcador en DB (independencia de autorización)
+     * Verifica privilegios administrativos consultando directamente la colección de usuarios.
+     * Esto garantiza que el rol asignado en el módulo 'Users' sea la fuente de verdad.
      */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'admin' || 
-        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
       );
     }
 

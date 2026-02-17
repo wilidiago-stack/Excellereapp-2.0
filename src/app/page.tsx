@@ -19,20 +19,20 @@ export default function Home() {
 
   const metadataDoc = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
-    [firestore, user]
+    [firestore, user?.uid]
   );
   const { data: systemMetadata, isLoading: metadataLoading } = useDoc(metadataDoc);
 
   const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
-    [firestore, user]
+    [firestore, user?.uid]
   );
   const { data: projects, isLoading: projectsLoading } =
     useCollection(projectsCollection);
 
   const contractorsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
-    [firestore, user]
+    [firestore, user?.uid]
   );
   const { data: contractors, isLoading: contractorsLoading } =
     useCollection(contractorsCollection);
