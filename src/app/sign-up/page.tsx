@@ -205,6 +205,48 @@ export default function SignUpPage() {
   const renderAuthError = () => {
     if (!authError) return null;
 
+    if (authError.message.includes('AADSTS700016')) {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Microsoft Sign-In Configuration Error</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+              <p>
+                It looks like there's a configuration problem with Microsoft Sign-In. The error from Microsoft (AADSTS700016) means it doesn't recognize your app.
+              </p>
+              <p>
+                This usually happens when the <strong>Client ID</strong> and <strong>Client Secret</strong> for the Microsoft provider are incorrect in your Firebase project settings.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to the Authentication providers tab in your Firebase Console:
+                  <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Firebase Auth Settings
+                    </a>
+                  </Button>
+                </li>
+                <li>
+                  Find the <strong>Microsoft</strong> provider and click the pencil icon to edit it.
+                </li>
+                <li>
+                  Verify that the Client ID and Client secret match the values from your app registration in <strong>Azure Active Directory</strong>.
+                </li>
+              </ol>
+              <p className="font-semibold">
+                After correcting the configuration, please try signing in again.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
     if (authError.code === 'auth/operation-not-allowed') {
       return (
         <Alert variant="destructive">
