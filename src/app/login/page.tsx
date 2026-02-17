@@ -42,6 +42,9 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Terminal } from 'lucide-react';
+import { firebaseConfig } from '@/firebase/config';
 
 const loginSchema = z.object({
   email: z.string().email('Invalid email address'),
@@ -82,6 +85,10 @@ export default function LoginPage() {
   const [otp, setOtp] = useState('');
   const [confirmationResult, setConfirmationResult] =
     useState<ConfirmationResult | null>(null);
+  const [authError, setAuthError] = useState<{
+    code: string;
+    message: string;
+  } | null>(null);
 
   // This ref will hold the RecaptchaVerifier instance
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
@@ -98,6 +105,7 @@ export default function LoginPage() {
     if (!auth) return;
 
     setLoading(true);
+    setAuthError(null);
     try {
       await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
@@ -106,19 +114,18 @@ export default function LoginPage() {
       });
       router.push('/');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message || 'An unexpected error occurred.',
-      });
+      setAuthError({ code: error.code, message: error.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const handleProviderSignIn = async (provider: GoogleAuthProvider | OAuthProvider) => {
+  const handleProviderSignIn = async (
+    provider: GoogleAuthProvider | OAuthProvider
+  ) => {
     if (!auth) return;
     setLoading(true);
+    setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
       // On successful sign-in, the onAuthStateChanged listener in FirebaseProvider
@@ -130,11 +137,7 @@ export default function LoginPage() {
       });
       router.push('/');
     } catch (error: any) {
-      toast({
-        variant: 'destructive',
-        title: 'Login Failed',
-        description: error.message || 'An unexpected error occurred.',
-      });
+      setAuthError({ code: error.code, message: error.message });
     } finally {
       setLoading(false);
     }
@@ -222,6 +225,106 @@ export default function LoginPage() {
     }
   };
 
+  const renderAuthError = () => {
+    if (!authError) return null;
+
+    if (authError.code === 'auth/operation-not-allowed') {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Enable Sign-In Provider</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+              <p>
+                This error means that you haven't enabled this sign-in provider
+                (e.g., Google, Microsoft) in your Firebase project.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to the Authentication providers tab in your Firebase
+                  Console:
+                  <Button
+                    variant="link"
+                    asChild
+                    className="p-1 h-auto -translate-x-1"
+                  >
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Firebase Auth Settings
+                    </a>
+                  </Button>
+                </li>
+                <li>
+                  Find the provider you want to use (Google, Microsoft, etc.) and
+                  enable it.
+                </li>
+              </ol>
+              <p className="font-semibold">
+                After enabling it, please try signing in again.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (authError.code === 'auth/popup-closed-by-user') {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Login Canceled</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+              <p>
+                The sign-in window was closed before completing the process.
+              </p>
+              <p>
+                <strong>If you did not close the window yourself</strong>, this
+                might indicate a configuration issue. Please check the
+                following:
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Ensure your app's domain is added to the "Authorized
+                  domains" list in your Firebase project's authentication
+                  settings.
+                  <Button
+                    variant="link"
+                    asChild
+                    className="p-1 h-auto -translate-x-1"
+                  >
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Authorized Domains
+                    </a>
+                  </Button>
+                </li>
+                <li>
+                  Make sure the Google and/or Microsoft sign-in providers are
+                  correctly enabled with an OAuth client ID and secret.
+                </li>
+              </ol>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    return (
+      <Alert variant="destructive">
+        <Terminal className="h-4 w-4" />
+        <AlertTitle>Login Failed</AlertTitle>
+        <AlertDescription>{authError.message}</AlertDescription>
+      </Alert>
+    );
+  };
+
   return (
     <div className="flex items-center justify-center py-12">
       <Card className="w-full max-w-md">
@@ -231,33 +334,40 @@ export default function LoginPage() {
             <CardDescription>
               Choose your preferred sign-in method below.
             </CardDescription>
-            <div className="pt-4 space-y-4">
-               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
-                    <GoogleIcon className="mr-2 h-4 w-4" />
-                    Google
-                  </Button>
-                  <Button variant="outline" onClick={handleMicrosoftSignIn} disabled={loading}>
-                    <MicrosoftIcon className="mr-2 h-4 w-4" />
-                    Microsoft
-                  </Button>
-              </div>
-               <div className="relative">
-                  <div className="absolute inset-0 flex items-center">
-                      <span className="w-full border-t" />
-                  </div>
-                  <div className="relative flex justify-center text-xs uppercase">
-                      <span className="bg-card px-2 text-muted-foreground">
-                      Or
-                      </span>
-                  </div>
-              </div>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="email">Email</TabsTrigger>
-                <TabsTrigger value="phone">Phone</TabsTrigger>
-              </TabsList>
-            </div>
           </CardHeader>
+          <CardContent className="space-y-4">
+            {authError && renderAuthError()}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Button
+                variant="outline"
+                onClick={handleGoogleSignIn}
+                disabled={loading}
+              >
+                <GoogleIcon className="mr-2 h-4 w-4" />
+                Google
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleMicrosoftSignIn}
+                disabled={loading}
+              >
+                <MicrosoftIcon className="mr-2 h-4 w-4" />
+                Microsoft
+              </Button>
+            </div>
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">Or</span>
+              </div>
+            </div>
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="email">Email</TabsTrigger>
+              <TabsTrigger value="phone">Phone</TabsTrigger>
+            </TabsList>
+          </CardContent>
 
           <TabsContent value="email">
             <Form {...emailForm}>
@@ -332,7 +442,7 @@ export default function LoginPage() {
                   />
                 </div>
               )}
-               <div id="recaptcha-container"></div>
+              <div id="recaptcha-container"></div>
             </CardContent>
             <CardFooter className="flex flex-col gap-4">
               {step === 'enter-phone' ? (

@@ -1,3 +1,4 @@
+'use client';
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
 import * as admin from "firebase-admin";
@@ -31,7 +32,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
       const isFirstUser = userCount === 0;
-      const newRole = "admin";
+      const newRole = isFirstUser ? "admin" : "viewer";
 
       logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
       
@@ -111,5 +112,3 @@ export const cleanupUser = onAuthUserDelete(async (event) => {
     logger.error(`Error during user cleanup for ${uid}:`, error, "This may happen if the userCount document doesn't exist or the user doc was already deleted. It's usually safe to ignore in development if the user count is being decremented.");
   }
 });
-
-    
