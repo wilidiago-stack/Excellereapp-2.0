@@ -44,9 +44,6 @@ const signUpSchema = z
     firstName: z.string().min(1, 'First name is required'),
     lastName: z.string().min(1, 'Last name is required'),
     email: z.string().email('Invalid email address'),
-    position: z.string().min(1, 'Position is required'),
-    company: z.string().min(1, 'Company is required'),
-    phoneNumber: z.string().optional(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     confirmPassword: z.string(),
   })
@@ -95,9 +92,6 @@ export default function SignUpPage() {
       firstName: '',
       lastName: '',
       email: '',
-      position: '',
-      company: '',
-      phoneNumber: '',
       password: '',
       confirmPassword: '',
     },
@@ -456,49 +450,6 @@ export default function SignUpPage() {
                       <Input
                         type="email"
                         placeholder="john.doe@example.com"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="position"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Position / Title</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Project Manager" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="company"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Company</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g. Acme Inc." {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number (Optional)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="tel"
-                        placeholder="(123) 456-7890"
                         {...field}
                       />
                     </FormControl>
