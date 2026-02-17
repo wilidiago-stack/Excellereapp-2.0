@@ -13,20 +13,18 @@ setGlobalOptions({ maxInstances: 10 });
 
 /**
  * Triggered on new user creation in Firebase Authentication.
- * This function determines if the user is the first user ever created.
- * - If so, it assigns them the 'admin' role.
- * - Otherwise, it assigns them the 'viewer' role.
- * It also sets a custom claim and updates their Firestore document.
+ * This function assigns a role to the new user.
+ * - The very first user to sign up is also granted 'admin' role as a fallback.
+ * - All other users are assigned the 'viewer' role.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
-  const { uid, email, displayName } = event.data;
-  logger.info(`New Auth user created, UID: ${uid}. Setting up Firestore document and role.`);
+  const { uid, email } = event.data;
+  logger.info(`New Auth user created, UID: ${uid}, Email: ${email}. Setting up role.`);
 
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
   try {
-    // Determine the role and update Firestore within a single transaction.
     const role = await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
@@ -36,14 +34,15 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
       logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
 
-      // Firestore write operations
+      // Using set with merge is safe because it creates or merges fields without overwriting the whole document.
+      // The client is responsible for adding other profile details (firstName, lastName, etc.).
+      // This function just adds the role and status.
       transaction.set(userDocRef, { 
-        name: displayName || '',
-        email: email || '',
         role: newRole, 
         status: 'active' 
       }, { merge: true });
 
+      // Increment the total user count.
       const newUserCount = userCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, { userCount: newUserCount });
@@ -51,7 +50,6 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
         transaction.set(metadataRef, { userCount: newUserCount });
       }
       
-      // Return the determined role to be used outside the transaction
       return newRole;
     });
 

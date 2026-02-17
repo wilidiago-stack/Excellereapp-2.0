@@ -91,7 +91,7 @@ export function UserForm({ initialData }: UserFormProps) {
     const userData = { ...data, status: data.status || 'pending' };
 
     const operation = isEditMode
-      ? updateDoc(doc(firestore, 'users', initialData.id), userData)
+      ? updateDoc(doc(firestore, 'users', initialData!.id), userData)
       : addDoc(usersCollection, userData);
 
     operation
@@ -105,9 +105,9 @@ export function UserForm({ initialData }: UserFormProps) {
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({
-          path: isEditMode ? `users/${initialData.id}` : usersCollection.path,
+          path: isEditMode ? `users/${initialData!.id}` : usersCollection.path,
           operation: isEditMode ? 'update' : 'create',
-          requestResourceData: data,
+          requestResourceData: userData,
         });
         errorEmitter.emit('permission-error', permissionError);
       });
@@ -256,7 +256,7 @@ export function UserForm({ initialData }: UserFormProps) {
                 <FormLabel>Status</FormLabel>
                 <Select
                     onValueChange={field.onChange}
-                    value={field.value || ''}
+                    value={field.value}
                 >
                     <FormControl>
                     <SelectTrigger>
