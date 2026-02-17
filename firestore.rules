@@ -38,8 +38,11 @@ service cloud.firestore {
 
     // Rules for User profiles
     match /users/{userId} {
-      // Admins and Project Managers can read any user profile. Viewers can only read their own.
-      allow read: if isSignedIn() && (isAdmin() || isProjectManager() || isOwner(userId));
+      // Admins and Project Managers can get any user profile. Viewers can only read their own.
+      allow get: if isSignedIn() && (isAdmin() || isProjectManager() || isOwner(userId));
+
+      // Admins and Project Managers can list all users. Viewers cannot.
+      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
       
       // Admins can update any profile. Users can update their own (e.g., name, phone).
       allow update: if isSignedIn() && (isAdmin() || isOwner(userId));

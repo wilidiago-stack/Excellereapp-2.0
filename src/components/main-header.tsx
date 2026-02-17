@@ -32,27 +32,33 @@ import {
   Timer,
   CloudSun,
 } from 'lucide-react';
+import { useAuth } from '@/firebase';
 
 export function MainHeader() {
+  const { claims } = useAuth();
+  const isAdmin = claims?.role === 'admin';
+  const isProjectManager = claims?.role === 'project_manager';
+  const isManager = isAdmin || isProjectManager;
+
   const menuItems = [
-    { href: '/', label: 'Dashboard', icon: Home },
-    { href: '/customers', label: 'Customers', icon: Building },
-    { href: '/projects', label: 'Projects', icon: FolderKanban },
-    { href: '/users', label: 'Users', icon: Users },
-    { href: '/contractors', label: 'Contractors', icon: HardHat },
-    { href: '/daily-report', label: 'Daily Report', icon: FileText },
-    { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays },
-    { href: '#', label: 'Project Team', icon: Users },
-    { href: '#', label: 'Documents', icon: Files },
-    { href: '#', label: 'Project Aerial View', icon: Camera },
-    { href: '#', label: 'Calendar', icon: CalendarDays },
-    { href: '#', label: 'Map', icon: MapIcon },
-    { href: '#', label: 'CapEx', icon: DollarSign },
-    { href: '#', label: 'Report/Analytics', icon: BarChart2 },
-    { href: '#', label: 'Schedule', icon: Clock },
-    { href: '#', label: 'Master Sheet Time', icon: Sheet },
-    { href: '#', label: 'Time Sheet', icon: Timer },
-    { href: '#', label: 'Weather', icon: CloudSun },
+    { href: '/', label: 'Dashboard', icon: Home, show: true },
+    { href: '/customers', label: 'Customers', icon: Building, show: true },
+    { href: '/projects', label: 'Projects', icon: FolderKanban, show: isManager },
+    { href: '/users', label: 'Users', icon: Users, show: isManager },
+    { href: '/contractors', label: 'Contractors', icon: HardHat, show: isManager },
+    { href: '/daily-report', label: 'Daily Report', icon: FileText, show: isManager },
+    { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays, show: isManager },
+    { href: '#', label: 'Project Team', icon: Users, show: true },
+    { href: '#', label: 'Documents', icon: Files, show: true },
+    { href: '#', label: 'Project Aerial View', icon: Camera, show: true },
+    { href: '#', label: 'Calendar', icon: CalendarDays, show: true },
+    { href: '#', label: 'Map', icon: MapIcon, show: true },
+    { href: '#', label: 'CapEx', icon: DollarSign, show: true },
+    { href: '#', label: 'Report/Analytics', icon: BarChart2, show: true },
+    { href: '#', label: 'Schedule', icon: Clock, show: true },
+    { href: '#', label: 'Master Sheet Time', icon: Sheet, show: true },
+    { href: '#', label: 'Time Sheet', icon: Timer, show: true },
+    { href: '#', label: 'Weather', icon: CloudSun, show: true },
   ];
 
   const secondaryMenuItems = [
@@ -74,14 +80,16 @@ export function MainHeader() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {menuItems.map((item) => (
-            <DropdownMenuItem key={item.label} asChild>
-              <Link href={item.href}>
-                <item.icon className="mr-2 h-4 w-4" />
-                <span>{item.label}</span>
-              </Link>
-            </DropdownMenuItem>
-          ))}
+          {menuItems.map((item) =>
+            item.show ? (
+              <DropdownMenuItem key={item.label} asChild>
+                <Link href={item.href}>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  <span>{item.label}</span>
+                </Link>
+              </DropdownMenuItem>
+            ) : null
+          )}
           <DropdownMenuSeparator />
           {secondaryMenuItems.map((item) => (
             <DropdownMenuItem
