@@ -3,26 +3,28 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - REGLAS DE SEGURIDAD ROBUSTAS (Firestore-First)
+     * EXCELLERE REVIVE - SEGURIDAD ROBUSTA (Firestore-First)
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
-    }
-
     /** 
-     * Verifica privilegios administrativos consultando directamente la colección de usuarios.
-     * Esto garantiza que el rol asignado en el módulo 'Users' sea la fuente de verdad.
+     * FUENTE DE VERDAD DEFINITIVA: 
+     * Consulta el rol directamente en el documento de usuario de Firestore.
+     * También verifica el marcador de seguridad 'system_roles_admin' para redundancia.
      */
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.role == 'admin' || 
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
       );
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
     /** Metadatos del sistema (Estadísticas del Dashboard) */
@@ -40,17 +42,19 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /** Proyectos, Contratistas y Reportes */
+    /** Proyectos */
     match /projects/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
     
+    /** Contratistas */
     match /contractors/{id} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
     
+    /** Reportes */
     match /dailyReports/{id} {
       allow read: if isSignedIn();
       allow create, update: if isSignedIn();

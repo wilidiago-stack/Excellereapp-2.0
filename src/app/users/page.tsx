@@ -20,7 +20,7 @@ import {
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 import {
   DropdownMenu,
@@ -44,16 +44,17 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function UsersPage() {
+  const { user } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
 
   const usersCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'users') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'users') : null),
+    [firestore, user?.uid]
   );
-  const { data: users, loading: usersLoading } = useCollection(usersCollection);
+  const { data: users, isLoading: usersLoading } = useCollection(usersCollection);
 
   const handleDeleteUser = async () => {
     if (!firestore || !selectedUser) return;
