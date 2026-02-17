@@ -225,6 +225,45 @@ export default function LoginPage() {
   const renderAuthError = () => {
     if (!authError) return null;
 
+    if (authError.message.includes('AADSTS90023')) {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Incorrect Microsoft App Type</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+              <p>
+                The error from Microsoft (AADSTS90023) means your app registration in Azure is set as a "Public client" (like a desktop or mobile app), but it needs to be a "Web" application to work with Firebase web sign-in.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to your App Registration in the <strong>Azure Portal</strong> and navigate to the <strong>Authentication</strong> tab on the left.
+                </li>
+                <li>
+                  If you don't have a "Web" platform, click <strong>+ Add a platform</strong> and select <strong>Web</strong>.
+                </li>
+                <li>
+                   In the "Redirect URIs" field, paste your Firebase auth handler URL:
+                   <pre className="text-xs bg-slate-800 p-2 rounded-md mt-1">
+                    {`https://${firebaseConfig.projectId}.firebaseapp.com/__/auth/handler`}
+                   </pre>
+                </li>
+                 <li>
+                  At the bottom of the page, under "Advanced settings", find the toggle for <strong>"Allow public client flows"</strong>. Make sure this is set to <strong>No</strong>.
+                </li>
+                <li>
+                  Click <strong>Save</strong>.
+                </li>
+              </ol>
+              <p className="font-semibold">
+                After saving the changes in Azure, please try signing in again.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
     if (authError.message.includes('AADSTS7000215')) {
       return (
         <Alert variant="destructive">
