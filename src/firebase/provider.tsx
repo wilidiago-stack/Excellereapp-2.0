@@ -6,7 +6,7 @@ import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
 import {
   type Firestore,
   doc,
-  updateDoc,
+  setDoc,
   serverTimestamp,
 } from 'firebase/firestore';
 import { usePathname, useRouter } from 'next/navigation';
@@ -86,17 +86,26 @@ export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
 
     const userDocRef = doc(firestore, 'users', user.uid);
 
-    // Set lastSeen immediately on login/app load
-    updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch((error) => {
-      console.error("Failed to update lastSeen on load:", error);
-    });
+    // Use setDoc with merge to prevent error if doc doesn't exist yet.
+    // This can happen on first login due to a race condition with the
+    // backend function that creates the user document.
+    setDoc(userDocRef, { lastSeen: serverTimestamp() }, { merge: true }).catch(
+      (error) => {
+        console.error('Failed to update lastSeen on load:', error);
+      }
+    );
 
     // Update lastSeen every 30 seconds as a heartbeat
     const intervalId = setInterval(() => {
-      updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch((error) => {
-        // This might fail if user is offline, which is fine.
-        console.log("Heartbeat update for lastSeen failed (likely offline):", error.message);
-      });
+      setDoc(userDocRef, { lastSeen: serverTimestamp() }, { merge: true }).catch(
+        (error) => {
+          // This might fail if user is offline, which is fine.
+          console.log(
+            'Heartbeat update for lastSeen failed (likely offline):',
+            error.message
+          );
+        }
+      );
     }, 30 * 1000); // every 30 seconds
 
     return () => {
