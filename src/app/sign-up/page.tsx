@@ -165,26 +165,15 @@ export default function SignUpPage() {
     setLoading(true);
     setAuthError(null);
     try {
-      const result = await signInWithPopup(auth, provider);
-      const additionalInfo = getAdditionalUserInfo(result);
-
-      // The onAuthUserCreate function will handle document creation in Firestore.
-      if (additionalInfo?.isNewUser) {
-        await signOut(auth);
-        toast({
-          title: 'Account Created',
-          description:
-            'Your account has been created. Please log in to continue.',
-        });
-        router.push('/login');
-      } else {
-        // This was a sign-in for an existing user.
-        toast({
-          title: 'Login Successful',
-          description: 'Welcome back!',
-        });
-        router.push('/');
-      }
+      await signInWithPopup(auth, provider);
+      // On successful sign-in/sign-up, the onAuthStateChanged listener in FirebaseProvider
+      // will handle the user state and redirection. The onAuthUserCreate cloud
+      // function will handle creating the user document in Firestore for new users.
+      toast({
+        title: 'Sign-up/Login Successful',
+        description: 'Welcome!',
+      });
+      router.push('/');
     } catch (error: any) {
       setAuthError({ code: error.code, message: error.message });
     } finally {
