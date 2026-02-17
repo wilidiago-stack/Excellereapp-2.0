@@ -231,33 +231,32 @@ export default function LoginPage() {
             <CardDescription>
               Choose your preferred sign-in method below.
             </CardDescription>
-          </CardHeader>
-          
-          <CardContent className="space-y-4">
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
-                  <GoogleIcon className="mr-2 h-4 w-4" />
-                  Google
-                </Button>
-                <Button variant="outline" onClick={handleMicrosoftSignIn} disabled={loading}>
-                  <MicrosoftIcon className="mr-2 h-4 w-4" />
-                  Microsoft
-                </Button>
+            <div className="pt-4 space-y-4">
+               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Button variant="outline" onClick={handleGoogleSignIn} disabled={loading}>
+                    <GoogleIcon className="mr-2 h-4 w-4" />
+                    Google
+                  </Button>
+                  <Button variant="outline" onClick={handleMicrosoftSignIn} disabled={loading}>
+                    <MicrosoftIcon className="mr-2 h-4 w-4" />
+                    Microsoft
+                  </Button>
+              </div>
+               <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-card px-2 text-muted-foreground">
+                      Or
+                      </span>
+                  </div>
+              </div>
+              <TabsList className="grid w-full grid-cols-2">
+                <TabsTrigger value="email">Email</TabsTrigger>
+                <TabsTrigger value="phone">Phone</TabsTrigger>
+              </TabsList>
             </div>
-             <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                    <span className="bg-background px-2 text-muted-foreground">
-                    Or
-                    </span>
-                </div>
-            </div>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="phone">Phone</TabsTrigger>
-            </TabsList>
           </CardHeader>
 
           <TabsContent value="email">
@@ -377,5 +376,3 @@ export default function LoginPage() {
     </div>
   );
 }
-
-    
