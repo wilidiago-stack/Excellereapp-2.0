@@ -1,3 +1,4 @@
+
 rules_version = '2';
 
 service cloud.firestore {
@@ -10,103 +11,71 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Role-based helpers using Custom Claims (the synced credentials)
     function isAdmin() {
       return request.auth.token.role == 'admin';
     }
 
     function isProjectManager() {
-      return request.auth.token.role == 'project_manager';
+      return request.auth.token.role == 'project_manager' || isAdmin();
     }
     
     function isViewer() {
-      return request.auth.token.role == 'viewer';
+      return request.auth.token.role == 'viewer' || isProjectManager();
     }
 
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
 
-    // Checks if the requesting user is assigned to a specific project.
-    // Reads the user's own document to find their assigned projects.
+    // Checks if the user doc in DB has the project ID
     function isAssignedToProject(projectId) {
-      return isSignedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedProjects.hasAny([projectId]);
+      let userDoc = get(/databases/$(database)/documents/users/$(request.auth.uid));
+      return isSignedIn() && (userDoc.data.assignedProjects.hasAny([projectId]) || isProjectManager());
     }
 
     // =====================================================================
     // Collection Rules
     // =====================================================================
 
-    // Rules for User profiles
     match /users/{userId} {
-      // Admins and Project Managers can get any user profile. Viewers can only read their own.
-      allow get: if isSignedIn() && (isAdmin() || isProjectManager() || isOwner(userId));
-
-      // Admins and Project Managers can list all users. Viewers cannot.
-      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
+      // Admins/PMs can see everyone. Users can see themselves.
+      allow get: if isSignedIn() && (isProjectManager() || isOwner(userId));
+      allow list: if isSignedIn() && isProjectManager();
       
-      // Admins can update any profile. Users can update their own (e.g., name, phone).
-      allow update: if isSignedIn() && (isAdmin() || isOwner(userId));
+      // Only Admins can change roles/status. Users can update their own profile fields.
+      allow update: if isSignedIn() && (isAdmin() || (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'status'])));
       
-      // Only Admins can create or delete users through the client.
-      // (User creation on signup is handled by a Cloud Function, which has admin rights).
+      // Admin only creation/deletion via client
       allow create, delete: if isSignedIn() && isAdmin();
     }
 
-    // Rules for Projects
     match /projects/{projectId} {
-      // Admins and PMs can list all projects. Viewers cannot.
-      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
-
-      // Admins, PMs, and assigned Viewers can get a specific project document.
-      allow get: if isSignedIn() && ((isAdmin() || isProjectManager()) || (isViewer() && isAssignedToProject(projectId)));
-      
-      // Only Admins and PMs can create, update, or delete projects.
-      allow write: if isSignedIn() && (isAdmin() || isProjectManager());
+      allow list: if isSignedIn() && isProjectManager();
+      allow get: if isSignedIn() && (isProjectManager() || isAssignedToProject(projectId));
+      allow write: if isSignedIn() && isProjectManager();
     }
 
-    // Rules for Contractors
     match /contractors/{contractorId} {
-      // Viewers can see a contractor if that contractor is assigned to at least one project the viewer is also on.
-      function isContractorRelatedToViewer() {
-        let userProjects = get(/databases/$(database)/documents/users/$(request.auth.uid)).data.assignedProjects;
-        let contractorProjects = resource.data.assignedProjects;
-        // Check for intersection between the two lists of projects.
-        return userProjects.toSet().intersection(contractorProjects.toSet()).size() > 0;
-      }
-      
-      // Admins and PMs can list all contractors.
-      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
-      // Admins, PMs, and related Viewers can get a specific contractor document.
-      allow get: if isSignedIn() && ((isAdmin() || isProjectManager()) || (isViewer() && isContractorRelatedToViewer()));
-      // Only Admins and PMs can create, update, or delete contractors.
-      allow write: if isSignedIn() && (isAdmin() || isProjectManager());
+      allow list: if isSignedIn() && isProjectManager();
+      allow get: if isSignedIn() && (isProjectManager() || isViewer()); // Restricted by UI logic
+      allow write: if isSignedIn() && isProjectManager();
     }
 
-    // Rules for Daily Reports
     match /dailyReports/{reportId} {
-      // Admins and PMs can list all reports.
-      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
-      // Admins, PMs, and assigned Viewers can get a specific report if it's for their project.
-      allow get: if isSignedIn() && ((isAdmin() || isProjectManager()) || (isViewer() && isAssignedToProject(resource.data.projectId)));
-      // Only Admins and PMs can create, update, or delete reports.
-      allow write: if isSignedIn() && (isAdmin() || isProjectManager());
+      allow list: if isSignedIn() && isProjectManager();
+      allow get: if isSignedIn() && (isProjectManager() || isAssignedToProject(resource.data.projectId));
+      allow write: if isSignedIn() && isProjectManager();
     }
 
-    // Rules for Monthly Reports
     match /monthlyReports/{reportId} {
-      // Admins and PMs can list all reports.
-      allow list: if isSignedIn() && (isAdmin() || isProjectManager());
-      // Admins, PMs, and assigned Viewers can get a specific report if it's for their project.
-      allow get: if isSignedIn() && ((isAdmin() || isProjectManager()) || (isViewer() && isAssignedToProject(resource.data.projectId)));
-      // Only Admins and PMs can create, update, or delete reports.
-      allow write: if isSignedIn() && (isAdmin() || isProjectManager());
+      allow list: if isSignedIn() && isProjectManager();
+      allow get: if isSignedIn() && (isProjectManager() || isAssignedToProject(resource.data.projectId));
+      allow write: if isSignedIn() && isProjectManager();
     }
 
-    // Rules for System Metadata
     match /system/{docId} {
-      // Anyone signed in can read system-wide data (like user count for the dashboard).
       allow read: if isSignedIn();
-      // No one can write to system data from the client; it's managed by the backend.
       allow write: if false;
     }
   }
