@@ -38,7 +38,7 @@ export function UserNav() {
   const handleLogout = () => {
     if (auth) {
       signOut(auth).then(() => {
-        // The FirebaseProvider will handle the redirect automatically.
+        router.push('/login');
       });
     }
   };
