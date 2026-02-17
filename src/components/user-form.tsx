@@ -229,7 +229,7 @@ export function UserForm({ initialData }: UserFormProps) {
                 <FormLabel>Role</FormLabel>
                 <Select
                     onValueChange={field.onChange}
-                    value={field.value || ''}
+                    value={field.value}
                 >
                     <FormControl>
                     <SelectTrigger>
@@ -256,7 +256,7 @@ export function UserForm({ initialData }: UserFormProps) {
                 <FormLabel>Status</FormLabel>
                 <Select
                     onValueChange={field.onChange}
-                    value={field.value || ''}
+                    value={field.value}
                 >
                     <FormControl>
                     <SelectTrigger>
