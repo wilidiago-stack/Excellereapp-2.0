@@ -24,38 +24,6 @@ import {
   Bell,
 } from 'lucide-react';
 
-const ExcellereIcon = () => (
-  <svg
-    width="24"
-    height="24"
-    viewBox="0 0 24 24"
-    fill="none"
-    xmlns="http://www.w3.org/2000/svg"
-  >
-    <path
-      d="M12 2L2 7L12 12L22 7L12 2Z"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M2 17L12 22L22 17"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <path
-      d="M2 12L12 17L22 12"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-);
-
 export function MainHeader() {
   const menuItems = [
     { href: '/', label: 'Dashboard', icon: Home },
@@ -112,10 +80,7 @@ export function MainHeader() {
 
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-            <ExcellereIcon />
-          </div>
-          <div className="hidden sm:flex flex-col">
+          <div className="flex flex-col">
             <span className="text-[30px] font-semibold font-brand text-[#46a395]">Excellere</span>
           </div>
         </Link>
