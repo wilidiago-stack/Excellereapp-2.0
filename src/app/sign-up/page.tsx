@@ -23,12 +23,15 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
-import { useAuthInstance, useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useAuthInstance } from '@/firebase';
 import {
   createUserWithEmailAndPassword,
   updateProfile,
   signOut,
+  GoogleAuthProvider,
+  OAuthProvider,
+  signInWithPopup,
+  getAdditionalUserInfo,
 } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -54,10 +57,31 @@ const signUpSchema = z
 
 type SignUpFormValues = z.infer<typeof signUpSchema>;
 
+const GoogleIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    role="img"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path d="M12.48 10.92v3.28h7.84c-.24 1.84-.85 3.18-1.73 4.1-1.05 1.05-2.58 2.64-5.23 2.64-4.38 0-7.95-3.6-7.95-7.95s3.57-7.95 7.95-7.95c2.43 0 4.02.96 4.95 1.86l2.6-2.6C18.15 2.1 15.6.8 12.48.8 6.09.8.96 5.91.96 12.3s5.13 11.5 11.52 11.5c6.2 0 11.04-4.14 11.04-11.28 0-.75-.06-1.5-.18-2.22h-11.8z" />
+  </svg>
+);
+
+const MicrosoftIcon = (props: React.SVGProps<SVGSVGElement>) => (
+  <svg
+    role="img"
+    viewBox="0 0 24 24"
+    xmlns="http://www.w3.org/2000/svg"
+    {...props}
+  >
+    <path d="M11.4 23.2h-11.4v-11.4h11.4v11.4zm0-12.6h-11.4v-10.6h11.4v10.6zm1.2-10.6v10.6h11.4v-10.6h-11.4zm0 23.2h11.4v-11.4h-11.4v11.4z" />
+  </svg>
+);
+
 export default function SignUpPage() {
   const { toast } = useToast();
   const auth = useAuthInstance();
-  const firestore = useFirestore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState<{
@@ -79,8 +103,8 @@ export default function SignUpPage() {
     },
   });
 
-  const onSubmit = async (data: SignUpFormValues) => {
-    if (!auth || !firestore) {
+  const onEmailSubmit = async (data: SignUpFormValues) => {
+    if (!auth) {
       toast({
         variant: 'destructive',
         title: 'Error',
@@ -105,27 +129,11 @@ export default function SignUpPage() {
         displayName: `${data.firstName} ${data.lastName}`,
       });
 
-      // 3. Create/merge user document in Firestore.
-      // The client creates the doc with profile info. A Cloud Function will then
-      // add the role and status, preventing race conditions.
-      const userDocRef = doc(firestore, 'users', user.uid);
-      await setDoc(
-        userDocRef,
-        {
-          firstName: data.firstName,
-          lastName: data.lastName,
-          email: data.email,
-          position: data.position,
-          company: data.company,
-          phoneNumber: data.phoneNumber || '',
-          // The `role` and `status` fields are now exclusively set by the Cloud Function.
-        },
-        { merge: true }
-      );
+      // 3. The onAuthUserCreate Cloud Function will now handle creating the Firestore document.
+      // We no longer write to Firestore from the client on sign-up.
 
       // 4. Sign out the user immediately. This forces a clean login, ensuring
-      // that the custom claims (like the 'admin' role) set by the Cloud Function
-      // are present in the user's token when they log in.
+      // that the custom claims set by the Cloud Function are present in the user's token.
       await signOut(auth);
 
       toast({
@@ -148,6 +156,50 @@ export default function SignUpPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleProviderSignUp = async (
+    provider: GoogleAuthProvider | OAuthProvider
+  ) => {
+    if (!auth) return;
+    setLoading(true);
+    setAuthError(null);
+    try {
+      const result = await signInWithPopup(auth, provider);
+      const additionalInfo = getAdditionalUserInfo(result);
+
+      // The onAuthUserCreate function will handle document creation in Firestore.
+      if (additionalInfo?.isNewUser) {
+        await signOut(auth);
+        toast({
+          title: 'Account Created',
+          description:
+            'Your account has been created. Please log in to continue.',
+        });
+        router.push('/login');
+      } else {
+        // This was a sign-in for an existing user.
+        toast({
+          title: 'Login Successful',
+          description: 'Welcome back!',
+        });
+        router.push('/');
+      }
+    } catch (error: any) {
+      setAuthError({ code: error.code, message: error.message });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignUp = () => {
+    const provider = new GoogleAuthProvider();
+    handleProviderSignUp(provider);
+  };
+
+  const handleMicrosoftSignUp = () => {
+    const provider = new OAuthProvider('microsoft.com');
+    handleProviderSignUp(provider);
   };
 
   const renderAuthError = () => {
@@ -256,13 +308,43 @@ export default function SignUpPage() {
         <CardHeader className="text-center">
           <CardTitle className="text-2xl">Create an Account</CardTitle>
           <CardDescription>
-            Fill out the form below to create your account.
+            Choose your sign-up method below.
           </CardDescription>
         </CardHeader>
+        <CardContent className="space-y-4">
+          {authError && renderAuthError()}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Button
+              variant="outline"
+              onClick={handleGoogleSignUp}
+              disabled={loading}
+            >
+              <GoogleIcon className="mr-2 h-4 w-4" />
+              Sign up with Google
+            </Button>
+            <Button
+              variant="outline"
+              onClick={handleMicrosoftSignUp}
+              disabled={loading}
+            >
+              <MicrosoftIcon className="mr-2 h-4 w-4" />
+              Sign up with Microsoft
+            </Button>
+          </div>
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-card px-2 text-muted-foreground">
+                Or continue with email
+              </span>
+            </div>
+          </div>
+        </CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
+          <form onSubmit={form.handleSubmit(onEmailSubmit)}>
             <CardContent className="space-y-4">
-              {authError && renderAuthError()}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
