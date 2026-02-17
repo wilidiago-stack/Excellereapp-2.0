@@ -3,7 +3,12 @@ import { createContext, useContext, ReactNode, useMemo, useState, useEffect } fr
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth, User, IdTokenResult } from 'firebase/auth';
 import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
-import type { Firestore } from 'firebase/firestore';
+import {
+  type Firestore,
+  doc,
+  updateDoc,
+  serverTimestamp,
+} from 'firebase/firestore';
 import { usePathname, useRouter } from 'next/navigation';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
@@ -72,6 +77,32 @@ export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
 
     return () => unsubscribe();
   }, [auth]);
+
+  // Heartbeat to update user's lastSeen status
+  useEffect(() => {
+    if (!firestore || !user) {
+      return;
+    }
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+
+    // Set lastSeen immediately on login/app load
+    updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch((error) => {
+      console.error("Failed to update lastSeen on load:", error);
+    });
+
+    // Update lastSeen every 2 minutes as a heartbeat
+    const intervalId = setInterval(() => {
+      updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch((error) => {
+        // This might fail if user is offline, which is fine.
+        console.log("Heartbeat update for lastSeen failed (likely offline):", error.message);
+      });
+    }, 2 * 60 * 1000); // every 2 minutes
+
+    return () => {
+      clearInterval(intervalId);
+    };
+  }, [firestore, user]);
   
   const publicPaths = ['/login', '/sign-up'];
   const isPublicPath = publicPaths.some((p) => pathname.startsWith(p));

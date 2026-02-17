@@ -94,6 +94,14 @@ export default function UsersPage() {
     }
   };
 
+  const isOnline = (lastSeen: any) => {
+    if (!lastSeen || !lastSeen.toDate) return false;
+    const now = new Date();
+    const lastSeenDate = lastSeen.toDate();
+    const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
+    return diffInMinutes < 5; // Consider online if last seen within the last 5 minutes
+  };
+
   return (
     <>
       <Card>
@@ -147,10 +155,11 @@ export default function UsersPage() {
                     <div className="flex items-center gap-2">
                       <div
                         className={`h-2.5 w-2.5 rounded-full ${
-                          user.status === 'active'
+                          isOnline(user.lastSeen)
                             ? 'bg-green-500'
                             : 'bg-slate-400'
                         }`}
+                        title={user.lastSeen ? `Last seen: ${user.lastSeen.toDate().toLocaleString()}` : 'Offline'}
                       />
                       {user.firstName}
                     </div>

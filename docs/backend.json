@@ -55,6 +55,11 @@
             "invited",
             "rejected"
           ]
+        },
+        "lastSeen": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The last time the user was seen online."
         }
       },
       "required": [
@@ -454,4 +459,3 @@
     }
   }
 }
-    
