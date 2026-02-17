@@ -37,7 +37,7 @@ import { useAuth } from '@/firebase';
 export function MainHeader() {
   const { role } = useAuth();
   
-  // El rol viene directamente de Firestore a través del hook useAuth
+  // El rol viene directamente de Firestore a través del hook useAuth (Sincronización en tiempo real)
   const isAdmin = role === 'admin';
   const isProjectManager = role === 'project_manager';
   const isManager = isAdmin || isProjectManager;
@@ -69,7 +69,7 @@ export function MainHeader() {
   ];
 
   return (
-    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background/60 px-4 backdrop-blur-sm sm:px-6">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-white px-4 sm:px-6">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button
