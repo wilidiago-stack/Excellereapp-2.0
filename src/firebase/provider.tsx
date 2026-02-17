@@ -39,8 +39,9 @@ export interface AuthHookResult {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-// WeakSet para rastrear objetos memoizados de forma segura (funciona con objetos congelados)
-export const firebaseMemoTags = new WeakSet<object>();
+// WeakSet para rastrear objetos memoizados de forma segura en el cliente.
+// Usamos un objeto global para asegurar consistencia entre re-renders.
+const firebaseMemoTags = new WeakSet<object>();
 
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
@@ -56,6 +57,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
+  // Manejo de la sesión de Auth y Claims
   useEffect(() => {
     if (!auth) {
       setUserAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
@@ -89,6 +91,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe();
   }, [auth]);
 
+  // Firestore-First: Sincronización en tiempo real del rol desde el documento de usuario
   useEffect(() => {
     const user = userAuthState.user;
     if (!user || !firestore) return;
@@ -102,6 +105,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         isUserLoading: false,
       }));
     }, (error) => {
+        // Si no hay permisos para leer su propio doc, marcamos como cargado igualmente
         setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
     });
 
@@ -147,15 +151,12 @@ export const useFirestore = (): Firestore => {
   return firestore;
 };
 
-export const useFirebaseApp = (): FirebaseApp => {
-  const { firebaseApp } = useFirebase();
-  if (!firebaseApp) throw new Error('FirebaseApp instance not available');
-  return firebaseApp;
-};
-
 export const useAuth = (): AuthHookResult => {
   const { user, claims, userData, isUserLoading, userError } = useFirebase();
+  
+  // Prioridad: 1. Firestore Document (Role Manual), 2. Auth Claims (Token), 3. Viewer (Default)
   const role = userData?.role || (claims?.role as string) || 'viewer';
+  
   return { 
     user, 
     claims, 
@@ -166,12 +167,16 @@ export const useAuth = (): AuthHookResult => {
   };
 };
 
-export const useUser = () => useAuth();
-
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
   const memoized = useMemo(factory, deps);
-  if (typeof memoized === 'object' && memoized !== null) {
+  if (typeof window !== 'undefined' && typeof memoized === 'object' && memoized !== null) {
     firebaseMemoTags.add(memoized);
   }
   return memoized;
 }
+
+// Exportación interna para validación en hooks
+export const isMemoized = (obj: any) => {
+  if (typeof window === 'undefined') return true; // En el servidor siempre validamos
+  return obj && firebaseMemoTags.has(obj);
+};

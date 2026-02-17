@@ -3,7 +3,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - SEGURIDAD ROBUSTA (Firestore-First)
+     * EXCELLERE REVIVE - SEGURIDAD FIRESTORE-FIRST
+     * La fuente de verdad absoluta es el documento del usuario en la colección /users.
      */
 
     function isSignedIn() {
@@ -11,14 +12,14 @@ service cloud.firestore {
     }
 
     /** 
-     * FUENTE DE VERDAD DEFINITIVA: 
-     * Consulta el rol directamente en el documento de usuario de Firestore.
-     * Esto permite que los cambios de rol sean efectivos de inmediato sin esperar al token.
+     * CONSULTA DIRECTA A LA BASE DE DATOS:
+     * Verifica el rol 'admin' directamente en el documento de Firestore.
+     * Esto garantiza que los cambios de rol manuales tengan efecto inmediato
+     * e independiente del método de inicio de sesión (Google, MS, etc).
      */
     function isAdmin() {
       return isSignedIn() && (
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
-        request.auth.token.role == 'admin' || 
         exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
       );
     }

@@ -11,7 +11,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { firebaseMemoTags } from '../provider';
+import { isMemoized } from '../provider';
 
 export type WithId<T> = T & { id: string };
 
@@ -29,9 +29,9 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Validar que la referencia esté memoizada correctamente usando el tracker seguro
-    if (memoizedTargetRefOrQuery && !firebaseMemoTags.has(memoizedTargetRefOrQuery)) {
-      throw new Error(`${memoizedTargetRefOrQuery} was not properly memoized using useMemoFirebase`);
+    // Validación de memoización solo en el cliente para evitar errores en SSR
+    if (memoizedTargetRefOrQuery && !isMemoized(memoizedTargetRefOrQuery)) {
+      throw new Error(`useCollection: El objeto proporcionado no fue memoizado con useMemoFirebase. Esto es necesario para la estabilidad de la conexión.`);
     }
 
     if (!memoizedTargetRefOrQuery) {
