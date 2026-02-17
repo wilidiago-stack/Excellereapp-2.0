@@ -114,21 +114,21 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
-    // If role hasn't changed or data is missing, do nothing.
-    if (!beforeData || !afterData || beforeData.role === afterData.role) {
-        return;
+    // Exit if the role hasn't changed, is missing in the new data, or is not a string.
+    if (!afterData?.role || typeof afterData.role !== 'string' || (beforeData && beforeData.role === afterData.role)) {
+      return;
     }
     
     const uid = event.params.userId;
     const newRole = afterData.role;
     
-    logger.info(`Role for ${uid} changed from '${beforeData.role}' to '${newRole}'. Syncing to Auth claims.`);
+    logger.info(`[onUserRoleChange] Role for user ${uid} changed to '${newRole}'. Syncing to Auth claims.`);
 
     try {
         // Set the custom claim on the user's Auth record.
         await admin.auth().setCustomUserClaims(uid, { role: newRole });
-        logger.info(`Successfully set custom claim 'role: ${newRole}' for user ${uid}. The user may need to re-login for the claim to take effect.`);
+        logger.info(`[onUserRoleChange] Successfully set custom claim 'role: ${newRole}' for user ${uid}.`);
     } catch (error) {
-        logger.error(`Error setting custom claims for ${uid}:`, error);
+        logger.error(`[onUserRoleChange] CRITICAL ERROR setting custom claims for ${uid}:`, error);
     }
 });
