@@ -1,49 +1,50 @@
 'use client';
-import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
-import { getAuth, type Auth } from 'firebase/auth';
-import { getFirestore, type Firestore } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-import { firebaseConfig } from './config';
-import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
-// To prevent initialization on server components or multiple times
-let appCheckInitialized = false;
+import { firebaseConfig } from '@/firebase/config';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'
 
-function initializeFirebase() {
-  let firebaseApp: FirebaseApp;
-  let auth: Auth;
-  let firestore: Firestore;
-
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION
+export function initializeFirebase() {
   if (!getApps().length) {
-    firebaseApp = initializeApp(firebaseConfig);
-  } else {
-    firebaseApp = getApp();
+    // Important! initializeApp() is called without any arguments because Firebase App Hosting
+    // integrates with the initializeApp() function to provide the environment variables needed to
+    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
+    // without arguments.
+    let firebaseApp;
+    try {
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
+    } catch (e) {
+      // Only warn in production because it's normal to use the firebaseConfig to initialize
+      // during development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+      }
+      firebaseApp = initializeApp(firebaseConfig);
+    }
+
+    return getSdks(firebaseApp);
   }
 
-  auth = getAuth(firebaseApp);
-  firestore = getFirestore(firebaseApp);
-
-  // Temporarily disabling App Check to unblock user registration.
-  // The root cause is Enforcement being turned on in the Firebase Console.
-  // The sign-up page will now guide the user to disable it.
-  /*
-  if (typeof window !== 'undefined' && !appCheckInitialized) {
-    // Set the debug token provider.
-    (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = process.env.NODE_ENV !== 'production';
-
-    // Initialize App Check
-    initializeAppCheck(firebaseApp, {
-      provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
-      isTokenAutoRefreshEnabled: true,
-    });
-    appCheckInitialized = true;
-  }
-  */
-
-  return { firebaseApp, auth, firestore };
+  // If already initialized, return the SDKs with the already initialized App
+  return getSdks(getApp());
 }
 
-export { initializeFirebase };
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
+}
+
 export * from './provider';
+export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
+export * from './non-blocking-updates';
+export * from './non-blocking-login';
+export * from './errors';
+export * from './error-emitter';
