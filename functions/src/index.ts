@@ -14,9 +14,7 @@ setGlobalOptions({ maxInstances: 10 });
 /**
  * Triggered on new user creation in Firebase Authentication.
  * This function creates a user document in Firestore with basic profile information
- * and assigns a role.
- * - The very first user is made an 'admin'.
- * - Subsequent users are made 'viewers'.
+ * and assigns the 'viewer' role to all new users.
  * - It populates the user document with name and email if available from the auth provider.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
@@ -31,8 +29,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
-      const isFirstUser = userCount === 0;
-      const newRole = isFirstUser ? "admin" : "viewer";
+      const newRole = "viewer";
 
       logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
       
