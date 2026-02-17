@@ -60,7 +60,8 @@ export function UserForm({ initialData }: UserFormProps) {
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    defaultValues: {
+    // Use initialData for defaultValues, providing a fallback for create mode.
+    defaultValues: initialData || {
       firstName: '',
       lastName: '',
       email: '',
@@ -72,6 +73,8 @@ export function UserForm({ initialData }: UserFormProps) {
     },
   });
 
+  // This effect ensures the form is reset if the initialData prop changes after the component has mounted.
+  // This is crucial for correctly populating the form in edit mode when data arrives asynchronously.
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
@@ -88,11 +91,11 @@ export function UserForm({ initialData }: UserFormProps) {
       return;
     }
 
-    const userData = { ...data, status: data.status || 'pending' };
+    const userData = { ...data };
 
     const operation = isEditMode
       ? updateDoc(doc(firestore, 'users', initialData!.id), userData)
-      : addDoc(usersCollection, userData);
+      : addDoc(usersCollection, { ...userData, status: data.status || 'pending' });
 
     operation
       .then(() => {
@@ -256,7 +259,7 @@ export function UserForm({ initialData }: UserFormProps) {
                 <FormLabel>Status</FormLabel>
                 <Select
                     onValueChange={field.onChange}
-                    value={field.value}
+                    value={field.value || ''}
                 >
                     <FormControl>
                     <SelectTrigger>
