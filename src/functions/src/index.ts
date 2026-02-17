@@ -1,6 +1,7 @@
 
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
+import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -102,4 +103,32 @@ export const cleanupUser = onAuthUserDelete(async (event) => {
   } catch (error) {
     logger.error(`[cleanupUser] Error during user cleanup for ${uid}:`, error, "This may happen if the userCount document doesn't exist or the user doc was already deleted. It's usually safe to ignore in development if the user count is being decremented.");
   }
+});
+
+/**
+ * Triggered on user document update in Firestore.
+ * This function syncs the 'role' from the Firestore document to Firebase Auth custom claims.
+ * This ensures that a user's permissions are always up-to-date with their document.
+ */
+export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+
+    // If role hasn't changed or data is missing, do nothing.
+    if (!beforeData || !afterData || beforeData.role === afterData.role) {
+        return;
+    }
+    
+    const uid = event.params.userId;
+    const newRole = afterData.role;
+    
+    logger.info(`Role for ${uid} changed from '${beforeData.role}' to '${newRole}'. Syncing to Auth claims.`);
+
+    try {
+        // Set the custom claim on the user's Auth record.
+        await admin.auth().setCustomUserClaims(uid, { role: newRole });
+        logger.info(`Successfully set custom claim 'role: ${newRole}' for user ${uid}. The user may need to re-login for the claim to take effect.`);
+    } catch (error) {
+        logger.error(`Error setting custom claims for ${uid}:`, error);
+    }
 });
