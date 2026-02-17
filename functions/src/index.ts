@@ -108,13 +108,11 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
     // Set custom claims on the Auth user
     await admin.auth().setCustomUserClaims(userId, { role: newRole });
     
-    // Invalidate sessions by updating validSince to current time (forces token refresh)
-    // This is optional but helps the client detect the change faster
+    // We update metadata to effectively "tickle" the Auth system
+    // The client-side onIdTokenChanged will detect this and refresh
     await admin.auth().updateUser(userId, {
-      metadata: {
-        // This effectively forces a token refresh on the next request
-      }
-    } as any);
+      displayName: afterData.firstName + ' ' + afterData.lastName
+    });
 
     logger.info(`[onUserRoleChange] Successfully synced role '${newRole}' to Auth claims for user ${userId}`);
   } catch (error) {

@@ -57,12 +57,12 @@ export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
       return;
     }
 
-    // onIdTokenChanged is more robust than onAuthStateChanged for syncing claims
+    // onIdTokenChanged is the definitive way to watch for claim updates
     const unsubscribe = onIdTokenChanged(auth, async (currentUser) => {
-      setAuthLoading(true);
       if (currentUser) {
         try {
           // Force refresh the token to ensure we have the absolute latest custom claims
+          // This is critical for role synchronization
           const idTokenResult = await getIdTokenResult(currentUser, true); 
           setUser(currentUser);
           setClaims(idTokenResult.claims);

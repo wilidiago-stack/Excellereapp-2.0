@@ -58,7 +58,7 @@ service cloud.firestore {
 
     match /contractors/{contractorId} {
       allow list: if isSignedIn() && isProjectManager();
-      allow get: if isSignedIn() && (isProjectManager() || isViewer()); // Restricted by UI logic
+      allow get: if isSignedIn() && (isProjectManager() || isViewer());
       allow write: if isSignedIn() && isProjectManager();
     }
 
