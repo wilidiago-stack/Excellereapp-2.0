@@ -15,69 +15,63 @@ setGlobalOptions({ maxInstances: 10 });
  * Triggered on new user creation in Firebase Authentication.
  * This function creates a user document in Firestore with basic profile information
  * and assigns the 'viewer' role to all new users.
- * - It populates the user document with name and email if available from the auth provider.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const { uid, email, displayName } = event.data;
-  logger.info(`New Auth user created, UID: ${uid}, Email: ${email}. Setting up user document and role.`);
+  logger.info(`New Auth user created, UID: ${uid}. Setting up user document.`);
 
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
+  // Determine First and Last Name
+  const nameParts = displayName?.split(' ') || [];
+  let firstName = nameParts[0] || '';
+  let lastName = nameParts.slice(1).join(' ') || '';
+
+  // Fallback if name is not available from provider or is empty
+  if (!firstName && email) {
+    firstName = email.split('@')[0];
+    lastName = '(No Last Name)';
+  } else if (!firstName) {
+    firstName = 'New';
+    lastName = 'User';
+  }
+
+  const newUserDocument = {
+    firstName,
+    lastName,
+    email: email || '',
+    role: 'viewer', // Assign 'viewer' role by default
+    status: 'active',
+  };
+
   try {
-    const role = await db.runTransaction(async (transaction) => {
+    // 1. Set the user document in Firestore
+    await userDocRef.set(newUserDocument);
+    logger.info(`Successfully created user document for ${uid}.`);
+
+    // 2. Set the custom claim for the user role
+    await admin.auth().setCustomUserClaims(uid, { role: 'viewer' });
+    logger.info(`Successfully set custom claim 'viewer' for user ${uid}.`);
+
+    // 3. Increment the total user count in a transaction to be safe
+    await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
-      
-      const newRole = "viewer";
-
-      logger.info(`User count is ${userCount}. Assigning role '${newRole}' to user ${uid}.`);
-      
-      const nameParts = displayName?.split(' ') || [];
-      let firstName = nameParts[0] || '';
-      let lastName = nameParts.slice(1).join(' ') || '';
-
-      // Fallback logic to ensure name fields are never empty
-      if (!firstName && email) {
-        firstName = email.split('@')[0];
-        lastName = '(No Last Name)';
-      }
-      if (!firstName) {
-        firstName = 'New';
-        lastName = 'User';
-      }
-
-      const userData: { [key: string]: any } = {
-        role: newRole,
-        status: 'active',
-        email: email || '',
-        firstName,
-        lastName,
-      };
-
-      transaction.set(userDocRef, userData, { merge: true });
-
-      // Increment the total user count.
       const newUserCount = userCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, { userCount: newUserCount });
       } else {
         transaction.set(metadataRef, { userCount: newUserCount });
       }
-      
-      return newRole;
     });
-
-    // AFTER the transaction is successful, set the custom claim.
-    logger.info(`Transaction successful. Setting custom claim '${role}' for user ${uid}.`);
-    await admin.auth().setCustomUserClaims(uid, { role });
-
-    logger.info(`Successfully set up role, metadata, and custom claim for user ${uid}.`);
+    logger.info(`Successfully incremented user count for ${uid}.`);
 
   } catch (error) {
     logger.error(`Error during initial user setup for ${uid}:`, error);
   }
 });
+
 
 /**
  * Triggered on user deletion from Firebase Authentication.
