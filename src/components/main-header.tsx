@@ -81,7 +81,10 @@ export function MainHeader() {
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2">
           <div className="flex flex-col">
-            <span className="text-[30px] font-semibold font-brand text-[#46a395]">Excellere</span>
+            <span className="text-[30px] font-semibold font-brand">
+              <span className="text-[#46a395]">Excellere</span>
+              <span className="text-[#FF9800]">App</span>
+            </span>
           </div>
         </Link>
       </div>
