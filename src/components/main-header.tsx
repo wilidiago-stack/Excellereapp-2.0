@@ -117,7 +117,6 @@ export function MainHeader() {
           </div>
           <div className="hidden sm:flex flex-col">
             <span className="text-base font-semibold font-brand text-[#46a395]">Excellere</span>
-            <span className="text-xs text-muted-foreground">Revive 2.0</span>
           </div>
         </Link>
       </div>
