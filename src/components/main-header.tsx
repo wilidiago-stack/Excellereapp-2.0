@@ -100,12 +100,12 @@ export function MainHeader() {
 
       <div className="flex items-center gap-2">
         <Link href="/" className="flex items-center gap-2">
-          <div className="flex flex-col">
+          <div className="flex flex-row items-baseline">
             <span className="text-[30px] font-semibold font-brand">
               <span className="text-[#46a395]">Excellere</span>
               <span className="text-[#FF9800]">App</span>
             </span>
-            <span className="text-[8px] text-black -mt-1">2.0</span>
+            <span className="text-[8px] text-black ml-1">2.0</span>
           </div>
         </Link>
       </div>
