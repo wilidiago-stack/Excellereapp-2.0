@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -10,27 +9,27 @@ import {
 } from '@/components/ui/card';
 import { Activity, FolderKanban, HardHat, Users } from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
-import { useFirestore, useDoc, useCollection } from '@/firebase';
+import { useFirestore, useDoc, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 
 export default function Home() {
   const firestore = useFirestore();
 
-  const metadataDoc = useMemo(
+  const metadataDoc = useMemoFirebase(
     () => (firestore ? doc(firestore, 'system', 'metadata') : null),
     [firestore]
   );
   const { data: systemMetadata, loading: metadataLoading } = useDoc(metadataDoc);
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );
   const { data: projects, loading: projectsLoading } =
     useCollection(projectsCollection);
 
-  const contractorsCollection = useMemo(
+  const contractorsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'contractors') : null),
     [firestore]
   );

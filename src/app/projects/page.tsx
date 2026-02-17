@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import { PlusCircle, MoreHorizontal } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 import { format } from 'date-fns';
 import Link from 'next/link';
@@ -51,7 +51,7 @@ export default function ProjectsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );

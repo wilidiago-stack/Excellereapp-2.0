@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -30,7 +29,7 @@ import { Skeleton } from './ui/skeleton';
 import Link from 'next/link';
 
 export function UserNav() {
-  const { user, claims, authLoading } = useAuth();
+  const { user, claims, loading: authLoading } = useAuth();
   const auth = useAuthInstance();
   const router = useRouter();
   const [isTokenDialogOpen, setIsTokenDialogOpen] = useState(false);
@@ -46,7 +45,6 @@ export function UserNav() {
 
   const handleViewToken = async () => {
     if (user) {
-      // The claims from the useAuth hook are already up-to-date
       setVisibleClaims(claims);
       setIsTokenDialogOpen(true);
     }
@@ -56,7 +54,6 @@ export function UserNav() {
     if (user) {
       const tokenResult = await getIdTokenResult(user, true); // Force refresh
       setVisibleClaims(tokenResult.claims);
-      // We don't need a toast here as the UI will update naturally via the provider
     }
   };
 
