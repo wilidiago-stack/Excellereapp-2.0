@@ -39,6 +39,9 @@ export interface AuthHookResult {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
+// WeakSet para rastrear objetos memoizados de forma segura (funciona con objetos congelados)
+export const firebaseMemoTags = new WeakSet<object>();
+
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
@@ -53,7 +56,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  // 1. Escuchar cambios en la sesión de Auth y Claims
   useEffect(() => {
     if (!auth) {
       setUserAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
@@ -70,7 +72,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
               ...prev,
               user: firebaseUser,
               claims: tokenResult.claims,
-              // No terminamos la carga aquí si todavía no tenemos userData
               isUserLoading: prev.userData ? false : true,
               userError: null,
             }));
@@ -88,15 +89,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe();
   }, [auth]);
 
-  // 2. Escuchar el documento de usuario en Firestore (FUENTE DE VERDAD DEL ROL)
   useEffect(() => {
     const user = userAuthState.user;
-    if (!user || !firestore) {
-      if (!user && !userAuthState.isUserLoading) {
-         // Ya no estamos cargando y no hay usuario
-      }
-      return;
-    }
+    if (!user || !firestore) return;
 
     const userDocRef = doc(firestore, 'users', user.uid);
     const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
@@ -104,13 +99,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setUserAuthState(prev => ({
         ...prev,
         userData: data || null,
-        isUserLoading: false, // Ahora sí terminamos la carga total
+        isUserLoading: false,
       }));
-
-      // Sincronización proactiva: si el rol en Firestore es diferente al del Token,
-      // podríamos invocar un refresh, pero el hook useAuth ya prioriza userData.role
     }, (error) => {
-        // Ignoramos errores de permisos aquí para usuarios nuevos cuyo doc aún no existe
         setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
     });
 
@@ -164,7 +155,6 @@ export const useFirebaseApp = (): FirebaseApp => {
 
 export const useAuth = (): AuthHookResult => {
   const { user, claims, userData, isUserLoading, userError } = useFirebase();
-  // El rol de Firestore (userData) tiene prioridad absoluta sobre el Token (claims)
   const role = userData?.role || (claims?.role as string) || 'viewer';
   return { 
     user, 
@@ -181,9 +171,7 @@ export const useUser = () => useAuth();
 export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
   const memoized = useMemo(factory, deps);
   if (typeof memoized === 'object' && memoized !== null) {
-    try {
-      (memoized as any).__memo = true;
-    } catch (e) {}
+    firebaseMemoTags.add(memoized);
   }
   return memoized;
 }

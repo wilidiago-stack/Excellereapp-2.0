@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -17,7 +17,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
+import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 import {
   Table,
@@ -49,29 +49,26 @@ export default function MonthlyReportPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user]
   );
-  const { data: projects, loading: projectsLoading } =
+  const { data: projects, isLoading: projectsLoading } =
     useCollection(projectsCollection);
 
-  const monthlyReportsCollection = useMemo(
+  const monthlyReportsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'monthlyReports') : null),
     [firestore, user]
   );
-  const { data: monthlyReports, loading: reportsLoading } =
+  const { data: monthlyReports, isLoading: reportsLoading } =
     useCollection(monthlyReportsCollection);
 
   const loading = userLoading || projectsLoading || reportsLoading;
 
-  const projectMap = useMemo(() => {
-    if (!projects) return {};
-    return projects.reduce((acc: any, p: any) => {
-      acc[p.id] = p.name;
-      return acc;
-    }, {});
-  }, [projects]);
+  const projectMap = (projects || []).reduce((acc: any, p: any) => {
+    acc[p.id] = p.name;
+    return acc;
+  }, {});
   
   const handleDelete = () => {
     if (!firestore || !selectedReport) return;

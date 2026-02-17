@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,7 +28,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
+import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -75,29 +75,25 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const router = useRouter();
   const isEditMode = !!initialData;
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user]
   );
   
-  const usersCollection = useMemo(
+  const usersCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'users') : null),
     [firestore]
   );
   const { data: users } = useCollection(usersCollection);
 
-  const contractorsCollection = useMemo(
+  const contractorsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'contractors') : null),
     [firestore]
   );
   const { data: contractors } = useCollection(contractorsCollection);
 
-  const projectManagers = useMemo(
-    () => users?.filter((u: any) => u.role === 'project_manager') || [],
-    [users]
-  );
-
-  const generalContractors = useMemo(() => contractors || [], [contractors]);
+  const projectManagers = (users || []).filter((u: any) => u.role === 'project_manager');
+  const generalContractors = contractors || [];
 
   const form = useForm<ProjectFormValues>({
     resolver: zodResolver(projectSchema),
@@ -166,11 +162,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
     operation
       .then(() => {
         toast({
-          title: isEditMode ? 'Project Updated' : 'Project Created',
-          description: `Project ${data.name} has been ${isEditMode ? 'updated' : 'created'} successfully.`,
+          title: 'Project Saved',
+          description: `Project ${data.name} has been saved successfully.`,
         });
         router.push('/projects');
-        router.refresh();
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({
@@ -570,7 +565,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 disabled={form.formState.isSubmitting}
                 >
                 {form.formState.isSubmitting
-                    ? isEditMode ? 'Saving...' : 'Creating...'
+                    ? 'Saving...'
                     : isEditMode ? 'Save Changes' : 'Create Project'}
                 </Button>
             </div>

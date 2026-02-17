@@ -1,6 +1,5 @@
 'use client';
 
-import { useState, useMemo } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -24,7 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
+import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -45,13 +44,13 @@ export function MonthlyReportForm() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user]
   );
   const { data: projects } = useCollection(projectsCollection);
 
-  const monthlyReportsCollection = useMemo(
+  const monthlyReportsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'monthlyReports') : null),
     [firestore, user]
   );

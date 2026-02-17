@@ -1,8 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ProjectForm } from '@/components/project-form';
 import Link from 'next/link';
@@ -17,11 +16,11 @@ export default function EditProjectPage() {
   const id = params.id as string;
   const firestore = useFirestore();
 
-  const projectDocRef = useMemo(
+  const projectDocRef = useMemoFirebase(
     () => (firestore && id ? doc(firestore, 'projects', id) : null),
     [firestore, id]
   );
-  const { data: projectData, loading } = useDoc(projectDocRef);
+  const { data: projectData, isLoading: loading } = useDoc(projectDocRef);
 
   return (
     <div className="space-y-6">

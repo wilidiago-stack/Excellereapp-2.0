@@ -1,8 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ContractorForm } from '@/components/contractor-form';
 import Link from 'next/link';
@@ -16,11 +15,11 @@ export default function EditContractorPage() {
     const id = params.id as string;
     const firestore = useFirestore();
 
-    const contractorDocRef = useMemo(
+    const contractorDocRef = useMemoFirebase(
         () => (firestore && id ? doc(firestore, 'contractors', id) : null),
         [firestore, id]
     );
-    const { data: contractorData, loading } = useDoc(contractorDocRef);
+    const { data: contractorData, isLoading: loading } = useDoc(contractorDocRef);
 
     return (
         <div className="space-y-6">

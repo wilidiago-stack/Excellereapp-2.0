@@ -28,12 +28,12 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
-import { useFirestore, useCollection, useAuth } from '@/firebase';
+import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import Link from 'next/link';
 
 const contractorSchema = z.object({
@@ -58,21 +58,18 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
   const { user } = useAuth();
   const isEditMode = !!initialData;
 
-  const contractorsCollection = useMemo(
+  const contractorsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
     [firestore, user]
   );
   
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );
   const { data: projectsData } = useCollection(projectsCollection);
 
-  const projects = useMemo(
-    () => projectsData?.map((p: any) => ({ id: p.id, label: p.name })) || [],
-    [projectsData]
-  );
+  const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name }));
 
   const form = useForm<ContractorFormValues>({
     resolver: zodResolver(contractorSchema),
@@ -102,11 +99,10 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
     operation
       .then(() => {
         toast({
-          title: isEditMode ? 'Contractor Updated' : 'Contractor Created',
-          description: `Contractor ${data.name} has been ${isEditMode ? 'updated' : 'created'} successfully.`,
+          title: 'Contractor Saved',
+          description: `Contractor ${data.name} has been saved successfully.`,
         });
         router.push('/contractors');
-        router.refresh();
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({
@@ -276,7 +272,7 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
               disabled={form.formState.isSubmitting}
             >
               {form.formState.isSubmitting
-                ? isEditMode ? 'Saving...' : 'Creating...'
+                ? 'Saving...'
                 : isEditMode ? 'Save Changes' : 'Create contractor'}
             </Button>
         </div>

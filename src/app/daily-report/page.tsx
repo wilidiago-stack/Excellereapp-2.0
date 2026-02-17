@@ -1,10 +1,10 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
 import { PlusCircle, MoreHorizontal } from 'lucide-react';
-import { useCollection, useFirestore } from '@/firebase';
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
@@ -49,27 +49,24 @@ export default function DailyReportPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
 
-  const dailyReportsCollection = useMemo(
+  const dailyReportsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'dailyReports') : null),
     [firestore]
   );
-  const { data: dailyReports, loading: reportsLoading } =
+  const { data: dailyReports, isLoading: reportsLoading } =
     useCollection(dailyReportsCollection);
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );
-  const { data: projectsData, loading: projectsLoading } =
+  const { data: projectsData, isLoading: projectsLoading } =
     useCollection(projectsCollection);
 
-  const projectMap = useMemo(() => {
-    if (!projectsData) return {};
-    return projectsData.reduce((acc: any, p: any) => {
-      acc[p.id] = p.name;
-      return acc;
-    }, {});
-  }, [projectsData]);
+  const projectMap = (projectsData || []).reduce((acc: any, p: any) => {
+    acc[p.id] = p.name;
+    return acc;
+  }, {});
 
   const loading = reportsLoading || projectsLoading;
   

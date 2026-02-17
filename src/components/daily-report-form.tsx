@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -13,8 +13,7 @@ import {
   Paperclip,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useAuth, useCollection } from '@/firebase';
-import { useFirestore } from '@/firebase/provider';
+import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
 import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -127,32 +126,25 @@ export function DailyReportForm() {
   const { toast } = useToast();
   const router = useRouter();
 
-  const dailyReportsCollection = useMemo(
+  const dailyReportsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'dailyReports') : null),
     [firestore, user]
   );
 
-  const projectsCollection = useMemo(
+  const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );
   const { data: projectsData } = useCollection(projectsCollection);
 
-  const contractorsCollection = useMemo(
+  const contractorsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'contractors') : null),
     [firestore]
   );
   const { data: contractorsData } = useCollection(contractorsCollection);
 
-  const projects = useMemo(
-    () => projectsData?.map((p: any) => ({ id: p.id, label: p.name })) || [],
-    [projectsData]
-  );
-
-  const contractors = useMemo(
-    () => contractorsData?.map((c: any) => ({ id: c.id, label: c.name })) || [],
-    [contractorsData]
-  );
+  const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name }));
+  const contractors = (contractorsData || []).map((c: any) => ({ id: c.id, label: c.name }));
 
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
@@ -205,47 +197,28 @@ export function DailyReportForm() {
   } = useFieldArray({ control: form.control, name: 'notes' });
 
   const selectedProjectId = form.watch('projectId');
-  const selectedProject = useMemo(() => {
-    if (!selectedProjectId || !projectsData) return null;
-    return projectsData.find((p: any) => p.id === selectedProjectId);
-  }, [selectedProjectId, projectsData]);
+  const selectedProject = (projectsData || []).find((p: any) => p.id === selectedProjectId);
 
-  const locations = useMemo(() => {
-    return (
-      selectedProject?.workAreas?.map((wa: string) => ({ id: wa, label: wa })) || []
-    );
-  }, [selectedProject]);
+  const locations = selectedProject?.workAreas?.map((wa: string) => ({ id: wa, label: wa })) || [];
+  const permitTypes = selectedProject?.workPermits?.map((wp: { code: string; name: string }) => ({
+    id: wp.code,
+    label: `${wp.name} (${wp.code})`,
+  })) || [];
 
-  const permitTypes = useMemo(() => {
-    return (
-      selectedProject?.workPermits?.map((wp: { code: string; name: string }) => ({
-        id: wp.code,
-        label: `${wp.name} (${wp.code})`,
-      })) || []
-    );
-  }, [selectedProject]);
-
-  const manHoursWatch = form.watch('manHours');
-  const totalGeneralManHours = manHoursWatch?.reduce(
+  const manHoursWatch = form.watch('manHours') || [];
+  const totalGeneralManHours = manHoursWatch.reduce(
     (acc, curr) => acc + (curr.headcount || 0) * (curr.hours || 0),
     0
   );
 
-  const dailyActivitiesWatch = form.watch('dailyActivities');
-  const totalPermits = dailyActivitiesWatch?.reduce(
+  const dailyActivitiesWatch = form.watch('dailyActivities') || [];
+  const totalPermits = dailyActivitiesWatch.reduce(
     (acc, curr) => acc + (curr.permits?.length || 0),
     0
   );
 
   const onSubmit = (data: DailyReportFormValues) => {
-    if (!firestore || !user || !dailyReportsCollection) {
-      toast({
-        variant: 'destructive',
-        title: 'Authentication Error',
-        description: 'You must be logged in to create a report.',
-      });
-      return;
-    }
+    if (!firestore || !user || !dailyReportsCollection) return;
 
     addDoc(dailyReportsCollection, {
       ...data,
@@ -254,10 +227,7 @@ export function DailyReportForm() {
       .then(() => {
         toast({
           title: 'Daily Report Created',
-          description: `Report for ${format(
-            data.date,
-            'PPP'
-          )} has been saved.`,
+          description: `Report for ${format(data.date, 'PPP')} has been saved.`,
         });
         router.push('/daily-report');
       })
@@ -706,8 +676,7 @@ export function DailyReportForm() {
             </TableHeader>
             <TableBody>
               {manHourFields.map((field, index) => {
-                const headcount =
-                  form.watch(`manHours.${index}.headcount`) || 0;
+                const headcount = form.watch(`manHours.${index}.headcount`) || 0;
                 const hours = form.watch(`manHours.${index}.hours`) || 0;
                 const total = headcount * hours;
                 return (
@@ -787,7 +756,7 @@ export function DailyReportForm() {
             <PlusCircle className="mr-2 h-4 w-4" /> Add Row
           </Button>
           <div className="flex justify-end mt-4 font-bold">
-            Total General: {totalGeneralManHours?.toFixed(1) || '0.0'}
+            Total General: {totalGeneralManHours.toFixed(1)}
           </div>
         </div>
 
@@ -894,21 +863,12 @@ export function DailyReportForm() {
                                   >
                                     <FormControl>
                                       <Checkbox
-                                        checked={field.value?.includes(
-                                          permit.id
-                                        )}
+                                        checked={(field.value || []).includes(permit.id)}
                                         onCheckedChange={(checked) => {
+                                          const currentVal = field.value || [];
                                           return checked
-                                            ? field.onChange([
-                                                ...(field.value || []),
-                                                permit.id,
-                                              ])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) =>
-                                                    value !== permit.id
-                                                )
-                                              );
+                                            ? field.onChange([...currentVal, permit.id])
+                                            : field.onChange(currentVal.filter((v) => v !== permit.id));
                                         }}
                                       />
                                     </FormControl>
@@ -929,8 +889,7 @@ export function DailyReportForm() {
                     />
                   </TableCell>
                   <TableCell>
-                    {form.watch(`dailyActivities.${index}.permits`)?.length ||
-                      0}
+                    {(form.watch(`dailyActivities.${index}.permits`) || []).length}
                   </TableCell>
                   <TableCell>
                     <Button
@@ -963,7 +922,7 @@ export function DailyReportForm() {
             <PlusCircle className="mr-2 h-4 w-4" /> Add Row
           </Button>
           <div className="flex justify-end mt-4 font-bold">
-            Total Permits: {totalPermits || 0}
+            Total Permits: {totalPermits}
           </div>
         </div>
 

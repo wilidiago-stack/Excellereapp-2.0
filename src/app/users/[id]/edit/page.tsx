@@ -1,8 +1,7 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useMemo } from 'react';
-import { useFirestore, useDoc } from '@/firebase';
+import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { UserForm } from '@/components/user-form';
 import Link from 'next/link';
@@ -16,11 +15,11 @@ export default function EditUserPage() {
   const id = params.id as string;
   const firestore = useFirestore();
 
-  const userDocRef = useMemo(
+  const userDocRef = useMemoFirebase(
     () => (firestore && id ? doc(firestore, 'users', id) : null),
     [firestore, id]
   );
-  const { data: userData, loading } = useDoc(userDocRef);
+  const { data: userData, isLoading: loading } = useDoc(userDocRef);
 
   return (
     <div className="space-y-6">

@@ -20,13 +20,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useFirestore } from '@/firebase';
+import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { Separator } from '@/components/ui/separator';
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -53,14 +53,13 @@ export function UserForm({ initialData }: UserFormProps) {
   const router = useRouter();
   const isEditMode = !!initialData;
 
-  const usersCollection = useMemo(
+  const usersCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'users') : null),
     [firestore]
   );
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
-    // Use initialData for defaultValues, providing a fallback for create mode.
     defaultValues: initialData || {
       firstName: '',
       lastName: '',
@@ -73,8 +72,6 @@ export function UserForm({ initialData }: UserFormProps) {
     },
   });
 
-  // This effect ensures the form is reset if the initialData prop changes after the component has mounted.
-  // This is crucial for correctly populating the form in edit mode when data arrives asynchronously.
   useEffect(() => {
     if (initialData) {
       form.reset(initialData);
@@ -82,14 +79,7 @@ export function UserForm({ initialData }: UserFormProps) {
   }, [initialData, form]);
 
   const onSubmit = (data: UserFormValues) => {
-    if (!firestore || !usersCollection) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'Firestore is not available.',
-      });
-      return;
-    }
+    if (!firestore || !usersCollection) return;
 
     const userData = { ...data };
 
@@ -100,11 +90,10 @@ export function UserForm({ initialData }: UserFormProps) {
     operation
       .then(() => {
         toast({
-          title: isEditMode ? 'User Updated' : 'User Created',
-          description: `User ${data.firstName} ${data.lastName} has been ${isEditMode ? 'updated' : 'created'}.`,
+          title: 'User Saved',
+          description: `User ${data.firstName} ${data.lastName} has been saved successfully.`,
         });
         router.push('/users');
-        router.refresh();
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
@@ -18,7 +18,7 @@ import {
   DropdownMenuContent,
 } from '@/components/ui/dropdown-menu';
 import { MoreHorizontal, PlusCircle } from 'lucide-react';
-import { useFirestore, useCollection } from '@/firebase';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 import {
   Table,
@@ -49,11 +49,11 @@ export default function ContractorsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<any>(null);
 
-  const contractorsCollection = useMemo(
+  const contractorsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'contractors') : null),
     [firestore]
   );
-  const { data: contractors, loading } = useCollection(contractorsCollection);
+  const { data: contractors, isLoading: loading } = useCollection(contractorsCollection);
 
   const handleDelete = () => {
     if (!firestore || !selectedContractor) return;

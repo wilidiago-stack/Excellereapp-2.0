@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { firebaseMemoTags } from '../provider';
 
 type WithId<T> = T & { id: string };
 
@@ -27,8 +28,8 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Validar que la referencia esté memoizada correctamente
-    if (memoizedDocRef && !(memoizedDocRef as any).__memo) {
+    // Validar que la referencia esté memoizada correctamente usando el tracker seguro
+    if (memoizedDocRef && !firebaseMemoTags.has(memoizedDocRef)) {
       throw new Error(`${memoizedDocRef} was not properly memoized using useMemoFirebase`);
     }
 
