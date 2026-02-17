@@ -17,7 +17,6 @@ export default function Home() {
   const { user } = useAuth();
   const firestore = useFirestore();
 
-  // Memoización estable de referencias Firestore
   const metadataDoc = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
     [firestore, user?.uid]
