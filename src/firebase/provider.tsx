@@ -53,7 +53,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  // 1. Escuchar cambios en la sesión de Auth
+  // 1. Escuchar cambios en la sesión de Auth y Claims
   useEffect(() => {
     if (!auth) {
       setUserAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
@@ -70,27 +70,15 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
               ...prev,
               user: firebaseUser,
               claims: tokenResult.claims,
-              // No terminamos la carga aquí, esperamos a Firestore
+              // No terminamos la carga aquí si todavía no tenemos userData
               isUserLoading: prev.userData ? false : true,
               userError: null,
             }));
           } catch (e: any) {
-            setUserAuthState(prev => ({
-              ...prev,
-              user: firebaseUser,
-              claims: null,
-              isUserLoading: false,
-              userError: e,
-            }));
+            setUserAuthState(prev => ({ ...prev, user: firebaseUser, claims: null, isUserLoading: false, userError: e }));
           }
         } else {
-          setUserAuthState({
-            user: null,
-            claims: null,
-            userData: null,
-            isUserLoading: false,
-            userError: null,
-          });
+          setUserAuthState({ user: null, claims: null, userData: null, isUserLoading: false, userError: null });
         }
       },
       (error) => {
@@ -104,7 +92,9 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   useEffect(() => {
     const user = userAuthState.user;
     if (!user || !firestore) {
-      if (!user) setUserAuthState(prev => ({ ...prev, userData: null, isUserLoading: false }));
+      if (!user && !userAuthState.isUserLoading) {
+         // Ya no estamos cargando y no hay usuario
+      }
       return;
     }
 
@@ -114,20 +104,18 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       setUserAuthState(prev => ({
         ...prev,
         userData: data || null,
-        isUserLoading: false, // Ahora sí terminamos la carga
+        isUserLoading: false, // Ahora sí terminamos la carga total
       }));
 
-      // Si el rol en Firestore es Admin pero el Token no lo sabe, forzamos refresco (para mayor seguridad)
-      if (data?.role === 'admin' && userAuthState.claims?.role !== 'admin') {
-        user.getIdToken(true);
-      }
+      // Sincronización proactiva: si el rol en Firestore es diferente al del Token,
+      // podríamos invocar un refresh, pero el hook useAuth ya prioriza userData.role
     }, (error) => {
-        // Si hay un error de permisos aquí, es normal si el usuario es nuevo y el doc aún no existe
+        // Ignoramos errores de permisos aquí para usuarios nuevos cuyo doc aún no existe
         setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
     });
 
     return () => unsubscribe();
-  }, [userAuthState.user, firestore, userAuthState.claims?.role]);
+  }, [userAuthState.user, firestore]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
@@ -176,7 +164,7 @@ export const useFirebaseApp = (): FirebaseApp => {
 
 export const useAuth = (): AuthHookResult => {
   const { user, claims, userData, isUserLoading, userError } = useFirebase();
-  // El rol de Firestore tiene prioridad absoluta sobre cualquier otra fuente
+  // El rol de Firestore (userData) tiene prioridad absoluta sobre el Token (claims)
   const role = userData?.role || (claims?.role as string) || 'viewer';
   return { 
     user, 

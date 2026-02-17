@@ -27,6 +27,11 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // Validar que la referencia esté memoizada correctamente
+    if (memoizedDocRef && !(memoizedDocRef as any).__memo) {
+      throw new Error(`${memoizedDocRef} was not properly memoized using useMemoFirebase`);
+    }
+
     if (!memoizedDocRef) {
       setData(null);
       setIsLoading(false);

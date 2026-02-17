@@ -13,12 +13,12 @@ service cloud.firestore {
     /** 
      * FUENTE DE VERDAD DEFINITIVA: 
      * Consulta el rol directamente en el documento de usuario de Firestore.
-     * También verifica el marcador de seguridad 'system_roles_admin' para redundancia.
+     * Esto permite que los cambios de rol sean efectivos de inmediato sin esperar al token.
      */
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.role == 'admin' || 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        request.auth.token.role == 'admin' || 
         exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
       );
     }

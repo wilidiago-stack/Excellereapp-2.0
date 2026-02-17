@@ -28,6 +28,11 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
+    // Validar que la referencia esté memoizada correctamente
+    if (memoizedTargetRefOrQuery && !(memoizedTargetRefOrQuery as any).__memo) {
+      throw new Error(`${memoizedTargetRefOrQuery} was not properly memoized using useMemoFirebase`);
+    }
+
     if (!memoizedTargetRefOrQuery) {
       setData(null);
       setIsLoading(false);
