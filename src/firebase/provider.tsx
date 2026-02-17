@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onIdTokenChanged, ParsedToken } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
@@ -13,7 +13,6 @@ interface FirebaseProviderProps {
   auth: Auth;
 }
 
-// Internal state for user authentication and claims
 interface UserAuthState {
   user: User | null;
   claims: ParsedToken | null;
@@ -21,7 +20,6 @@ interface UserAuthState {
   userError: Error | null;
 }
 
-// Combined state for the Firebase context
 export interface FirebaseContextState extends UserAuthState {
   areServicesAvailable: boolean;
   firebaseApp: FirebaseApp | null;
@@ -29,7 +27,6 @@ export interface FirebaseContextState extends UserAuthState {
   auth: Auth | null;
 }
 
-// Return type for useAuth() - specific to user auth state
 export interface AuthHookResult {
   user: User | null;
   claims: ParsedToken | null;
@@ -37,12 +34,8 @@ export interface AuthHookResult {
   error: Error | null;
 }
 
-// React Context
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-/**
- * FirebaseProvider manages and provides Firebase services and user authentication state.
- */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
@@ -56,14 +49,12 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  // Effect to subscribe to Firebase auth state and token changes
   useEffect(() => {
     if (!auth) {
       setUserAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
       return;
     }
 
-    // onIdTokenChanged is better than onAuthStateChanged for role syncing
     const unsubscribe = onIdTokenChanged(
       auth,
       async (firebaseUser) => {
@@ -94,14 +85,35 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         }
       },
       (error) => {
-        console.error("FirebaseProvider: onIdTokenChanged error:", error);
         setUserAuthState({ user: null, claims: null, isUserLoading: false, userError: error });
       }
     );
     return () => unsubscribe();
   }, [auth]);
 
-  // Memoize the context value
+  /**
+   * SINCRONIZADOR DE ROLES EN TIEMPO REAL:
+   * Escucha cambios en el documento del usuario en Firestore.
+   * Si el rol cambia, fuerza la actualización del token de seguridad.
+   */
+  useEffect(() => {
+    const user = userAuthState.user;
+    if (!user || !firestore) return;
+
+    const userDocRef = doc(firestore, 'users', user.uid);
+    const unsubscribe = onSnapshot(userDocRef, (snapshot) => {
+      const userData = snapshot.data();
+      const currentClaimRole = userAuthState.claims?.role;
+      
+      if (userData?.role && userData.role !== currentClaimRole) {
+        // El rol en DB no coincide con el Token. Forzamos actualización silenciosa.
+        user.getIdToken(true);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [userAuthState.user, userAuthState.claims?.role, firestore]);
+
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
     return {
@@ -121,9 +133,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   );
 };
 
-/**
- * Hook to access core Firebase services and user authentication state.
- */
 export const useFirebase = (): FirebaseContextState => {
   const context = useContext(FirebaseContext);
   if (context === undefined) {
@@ -132,43 +141,43 @@ export const useFirebase = (): FirebaseContextState => {
   return context;
 };
 
-/** Hook to access Firebase Auth instance. */
 export const useAuthInstance = (): Auth => {
   const { auth } = useFirebase();
   if (!auth) throw new Error('Auth instance not available');
   return auth;
 };
 
-/** Hook to access Firestore instance. */
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   if (!firestore) throw new Error('Firestore instance not available');
   return firestore;
 };
 
-/** Hook to access Firebase App instance. */
 export const useFirebaseApp = (): FirebaseApp => {
   const { firebaseApp } = useFirebase();
   if (!firebaseApp) throw new Error('FirebaseApp instance not available');
   return firebaseApp;
 };
 
-/** Hook for accessing the authenticated user's state and claims. */
 export const useAuth = (): AuthHookResult => {
   const { user, claims, isUserLoading, userError } = useFirebase();
   return { user, claims, loading: isUserLoading, error: userError };
 };
 
-/** Legacy hook for consistency */
 export const useUser = () => useAuth();
 
-type MemoFirebase <T> = T & {__memo?: boolean};
+type MemoFirebase<T> = T & {__memo?: boolean};
 
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
   const memoized = useMemo(factory, deps);
   
-  if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
+  if (typeof memoized === 'object' && memoized !== null) {
+    try {
+      (memoized as any).__memo = true;
+    } catch (e) {
+      // Si el objeto está congelado (como algunos de Firestore), lo envolvemos
+    }
+  }
   
   return memoized;
 }

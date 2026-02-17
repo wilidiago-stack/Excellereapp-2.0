@@ -4,106 +4,84 @@ service cloud.firestore {
 
     /**
      * EXCELLERE REVIVE - FIRESTORE SECURITY RULES
-     *
-     * CORE PHILOSOPHY:
-     * This ruleset implements a robust, role-based access control (RBAC) model optimized for performance 
-     * and debuggability. It leverages "Authorization Independence" by using a dedicated collection for 
-     * administrative lookups, bypassing the need for complex, nested document reads.
-     *
-     * DATA STRUCTURE:
-     * - /users/{userId}: Private user profiles, owned by the user or manageable by Admins.
-     * - /roles/{roleId}: Global role definitions (Reference Data).
-     * - /modules/{moduleId}: Global application modules (Reference Data).
-     * - /system_roles_admin/{adminUid}: A marker collection where the existence of a document 
-     *   grants administrative privileges to the corresponding UID.
-     *
-     * KEY SECURITY DECISIONS:
-     * - ADMIN ACCESS: Admin status is determined by the existence of a document in /system_roles_admin.
-     *   This allows for the `isAdmin()` helper to be used across all collections safely and quickly.
-     * - USER PRIVACY: Non-admin users can only 'get' or 'list' their own profile document.
-     * - REFERENCE DATA: Roles and Modules are publicly readable by any authenticated user but 
-     *   only writable by Administrators.
-     * - PROTOTYPING FLEXIBILITY: While access is strictly controlled via UIDs and Roles, the internal 
-     *   schema (fields like 'email' or 'displayName') is not strictly validated to allow for rapid iteration.
-     *
-     * DENORMALIZATION FOR AUTHORIZATION:
-     * To avoid high-latency rules, the 'Admin' status is denormalized into its own collection. 
-     * Instead of checking a 'roleIds' array inside a user document (which requires a `get()` call 
-     * and potentially a join), the rules use `exists()` on a path specifically designed for this check.
+     * 
+     * Implementa RBAC (Role-Based Access Control) con independencia de autorización.
      */
 
-    // --- Helper Functions ---
+    // --- Funciones de Ayuda ---
 
-    /** @description Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** @description Checks if the authenticated user is the owner of the document based on the path ID. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** @description Checks for Administrative privileges via the denormalized system_roles_admin collection. */
+    /** 
+     * Verifica privilegios administrativos.
+     * Basado en la colección denormalizada para rendimiento óptimo.
+     */
     function isAdmin() {
       return isSignedIn() && exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid));
     }
 
-    // --- Collection Rules ---
+    // --- Reglas de Colecciones ---
 
-    /**
-     * @description Rules for the UserProfile collection. Controls who can see and edit user profiles.
-     * @path /users/{userId}
-     * @allow (get) If the user is requesting their own profile or is an Admin.
-     * @deny (list) If a standard user attempts to list all users.
-     * @principle Ownership-based access with Administrative override. Enforces path-to-data consistency on create.
-     */
+    /** Datos del sistema - Estadísticas del Dashboard */
+    match /system/metadata {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /** Perfiles de Usuario */
     match /users/{userId} {
-      allow get, list: if isOwner(userId) || isAdmin();
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin(); // Solo admins pueden ver la lista completa
       
       allow create: if (isOwner(userId) && request.resource.data.id == userId) || isAdmin();
-      
-      allow update: if (resource != null && (isOwner(userId) || isAdmin())) 
-                    && (request.resource.data.id == resource.data.id);
-      
-      allow delete: if (resource != null && (isOwner(userId) || isAdmin()));
+      allow update: if (isOwner(userId) || isAdmin());
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for global Role definitions. Used by the UI to display available permissions.
-     * @path /roles/{roleId}
-     * @allow (read) Any authenticated user to fetch role definitions for UI logic.
-     * @deny (write) Any non-admin user attempting to change system roles.
-     * @principle Reference data: globally readable by users, writable only by system administrators.
-     */
-    match /roles/{roleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+    /** Proyectos, Contratistas y Reportes */
+    match /projects/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /contractors/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+    
+    match /dailyReports/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+    
+    match /monthlyReports/{id} {
+      allow read: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
     }
 
-    /**
-     * @description Rules for global Module definitions. Controls navigation and feature mapping.
-     * @path /modules/{moduleId}
-     * @allow (read) Any authenticated user to fetch module metadata for navigation.
-     * @deny (write) Any non-admin user attempting to modify application modules.
-     * @principle Reference data: globally readable by users, writable only by system administrators.
-     */
-    match /modules/{moduleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
+    /** Roles y Módulos (Datos de Referencia) */
+    match /roles/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
 
-    /**
-     * @description Security lookup collection. Existence of a document here defines an Admin.
-     * @path /system_roles_admin/{adminUid}
-     * @allow (read/write) Only existing Admins can manage the list of other Admins.
-     * @deny (all) Standard users cannot see or modify who has administrative access.
-     * @principle Structural Segregation for Authorization. This is the source of truth for the isAdmin() helper.
-     */
+    match /modules/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    /** Marcadores de Seguridad (Admin Lookup) */
     match /system_roles_admin/{adminUid} {
-      // NOTE: For the first admin, you must manually create a document in the Firebase Console
-      // with a document ID matching your Auth UID.
-      allow get, list, create, update, delete: if isAdmin();
+      allow get, list: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }
