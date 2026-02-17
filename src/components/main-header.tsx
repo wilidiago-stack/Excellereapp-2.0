@@ -105,6 +105,7 @@ export function MainHeader() {
               <span className="text-[#46a395]">Excellere</span>
               <span className="text-[#FF9800]">App</span>
             </span>
+            <span className="text-[8px] text-black -mt-1">2.0</span>
           </div>
         </Link>
       </div>
