@@ -1,3 +1,4 @@
+
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
 import * as admin from "firebase-admin";
