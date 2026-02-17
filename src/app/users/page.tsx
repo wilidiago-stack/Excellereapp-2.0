@@ -144,7 +144,16 @@ export default function UsersPage() {
               {users?.map((user: any) => (
                 <TableRow key={user.id}>
                   <TableCell className="font-medium">
-                    {user.firstName}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`h-2.5 w-2.5 rounded-full ${
+                          user.status === 'active'
+                            ? 'bg-green-500'
+                            : 'bg-slate-400'
+                        }`}
+                      />
+                      {user.firstName}
+                    </div>
                   </TableCell>
                   <TableCell>{user.lastName}</TableCell>
                   <TableCell>{user.email}</TableCell>
