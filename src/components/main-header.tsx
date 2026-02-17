@@ -116,7 +116,7 @@ export function MainHeader() {
             <ExcellereIcon />
           </div>
           <div className="hidden sm:flex flex-col">
-            <span className="text-base font-semibold font-brand text-[#46a395]">Excellere</span>
+            <span className="text-[35px] font-semibold font-brand text-[#46a395]">Excellere</span>
           </div>
         </Link>
       </div>
