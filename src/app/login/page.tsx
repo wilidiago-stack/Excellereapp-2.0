@@ -128,9 +128,6 @@ export default function LoginPage() {
     setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
-      // On successful sign-in, the onAuthStateChanged listener in FirebaseProvider
-      // will handle the user state and redirection. The onAuthUserCreate cloud
-      // function will handle creating the user document in Firestore for new users.
       toast({
         title: 'Login Successful',
         description: 'Welcome!',
@@ -227,6 +224,51 @@ export default function LoginPage() {
 
   const renderAuthError = () => {
     if (!authError) return null;
+
+    if (authError.message.includes('AADSTS7000215')) {
+      return (
+        <Alert variant="destructive">
+          <Terminal className="h-4 w-4" />
+          <AlertTitle>Action Required: Invalid Microsoft Client Secret</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-4 mt-2">
+              <p>
+                The error from Microsoft (AADSTS7000215) means the <strong>Client Secret</strong> you've configured in Firebase is incorrect.
+              </p>
+              <p>
+                This often happens if you accidentally use the secret's <strong>ID</strong> instead of its <strong>Value</strong>. The value is only visible right after you create it in the Azure portal.
+              </p>
+              <ol className="list-decimal list-inside space-y-2">
+                <li>
+                  Go to your App Registration in the <strong>Azure Portal</strong> and navigate to <strong>Certificates & secrets</strong>.
+                </li>
+                <li>
+                  Click <strong>+ New client secret</strong>. Copy the new secret's <strong>Value</strong> immediately (it will be hidden later).
+                </li>
+                <li>
+                  Go to the Authentication providers tab in your Firebase Console:
+                  <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
+                    <a
+                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      Open Firebase Auth Settings
+                    </a>
+                  </Button>
+                </li>
+                <li>
+                  Edit the <strong>Microsoft</strong> provider and paste the new secret <strong>Value</strong> into the "Client secret" field.
+                </li>
+              </ol>
+              <p className="font-semibold">
+                After saving the new secret in Firebase, please try signing in again.
+              </p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
 
     if (authError.message.includes('AADSTS700016')) {
       return (
