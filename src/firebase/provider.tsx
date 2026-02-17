@@ -91,13 +91,13 @@ export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
       console.error("Failed to update lastSeen on load:", error);
     });
 
-    // Update lastSeen every 2 minutes as a heartbeat
+    // Update lastSeen every 30 seconds as a heartbeat
     const intervalId = setInterval(() => {
       updateDoc(userDocRef, { lastSeen: serverTimestamp() }).catch((error) => {
         // This might fail if user is offline, which is fine.
         console.log("Heartbeat update for lastSeen failed (likely offline):", error.message);
       });
-    }, 2 * 60 * 1000); // every 2 minutes
+    }, 30 * 1000); // every 30 seconds
 
     return () => {
       clearInterval(intervalId);

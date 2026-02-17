@@ -99,7 +99,7 @@ export default function UsersPage() {
     const now = new Date();
     const lastSeenDate = lastSeen.toDate();
     const diffInMinutes = (now.getTime() - lastSeenDate.getTime()) / (1000 * 60);
-    return diffInMinutes < 5; // Consider online if last seen within the last 5 minutes
+    return diffInMinutes < 1; // Consider online if last seen within the last minute
   };
 
   return (
