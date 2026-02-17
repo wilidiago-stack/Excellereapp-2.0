@@ -2,7 +2,7 @@
 import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import type { FirebaseApp } from 'firebase/app';
 import type { Auth, User, IdTokenResult } from 'firebase/auth';
-import { onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
+import { onIdTokenChanged, getIdTokenResult } from 'firebase/auth';
 import {
   type Firestore,
   doc,
@@ -56,19 +56,23 @@ export function FirebaseProvider({ children, value }: FirebaseProviderProps) {
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const unsubscribe = onIdTokenChanged(auth, async (user) => {
       setAuthLoading(true);
       if (user) {
         try {
-          const idTokenResult = await getIdTokenResult(user, true); // Force refresh for claims
+          // Force refresh the token to get the latest custom claims.
+          // This is crucial for reflecting role changes without a logout/login.
+          const idTokenResult = await getIdTokenResult(user, true); 
           setUser(user);
           setClaims(idTokenResult.claims);
         } catch (error) {
           console.error("Error fetching user claims in provider:", error);
+          // Still set the user, but claims will be null.
           setUser(user);
           setClaims(null);
         }
       } else {
+        // User is signed out
         setUser(null);
         setClaims(null);
       }
