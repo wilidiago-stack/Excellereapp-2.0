@@ -22,6 +22,15 @@ import {
   CalendarDays,
   Menu,
   Bell,
+  Files,
+  Camera,
+  Map as MapIcon,
+  DollarSign,
+  BarChart2,
+  Clock,
+  Sheet,
+  Timer,
+  CloudSun,
 } from 'lucide-react';
 
 export function MainHeader() {
@@ -33,6 +42,17 @@ export function MainHeader() {
     { href: '/contractors', label: 'Contractors', icon: HardHat },
     { href: '/daily-report', label: 'Daily Report', icon: FileText },
     { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays },
+    { href: '#', label: 'Project Team', icon: Users },
+    { href: '#', label: 'Documents', icon: Files },
+    { href: '#', label: 'Project Aerial View', icon: Camera },
+    { href: '#', label: 'Calendar', icon: CalendarDays },
+    { href: '#', label: 'Map', icon: MapIcon },
+    { href: '#', label: 'CapEx', icon: DollarSign },
+    { href: '#', label: 'Report/Analytics', icon: BarChart2 },
+    { href: '#', label: 'Schedule', icon: Clock },
+    { href: '#', label: 'Master Sheet Time', icon: Sheet },
+    { href: '#', label: 'Time Sheet', icon: Timer },
+    { href: '#', label: 'Weather', icon: CloudSun },
   ];
 
   const secondaryMenuItems = [
