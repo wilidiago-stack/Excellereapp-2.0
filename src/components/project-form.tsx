@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/popover';
 import { PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -149,7 +149,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       const formattedData = {
         name: initialData.name || '',
         companyName: initialData.companyName || '',
-        status: initialData.status || 'Not Started',
+        status: (initialData.status as any) || 'Not Started',
         country: initialData.country || '',
         state: initialData.state || '',
         city: initialData.city || '',
@@ -187,6 +187,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       generalContractorId: data.generalContractorId || "",
       workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v && v.trim() !== '') || [],
       workPermits: data.workPermits?.map((wp) => wp.value).filter(v => v && v.trim() !== '') || [],
+      updatedAt: serverTimestamp(),
     };
 
     if (isEditMode) {
@@ -212,7 +213,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         toast({ variant: 'destructive', title: 'Error', description: 'Projects collection not available.' });
         return;
       }
-      addDoc(projectsCollection, dataToSave)
+      addDoc(projectsCollection, {
+        ...dataToSave,
+        createdAt: serverTimestamp(),
+      })
         .then(() => {
           toast({
             title: 'Project Created',
