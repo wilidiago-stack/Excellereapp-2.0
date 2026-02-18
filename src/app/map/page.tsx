@@ -5,7 +5,7 @@ import { collection } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Search, MapPin, Navigation, Info, ExternalLink } from 'lucide-react';
+import { Search, MapPin, Navigation, Info, ExternalLink, Layers, Globe } from 'lucide-react';
 import { useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -13,6 +13,7 @@ export default function MapPage() {
   const firestore = useFirestore();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedProject, setSelectedProject] = useState<any>(null);
+  const [mapType, setMapType] = useState<'m' | 'k'>('m'); // 'm' for roadmap, 'k' for satellite
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -26,11 +27,12 @@ export default function MapPage() {
   ) || [];
 
   const getMapUrl = () => {
+    const typeParam = mapType === 'k' ? 'k' : '';
     if (selectedProject) {
       const query = encodeURIComponent(`${selectedProject.address}, ${selectedProject.city}, ${selectedProject.state}`);
-      return `https://maps.google.com/maps?q=${query}&t=&z=15&ie=UTF8&iwloc=&output=embed`;
+      return `https://maps.google.com/maps?q=${query}&t=${typeParam}&z=18&ie=UTF8&iwloc=&output=embed`;
     }
-    return `https://maps.google.com/maps?q=United%20States&t=&z=4&ie=UTF8&iwloc=&output=embed`;
+    return `https://maps.google.com/maps?q=United%20States&t=${typeParam}&z=4&ie=UTF8&iwloc=&output=embed`;
   };
 
   return (
@@ -41,6 +43,15 @@ export default function MapPage() {
           <p className="text-xs text-muted-foreground text-pretty">Geographic distribution of all active and completed projects using Google Maps.</p>
         </div>
         <div className="flex items-center gap-2">
+           <Button 
+             variant={mapType === 'k' ? 'secondary' : 'outline'} 
+             size="sm" 
+             className="h-8 text-xs gap-2"
+             onClick={() => setMapType(mapType === 'm' ? 'k' : 'm')}
+           >
+             {mapType === 'm' ? <Globe className="h-3.5 w-3.5" /> : <Layers className="h-3.5 w-3.5" />}
+             {mapType === 'm' ? 'Satellite View' : 'Roadmap View'}
+           </Button>
            <Button variant="outline" size="sm" className="h-8 text-xs">
              <Info className="mr-2 h-3.5 w-3.5" />
              Legend
@@ -113,7 +124,12 @@ export default function MapPage() {
           </div>
           
           <div className="absolute top-3 right-3 flex flex-col gap-2">
-            <Button variant="secondary" size="icon" className="shadow-md bg-white hover:bg-slate-50 h-8 w-8 rounded-sm">
+            <Button 
+              variant="secondary" 
+              size="icon" 
+              className="shadow-md bg-white hover:bg-slate-50 h-8 w-8 rounded-sm"
+              onClick={() => setSelectedProject(null)}
+            >
               <Navigation className="h-3.5 w-3.5" />
             </Button>
           </div>
@@ -139,14 +155,25 @@ export default function MapPage() {
               <p className="text-[10px] font-bold text-[#46a395] uppercase mb-1">Selected Project</p>
               <h4 className="text-xs font-bold truncate">{selectedProject.name}</h4>
               <p className="text-[10px] text-slate-600 mt-1">{selectedProject.address}</p>
-              <Button 
-                variant="link" 
-                size="sm" 
-                className="h-auto p-0 text-[10px] mt-2 text-[#46a395]"
-                onClick={() => setSelectedProject(null)}
-              >
-                Clear selection
-              </Button>
+              <div className="flex items-center gap-2 mt-2">
+                <Button 
+                  variant="link" 
+                  size="sm" 
+                  className="h-auto p-0 text-[10px] text-[#46a395]"
+                  onClick={() => setSelectedProject(null)}
+                >
+                  Clear selection
+                </Button>
+                <span className="text-slate-300 text-[10px]">|</span>
+                <a 
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedProject.address + ', ' + selectedProject.city)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[10px] text-[#46a395] hover:underline flex items-center gap-1"
+                >
+                  Open in Maps <ExternalLink className="h-2 w-2" />
+                </a>
+              </div>
             </div>
           )}
         </Card>
