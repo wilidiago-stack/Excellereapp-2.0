@@ -19,7 +19,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { MoreHorizontal, PlusCircle, Users, Search, Filter, ShieldCheck, UserClock } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Users, Search, Filter, ShieldCheck, Clock } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
 import {
@@ -105,7 +105,7 @@ export default function UsersPage() {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
+    <div className="flex flex-col h-full gap-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">User Management</h1>
@@ -153,7 +153,7 @@ export default function UsersPage() {
                 </div>
                 <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <UserClock className="h-3.5 w-3.5 text-orange-500" />
+                    <Clock className="h-3.5 w-3.5 text-orange-500" />
                     <span className="text-xs font-medium">Pending Review</span>
                   </div>
                   <span className="text-xs font-bold">{stats.pending}</span>
