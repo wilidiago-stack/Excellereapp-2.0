@@ -122,8 +122,9 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const selectedCountry = form.watch('country');
   const selectedState = form.watch('state');
 
-  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort() : [];
-  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort() : [];
+  // Sorted alphabetical lists
+  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort((a, b) => a.localeCompare(b)) : [];
+  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort((a, b) => a.localeCompare(b)) : [];
 
   // Reset dependent fields when parent changes
   useEffect(() => {
@@ -292,7 +293,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <SelectContent>
                         {COUNTRIES.map((country) => (
                           <SelectItem key={country} value={country}>
-                            {country}
+                            <div className="flex items-center gap-2">
+                              {country === "United States" && <span>📌</span>}
+                              {country}
+                            </div>
                           </SelectItem>
                         ))}
                     </SelectContent>
@@ -302,7 +306,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 )}
             />
 
-            {/* State Selection (Correlated) */}
+            {/* State Selection (Correlated & Alphabetical) */}
             <FormField
                 control={form.control}
                 name="state"
@@ -332,7 +336,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 )}
             />
 
-            {/* City Selection (Correlated) */}
+            {/* City Selection (Correlated & Alphabetical) */}
             <FormField
                 control={form.control}
                 name="city"
@@ -579,7 +583,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeWorkArea(index)}
-                >
+                ) : (
                     <Trash2 className="h-4 w-4" />
                 </Button>
                 </div>
