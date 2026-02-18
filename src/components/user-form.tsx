@@ -30,28 +30,7 @@ import { Separator } from '@/components/ui/separator';
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-
-// Definición de todos los módulos del app para asignación de permisos
-const APP_MODULES = [
-  { id: 'dashboard', label: 'Dashboard' },
-  { id: 'customers', label: 'Customers' },
-  { id: 'projects', label: 'Projects' },
-  { id: 'users', label: 'Users' },
-  { id: 'contractors', label: 'Contractors' },
-  { id: 'daily-report', label: 'Daily Report' },
-  { id: 'monthly-report', label: 'Monthly Report' },
-  { id: 'project-team', label: 'Project Team' },
-  { id: 'documents', label: 'Documents' },
-  { id: 'project-aerial-view', label: 'Project Aerial View' },
-  { id: 'calendar', label: 'Calendar' },
-  { id: 'map', label: 'Map' },
-  { id: 'capex', label: 'CapEx' },
-  { id: 'reports-analytics', label: 'Report/Analytics' },
-  { id: 'schedule', label: 'Schedule' },
-  { id: 'master-sheet-time', label: 'Master Sheet Time' },
-  { id: 'time-sheet', label: 'Time Sheet' },
-  { id: 'weather', label: 'Weather' },
-];
+import { APP_MODULES } from '@/lib/modules';
 
 const userSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -300,9 +279,9 @@ export function UserForm({ initialData }: UserFormProps) {
         <Separator />
 
         <div className="space-y-4">
-            <h3 className="text-sm font-medium">Visualización de Módulos</h3>
+            <h3 className="text-sm font-medium">Visualización de Módulos (Gestión Automática)</h3>
             <p className="text-xs text-muted-foreground">
-                Seleccione los módulos que este usuario podrá visualizar en el menú de navegación.
+                Seleccione los módulos que este usuario podrá visualizar. Esta lista se actualiza automáticamente desde la configuración central.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 pt-2">
                 {APP_MODULES.map((module) => (
