@@ -40,5 +40,5 @@ export const APP_MODULES: AppModule[] = [
   { id: 'schedule', label: 'Schedule', href: '#', icon: Clock, defaultVisibility: 'all' },
   { id: 'master-sheet-time', label: 'Master Sheet Time', href: '#', icon: Sheet, defaultVisibility: 'all' },
   { id: 'time-sheet', label: 'Time Sheet', href: '#', icon: Timer, defaultVisibility: 'all' },
-  { id: 'weather', label: 'Weather', href: '#', icon: CloudSun, defaultVisibility: 'all' },
+  { id: 'weather', label: 'Weather', href: '/weather', icon: CloudSun, defaultVisibility: 'all' },
 ];

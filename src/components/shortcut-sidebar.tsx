@@ -14,7 +14,8 @@ import {
   Home,
   Pin,
   PinOff,
-  Map
+  Map,
+  CloudSun
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -55,6 +56,7 @@ const ACTION_REGISTRY = [
   { id: 'monthly-report-list', label: 'Monthly Reports', href: '/monthly-report', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
   { id: 'calendar-view', label: 'Calendar', href: '/calendar', icon: CalendarDays, moduleId: 'calendar', moduleName: 'Tools' },
   { id: 'map-view', label: 'Project Map', href: '/map', icon: Map, moduleId: 'map', moduleName: 'Tools' },
+  { id: 'weather-view', label: 'Weather', href: '/weather', icon: CloudSun, moduleId: 'weather', moduleName: 'Tools' },
   { id: 'ai-assistant', label: 'AI Assistant', href: '#', icon: Sparkles, moduleId: 'dashboard', moduleName: 'Tools' },
 ];
 
@@ -70,7 +72,7 @@ export function ShortcutSidebar() {
   // Filter available actions by user's assigned modules
   const availableActions = ACTION_REGISTRY.filter(action => {
     if (isAdmin) return true;
-    return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard';
+    return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || action.moduleId === 'weather' || action.moduleId === 'calendar' || action.moduleId === 'map';
   });
 
   // Limit to max 10 shortcuts
