@@ -43,7 +43,7 @@ import {
 } from '@/components/ui/tabs';
 import { Label } from '@/components/ui/label';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Terminal } from 'lucide-react';
+import { Terminal, ShieldAlert, Globe } from 'lucide-react';
 import { firebaseConfig } from '@/firebase/config';
 
 const loginSchema = z.object({
@@ -90,7 +90,6 @@ export default function LoginPage() {
     message: string;
   } | null>(null);
 
-  // This ref will hold the RecaptchaVerifier instance
   const recaptchaVerifierRef = useRef<RecaptchaVerifier | null>(null);
 
   const emailForm = useForm<LoginFormValues>({
@@ -124,7 +123,9 @@ export default function LoginPage() {
     provider: GoogleAuthProvider | OAuthProvider
   ) => {
     if (!auth) return;
-    setLoading(true);
+    
+    // IMPORTANTE: No ponemos setLoading(true) antes de signInWithPopup
+    // para evitar que el navegador crea que no es una acción del usuario.
     setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
@@ -135,8 +136,6 @@ export default function LoginPage() {
       router.push('/');
     } catch (error: any) {
       setAuthError({ code: error.code, message: error.message });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -161,7 +160,6 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      // Lazily initialize the verifier if it doesn't exist.
       if (!recaptchaVerifierRef.current) {
         recaptchaVerifierRef.current = new RecaptchaVerifier(
           auth,
@@ -225,6 +223,42 @@ export default function LoginPage() {
   const renderAuthError = () => {
     if (!authError) return null;
 
+    if (authError.code === 'auth/popup-blocked') {
+      return (
+        <Alert variant="destructive">
+          <Globe className="h-4 w-4" />
+          <AlertTitle>Navegador bloqueó la ventana</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-2 mt-2">
+              <p>Tu navegador ha bloqueado la ventana emergente de inicio de sesión.</p>
+              <p className="font-semibold">Solución:</p>
+              <ol className="list-decimal list-inside space-y-1 text-xs">
+                <li>Haz clic en el icono de "ventana bloqueada" en la barra de direcciones.</li>
+                <li>Selecciona "Permitir siempre ventanas emergentes de este sitio".</li>
+                <li>Haz clic de nuevo en el botón de Google o Microsoft.</li>
+              </ol>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
+    if (authError.code === 'auth/multi-factor-auth-required') {
+      return (
+        <Alert variant="destructive">
+          <ShieldAlert className="h-4 w-4" />
+          <AlertTitle>Doble factor de seguridad requerido</AlertTitle>
+          <AlertDescription>
+            <div className="flex flex-col gap-2 mt-2">
+              <p>Tu cuenta tiene activada la verificación en dos pasos (MFA).</p>
+              <p>Por favor, asegúrate de completar el desafío de seguridad en la ventana emergente que se abre al intentar entrar.</p>
+              <p className="text-xs italic">Si usas Microsoft, intenta cerrar la sesión en tu cuenta personal antes de intentar de nuevo aquí.</p>
+            </div>
+          </AlertDescription>
+        </Alert>
+      );
+    }
+
     if (authError.message.includes('AADSTS90023')) {
       return (
         <Alert variant="destructive">
@@ -253,184 +287,6 @@ export default function LoginPage() {
                 </li>
                 <li>
                   Click <strong>Save</strong>.
-                </li>
-              </ol>
-              <p className="font-semibold">
-                After saving the changes in Azure, please try signing in again.
-              </p>
-            </div>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (authError.message.includes('AADSTS7000215')) {
-      return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Invalid Microsoft Client Secret</AlertTitle>
-          <AlertDescription>
-            <div className="flex flex-col gap-4 mt-2">
-              <p>
-                The error from Microsoft (AADSTS7000215) means the <strong>Client Secret</strong> you've configured in Firebase is incorrect.
-              </p>
-              <p>
-                This often happens if you accidentally use the secret's <strong>ID</strong> instead of its <strong>Value</strong>. The value is only visible right after you create it in the Azure portal.
-              </p>
-              <ol className="list-decimal list-inside space-y-2">
-                <li>
-                  Go to your App Registration in the <strong>Azure Portal</strong> and navigate to <strong>Certificates & secrets</strong>.
-                </li>
-                <li>
-                  Click <strong>+ New client secret</strong>. Copy the new secret's <strong>Value</strong> immediately (it will be hidden later).
-                </li>
-                <li>
-                  Go to the Authentication providers tab in your Firebase Console:
-                  <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
-                    <a
-                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Firebase Auth Settings
-                    </a>
-                  </Button>
-                </li>
-                <li>
-                  Edit the <strong>Microsoft</strong> provider and paste the new secret <strong>Value</strong> into the "Client secret" field.
-                </li>
-              </ol>
-              <p className="font-semibold">
-                After saving the new secret in Firebase, please try signing in again.
-              </p>
-            </div>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (authError.message.includes('AADSTS700016')) {
-      return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Microsoft Sign-In Configuration Error</AlertTitle>
-          <AlertDescription>
-            <div className="flex flex-col gap-4 mt-2">
-              <p>
-                It looks like there's a configuration problem with Microsoft Sign-In. The error from Microsoft (AADSTS700016) means it doesn't recognize your app.
-              </p>
-              <p>
-                This usually happens when the <strong>Client ID</strong> and <strong>Client Secret</strong> for the Microsoft provider are incorrect in your Firebase project settings.
-              </p>
-              <ol className="list-decimal list-inside space-y-2">
-                <li>
-                  Go to the Authentication providers tab in your Firebase Console:
-                  <Button variant="link" asChild className="p-1 h-auto -translate-x-1">
-                    <a
-                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Firebase Auth Settings
-                    </a>
-                  </Button>
-                </li>
-                <li>
-                  Find the <strong>Microsoft</strong> provider and click the pencil icon to edit it.
-                </li>
-                <li>
-                  Verify that the Client ID and Client secret match the values from your app registration in <strong>Azure Active Directory</strong>.
-                </li>
-              </ol>
-              <p className="font-semibold">
-                After correcting the configuration, please try signing in again.
-              </p>
-            </div>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (authError.code === 'auth/operation-not-allowed') {
-      return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Action Required: Enable Sign-In Provider</AlertTitle>
-          <AlertDescription>
-            <div className="flex flex-col gap-4 mt-2">
-              <p>
-                This error means that you haven't enabled this sign-in provider
-                (e.g., Google, Microsoft) in your Firebase project.
-              </p>
-              <ol className="list-decimal list-inside space-y-2">
-                <li>
-                  Go to the Authentication providers tab in your Firebase
-                  Console:
-                  <Button
-                    variant="link"
-                    asChild
-                    className="p-1 h-auto -translate-x-1"
-                  >
-                    <a
-                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/providers`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Firebase Auth Settings
-                    </a>
-                  </Button>
-                </li>
-                <li>
-                  Find the provider you want to use (Google, Microsoft, etc.) and
-                  enable it.
-                </li>
-              </ol>
-              <p className="font-semibold">
-                After enabling it, please try signing in again.
-              </p>
-            </div>
-          </AlertDescription>
-        </Alert>
-      );
-    }
-
-    if (authError.code === 'auth/popup-closed-by-user') {
-      return (
-        <Alert variant="destructive">
-          <Terminal className="h-4 w-4" />
-          <AlertTitle>Login Canceled</AlertTitle>
-          <AlertDescription>
-            <div className="flex flex-col gap-4 mt-2">
-              <p>
-                The sign-in window was closed before completing the process.
-              </p>
-              <p>
-                <strong>If you did not close the window yourself</strong>, this
-                might indicate a configuration issue. Please check the
-                following:
-              </p>
-              <ol className="list-decimal list-inside space-y-2">
-                <li>
-                  Ensure your app's domain is added to the "Authorized
-                  domains" list in your Firebase project's authentication
-                  settings.
-                  <Button
-                    variant="link"
-                    asChild
-                    className="p-1 h-auto -translate-x-1"
-                  >
-                    <a
-                      href={`https://console.firebase.google.com/project/${firebaseConfig.projectId}/authentication/settings`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                    >
-                      Open Authorized Domains
-                    </a>
-                  </Button>
-                </li>
-                <li>
-                  Make sure the Google and/or Microsoft sign-in providers are
-                  correctly enabled with an OAuth client ID and secret.
                 </li>
               </ol>
             </div>
