@@ -162,7 +162,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore) return;
 
-    // Explicitly construct the data object to ensure all fields are captured
+    // Explicitly construct the data object to ensure all critical fields are captured
     const dataToSave = {
       name: data.name,
       companyName: data.companyName,
@@ -171,14 +171,14 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       state: data.state,
       city: data.city,
       startDate: data.startDate,
-      deliveryDate: data.deliveryDate,
+      deliveryDate: data.deliveryDate || null,
       address: data.address || "",
       phone: data.phone || "",
       cell: data.cell || "",
       projectManagerId: data.projectManagerId || "",
       generalContractorId: data.generalContractorId || "",
-      workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v.trim() !== '') || [],
-      workPermits: data.workPermits?.map((wp) => wp.value).filter(v => v.trim() !== '') || [],
+      workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v && v.trim() !== '') || [],
+      workPermits: data.workPermits?.map((wp) => wp.value).filter(v => v && v.trim() !== '') || [],
     };
 
     if (isEditMode) {
@@ -200,7 +200,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      if (!projectsCollection) return;
+      if (!projectsCollection) {
+        toast({ variant: 'destructive', title: 'Error', description: 'Projects collection not available.' });
+        return;
+      }
       addDoc(projectsCollection, dataToSave)
         .then(() => {
           toast({
@@ -295,8 +298,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <Select
                     onValueChange={(val) => {
                         field.onChange(val);
-                        form.setValue('state', '');
-                        form.setValue('city', '');
+                        form.setValue('state', '', { shouldValidate: true });
+                        form.setValue('city', '', { shouldValidate: true });
                     }}
                     value={field.value || ""}
                     >
@@ -330,7 +333,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <Select
                     onValueChange={(val) => {
                         field.onChange(val);
-                        form.setValue('city', '');
+                        form.setValue('city', '', { shouldValidate: true });
                     }}
                     value={field.value || ""}
                     disabled={!selectedCountry}
@@ -572,12 +575,12 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
             />
             </div>
 
-            <div>
-            <h3 className="text-lg font-medium mb-2">Work Areas</h3>
+            <div className="space-y-4">
+            <h3 className="text-lg font-medium">Work Areas</h3>
             {workAreaFields.map((field, index) => (
                 <div
                 key={field.id}
-                className="flex items-center gap-2 mb-2"
+                className="flex items-center gap-2"
                 >
                 <FormField
                     control={form.control}
@@ -615,12 +618,12 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
             </Button>
             </div>
 
-            <div>
-            <h3 className="text-lg font-medium mb-2">Work Permits</h3>
+            <div className="space-y-4">
+            <h3 className="text-lg font-medium">Work Permits</h3>
             {workPermitFields.map((field, index) => (
                 <div
                 key={field.id}
-                className="flex items-center gap-2 mb-2"
+                className="flex items-center gap-2"
                 >
                 <FormField
                     control={form.control}
