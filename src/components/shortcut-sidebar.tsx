@@ -101,7 +101,7 @@ export function ShortcutSidebar() {
 
   return (
     <aside 
-      className="w-14 border-r flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0"
+      className="w-14 border-r flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0 sticky top-14 h-[calc(100vh-3.5rem)] z-20"
       style={{ backgroundColor: 'rgb(70, 163, 149)' }}
     >
       <TooltipProvider delayDuration={0}>
