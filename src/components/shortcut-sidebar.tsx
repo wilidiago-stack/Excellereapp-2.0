@@ -13,7 +13,8 @@ import {
   CalendarDays,
   Home,
   Pin,
-  PinOff
+  PinOff,
+  Map
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -52,6 +53,7 @@ const ACTION_REGISTRY = [
   { id: 'daily-report-list', label: 'Daily Reports', href: '/daily-report', icon: FileText, moduleId: 'daily-report', moduleName: 'Reports' },
   { id: 'monthly-report-new', label: 'New Monthly Report', href: '/monthly-report/new', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
   { id: 'monthly-report-list', label: 'Monthly Reports', href: '/monthly-report', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
+  { id: 'map-view', label: 'Project Map', href: '/map', icon: Map, moduleId: 'map', moduleName: 'Tools' },
   { id: 'ai-assistant', label: 'AI Assistant', href: '#', icon: Sparkles, moduleId: 'dashboard', moduleName: 'Tools' },
 ];
 
