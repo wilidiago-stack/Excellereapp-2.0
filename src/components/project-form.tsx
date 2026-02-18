@@ -47,7 +47,7 @@ const projectSchema = z.object({
   state: z.string().min(1, 'State is required'),
   city: z.string().min(1, 'City is required'),
   startDate: z.date({ required_error: 'Start date is required.' }),
-  deliveryDate: z.date().optional(),
+  deliveryDate: z.date().optional().nullable(),
   address: z.string().optional(),
   phone: z.string().optional(),
   cell: z.string().optional(),
@@ -99,8 +99,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       country: '',
       state: '',
       city: '',
-      startDate: undefined,
-      deliveryDate: undefined,
+      startDate: new Date(),
+      deliveryDate: null,
       address: '',
       phone: '',
       cell: '',
@@ -145,15 +145,15 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         country: initialData.country || '',
         state: initialData.state || '',
         city: initialData.city || '',
-        startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : initialData.startDate,
-        deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : initialData.deliveryDate,
+        startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : (initialData.startDate instanceof Date ? initialData.startDate : new Date()),
+        deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : (initialData.deliveryDate instanceof Date ? initialData.deliveryDate : null),
         address: initialData.address || '',
         phone: initialData.phone || '',
         cell: initialData.cell || '',
         projectManagerId: initialData.projectManagerId || '',
         generalContractorId: initialData.generalContractorId || '',
-        workAreas: (initialData.workAreas || []).map((wa: any) => typeof wa === 'string' ? { value: wa } : { value: '' }),
-        workPermits: (initialData.workPermits || []).map((wp: any) => typeof wp === 'string' ? { value: wp } : { value: wp.name || '' }),
+        workAreas: (initialData.workAreas || []).map((wa: string) => ({ value: wa })),
+        workPermits: (initialData.workPermits || []).map((wp: string) => ({ value: wp })),
       };
       form.reset(formattedData);
     }
@@ -162,8 +162,21 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore) return;
 
+    // Explicitly construct the data object to ensure all fields are captured
     const dataToSave = {
-      ...data,
+      name: data.name,
+      companyName: data.companyName,
+      status: data.status,
+      country: data.country,
+      state: data.state,
+      city: data.city,
+      startDate: data.startDate,
+      deliveryDate: data.deliveryDate,
+      address: data.address || "",
+      phone: data.phone || "",
+      cell: data.cell || "",
+      projectManagerId: data.projectManagerId || "",
+      generalContractorId: data.generalContractorId || "",
       workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v.trim() !== '') || [],
       workPermits: data.workPermits?.map((wp) => wp.value).filter(v => v.trim() !== '') || [],
     };
@@ -441,7 +454,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     >
                         <Calendar
                         mode="single"
-                        selected={field.value}
+                        selected={field.value || undefined}
                         onSelect={field.onChange}
                         initialFocus
                         />
