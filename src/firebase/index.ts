@@ -31,20 +31,18 @@ export function initializeFirebase() {
     try {
       /**
        * CONFIGURACIÓN DE DEPURACIÓN (DEBUG MODE):
-       * Para desarrollo local, activamos el token de depuración. 
-       * - Si lo dejas en 'true', Firebase imprimirá un token en la consola de tu navegador.
-       * - También puedes poner aquí directamente tu token entre comillas: 'TU-TOKEN-AQUÍ'
+       * Usando el token específico proporcionado para el entorno local.
        */
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname.includes('cloudworkstations.dev');
       if (isLocalhost) {
-        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = '23477EE3-783C-4752-9AAA-3FB79B28CE7C';
       }
       
       initializeAppCheck(firebaseApp, {
         provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
       });
-      console.log('Firebase App Check inicializado (Modo Depuración activado en local).');
+      console.log('Firebase App Check inicializado con Token de Depuración específico.');
     } catch (err) {
       console.warn('App Check no pudo inicializarse:', err);
     }
