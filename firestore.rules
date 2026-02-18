@@ -30,8 +30,8 @@ service cloud.firestore {
       return isSignedIn() && getRole() == 'project_manager';
     }
 
-    function isViewer() {
-      return isSignedIn() && getRole() == 'viewer';
+    function hasModule(moduleId) {
+      return isSignedIn() && getUserData().assignedModules.hasAny([moduleId]);
     }
 
     /** 
@@ -51,26 +51,26 @@ service cloud.firestore {
 
     /** 
      * BUSINESS COLLECTIONS (PROJECTS, CONTRACTORS, REPORTS)
-     * Granting full CRUD (Create, Read, Update, Delete) to Admin and Project Manager.
+     * Granting CRUD access to Admins, PMs, or users with explicit module assignment.
      */
     match /projects/{id} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager();
+      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('projects');
     }
 
     match /contractors/{id} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager();
+      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('contractors');
     }
 
     match /dailyReports/{id} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager();
+      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('daily-report');
     }
 
     match /monthlyReports/{id} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager();
+      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('monthly-report');
     }
 
     /** CONFIGURATION AND REFERENCES (Admin Only) */

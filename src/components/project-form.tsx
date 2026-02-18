@@ -88,7 +88,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   );
   const { data: contractors } = useCollection(contractorsCollection);
 
-  const projectManagers = (users || []).filter((u: any) => u.role === 'project_manager');
+  const projectManagers = (users || []).filter((u: any) => u.role === 'project_manager' || u.role === 'admin');
   const generalContractors = contractors || [];
 
   const form = useForm<ProjectFormValues>({
@@ -162,7 +162,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore) return;
 
-    // Explicitly construct the data object to ensure all critical fields are captured
+    // Explicitly construct the data object ensuring ALL fields are captured from the form state
     const dataToSave = {
       name: data.name,
       companyName: data.companyName,
@@ -183,6 +183,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
 
     if (isEditMode) {
       const docRef = doc(firestore, 'projects', initialData.id);
+      // Use setDoc with merge:true to ensure fields are created if they don't exist
       setDoc(docRef, dataToSave, { merge: true })
         .then(() => {
           toast({
