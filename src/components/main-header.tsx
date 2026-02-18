@@ -23,25 +23,17 @@ export function MainHeader() {
   const { role, assignedModules } = useAuth();
   
   const isAdmin = role === 'admin';
-  const isProjectManager = role === 'project_manager';
-  const isManager = isAdmin || isProjectManager;
 
-  const hasModuleAccess = (moduleId: string, defaultAccess: boolean) => {
-    if (assignedModules && assignedModules.length > 0) {
-      return assignedModules.includes(moduleId);
-    }
-    return defaultAccess;
-  };
-
+  // Strict visibility logic:
+  // 1. If user is Admin, they see everything by default (safety fallback).
+  // 2. Otherwise, they ONLY see what is in their 'assignedModules' list.
   const menuItems = APP_MODULES.map(module => {
-    let defaultAccess = false;
-    if (module.defaultVisibility === 'all') defaultAccess = true;
-    else if (module.defaultVisibility === 'manager') defaultAccess = isManager;
-    else if (module.defaultVisibility === 'admin') defaultAccess = isAdmin;
+    const isAssigned = assignedModules && assignedModules.includes(module.id);
+    const show = isAdmin || isAssigned;
 
     return {
       ...module,
-      show: hasModuleAccess(module.id, defaultAccess)
+      show
     };
   });
 
