@@ -8,8 +8,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex flex-col min-h-screen bg-white">
       <MainHeader />
       <div className="flex flex-1 overflow-hidden">
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">{children}</main>
         <ShortcutSidebar />
+        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">{children}</main>
       </div>
     </div>
   );

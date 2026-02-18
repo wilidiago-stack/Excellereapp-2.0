@@ -30,7 +30,7 @@ export function ShortcutSidebar() {
   ];
 
   return (
-    <aside className="w-14 border-l bg-white flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0">
+    <aside className="w-14 border-r bg-white flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0">
       <TooltipProvider delayDuration={0}>
         {shortcuts.map((shortcut, index) => (
           <Tooltip key={index}>
@@ -47,7 +47,7 @@ export function ShortcutSidebar() {
                 </Link>
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="left" className="bg-slate-900 text-white border-none text-xs">
+            <TooltipContent side="right" className="bg-slate-900 text-white border-none text-xs">
               <p>{shortcut.label}</p>
             </TooltipContent>
           </Tooltip>
