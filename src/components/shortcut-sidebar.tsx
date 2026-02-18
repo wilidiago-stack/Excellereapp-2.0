@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -62,6 +61,7 @@ export function ShortcutSidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   // Get pinned shortcut IDs from user profile or provide defaults
+  // Limit increased to 10 shortcuts
   const pinnedIds = (userData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'user-new', 'daily-report-new'];
   const isAdmin = role === 'admin';
 
@@ -114,12 +114,12 @@ export function ShortcutSidebar() {
                   className="h-10 w-10 rounded-full border-dashed border-slate-300 text-slate-400 hover:text-[#46a395] hover:border-[#46a395] transition-all hover:scale-110"
                 >
                   <Plus className="h-5 w-5" />
-                  <span className="sr-only">Manage Shortcuts</span>
+                  <span className="sr-only">Quick Actions</span>
                 </Button>
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent side="right" className="bg-slate-900 text-white border-none text-xs">
-              <p>Manage Shortcuts</p>
+              <p>Quick Actions</p>
             </TooltipContent>
           </Tooltip>
 
@@ -184,10 +184,8 @@ export function ShortcutSidebar() {
           </DialogContent>
         </Dialog>
 
-        {/* Removed separator for a cleaner list */}
-
-        {/* Dynamic Pinned Shortcuts */}
-        <div className="flex flex-col items-center gap-6 w-full overflow-y-auto max-h-[60vh] no-scrollbar">
+        {/* Dynamic Pinned Shortcuts - No visible scrollbar, takes full height */}
+        <div className="flex-1 flex flex-col items-center gap-6 w-full overflow-y-auto no-scrollbar">
           {shortcuts.map((shortcut) => (
             <Tooltip key={shortcut.id}>
               <TooltipTrigger asChild>
