@@ -583,7 +583,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     variant="ghost"
                     size="icon"
                     onClick={() => removeWorkArea(index)}
-                ) : (
+                >
                     <Trash2 className="h-4 w-4" />
                 </Button>
                 </div>
