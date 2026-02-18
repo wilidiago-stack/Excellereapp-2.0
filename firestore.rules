@@ -31,7 +31,7 @@ service cloud.firestore {
     }
 
     function hasModule(moduleId) {
-      return isSignedIn() && getUserData().assignedModules.hasAny([moduleId]);
+      return isSignedIn() && getUserData().get('assignedModules', []).hasAny([moduleId]);
     }
 
     /** 
@@ -51,7 +51,6 @@ service cloud.firestore {
 
     /** 
      * BUSINESS COLLECTIONS (PROJECTS, CONTRACTORS, REPORTS)
-     * Granting CRUD access to Admins, PMs, or users with explicit module assignment.
      */
     match /projects/{id} {
       allow read: if isSignedIn();

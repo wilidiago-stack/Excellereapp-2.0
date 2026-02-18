@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -133,11 +133,19 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const selectedCountry = form.watch('country');
   const selectedState = form.watch('state');
 
-  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort() : [];
-  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort() : [];
+  // Memoized states and cities to prevent calculation on every render
+  const statesList = useMemo(() => {
+    if (!selectedCountry || !LOCATION_DATA[selectedCountry]) return [];
+    return Object.keys(LOCATION_DATA[selectedCountry].states).sort();
+  }, [selectedCountry]);
+
+  const citiesList = useMemo(() => {
+    if (!selectedCountry || !selectedState || !LOCATION_DATA[selectedCountry]?.states[selectedState]) return [];
+    return LOCATION_DATA[selectedCountry].states[selectedState].sort();
+  }, [selectedCountry, selectedState]);
 
   useEffect(() => {
-    if (initialData && initialData.id) {
+    if (initialData) {
       const formattedData = {
         name: initialData.name || '',
         companyName: initialData.companyName || '',
@@ -162,7 +170,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore) return;
 
-    // Explicitly construct the data object ensuring ALL fields are captured from the form state
+    // Explicitly construct the data object ensuring ALL fields are captured
     const dataToSave = {
       name: data.name,
       companyName: data.companyName,
@@ -183,7 +191,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
 
     if (isEditMode) {
       const docRef = doc(firestore, 'projects', initialData.id);
-      // Use setDoc with merge:true to ensure fields are created if they don't exist
       setDoc(docRef, dataToSave, { merge: true })
         .then(() => {
           toast({
@@ -299,8 +306,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <Select
                     onValueChange={(val) => {
                         field.onChange(val);
-                        form.setValue('state', '', { shouldValidate: true });
-                        form.setValue('city', '', { shouldValidate: true });
+                        form.setValue('state', '');
+                        form.setValue('city', '');
                     }}
                     value={field.value || ""}
                     >
@@ -334,7 +341,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <Select
                     onValueChange={(val) => {
                         field.onChange(val);
-                        form.setValue('city', '', { shouldValidate: true });
+                        form.setValue('city', '');
                     }}
                     value={field.value || ""}
                     disabled={!selectedCountry}
@@ -345,7 +352,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                         </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        {states.map((state) => (
+                        {statesList.map((state) => (
                           <SelectItem key={state} value={state}>
                             {state}
                           </SelectItem>
@@ -374,7 +381,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                         </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        {cities.map((city) => (
+                        {citiesList.map((city) => (
                           <SelectItem key={city} value={city}>
                             {city}
                           </SelectItem>

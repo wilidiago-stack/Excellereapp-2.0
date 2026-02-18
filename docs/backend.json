@@ -68,15 +68,15 @@
   },
   "firestore": {
     "/users/{userId}": {
-      "schema": { "$ref": "#/backend/entities/UserProfile" },
+      "schema": { "$ref": "#/entities/UserProfile" },
       "description": "User profiles with role-based access control."
     },
     "/roles/{roleId}": {
-      "schema": { "$ref": "#/backend/entities/Role" },
+      "schema": { "$ref": "#/entities/Role" },
       "description": "Dynamic role definitions managed by administrators."
     },
     "/projects/{projectId}": {
-      "schema": { "$ref": "#/backend/entities/Project" },
+      "schema": { "$ref": "#/entities/Project" },
       "description": "Construction projects managed by the system."
     },
     "/system_roles_admin/{adminUid}": {
