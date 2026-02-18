@@ -71,8 +71,8 @@ export function ShortcutSidebar() {
     return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard';
   });
 
-  // Limit to max 7 shortcuts
-  const shortcuts = ACTION_REGISTRY.filter(a => pinnedIds.includes(a.id)).slice(0, 7);
+  // Limit to max 10 shortcuts
+  const shortcuts = ACTION_REGISTRY.filter(a => pinnedIds.includes(a.id)).slice(0, 10);
 
   const handleTogglePin = async (actionId: string) => {
     if (!user || !firestore) return;
@@ -81,7 +81,7 @@ export function ShortcutSidebar() {
     if (newPinned.includes(actionId)) {
       newPinned = newPinned.filter(id => id !== actionId);
     } else {
-      if (newPinned.length >= 7) return; // Enforce max 7 limit
+      if (newPinned.length >= 10) return; // Enforce max 10 limit
       newPinned.push(actionId);
     }
 
@@ -127,7 +127,7 @@ export function ShortcutSidebar() {
             <DialogHeader className="p-6 pb-2">
               <DialogTitle className="text-xl">Customize Shortcuts</DialogTitle>
               <DialogDescription>
-                Pin up to 7 actions to your sidebar for quick access.
+                Pin up to 10 actions to your sidebar for quick access.
               </DialogDescription>
             </DialogHeader>
             
@@ -163,7 +163,7 @@ export function ShortcutSidebar() {
                                 e.stopPropagation();
                                 handleTogglePin(action.id);
                               }}
-                              disabled={!isPinned && pinnedIds.length >= 7}
+                              disabled={!isPinned && pinnedIds.length >= 10}
                             >
                               {isPinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
                             </Button>
@@ -177,14 +177,14 @@ export function ShortcutSidebar() {
             </ScrollArea>
             <div className="p-4 border-t bg-slate-50/50 flex justify-between items-center px-6">
               <span className="text-xs font-medium text-slate-500">
-                {pinnedIds.length} / 7 Shortcuts pinned
+                {pinnedIds.length} / 10 Shortcuts pinned
               </span>
               <Button size="sm" onClick={() => setIsOpen(false)}>Done</Button>
             </div>
           </DialogContent>
         </Dialog>
 
-        <div className="w-8 border-t border-slate-100 my-1" />
+        {/* Removed separator for a cleaner list */}
 
         {/* Dynamic Pinned Shortcuts */}
         <div className="flex flex-col items-center gap-6 w-full overflow-y-auto max-h-[60vh] no-scrollbar">
