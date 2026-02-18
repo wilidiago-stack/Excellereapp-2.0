@@ -68,7 +68,7 @@ const projectSchema = z.object({
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
 interface ProjectFormProps {
-    initialData?: ProjectFormValues & { id: string };
+    initialData?: any; // Using any to handle Firestore Timestamps and ID
 }
 
 export function ProjectForm({ initialData }: ProjectFormProps) {
@@ -126,28 +126,23 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort((a, b) => a.localeCompare(b)) : [];
 
   useEffect(() => {
-    if (!isEditMode && selectedCountry) {
-      form.setValue('state', '');
-      form.setValue('city', '');
-    }
-  }, [selectedCountry, form, isEditMode]);
-
-  useEffect(() => {
-    if (!isEditMode && selectedState) {
-      form.setValue('city', '');
-    }
-  }, [selectedState, form, isEditMode]);
-
-  useEffect(() => {
     if (initialData) {
       form.reset({
-        ...initialData,
-        // @ts-ignore
+        name: initialData.name || '',
+        companyName: initialData.companyName || '',
+        status: initialData.status || 'Not Started',
+        country: initialData.country || '',
+        state: initialData.state || '',
+        city: initialData.city || '',
         startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : initialData.startDate,
-        // @ts-ignore
         deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : initialData.deliveryDate,
-        // @ts-ignore
-        workAreas: initialData.workAreas?.map(wa => typeof wa === 'string' ? { value: wa } : wa) || [],
+        address: initialData.address || '',
+        phone: initialData.phone || '',
+        cell: initialData.cell || '',
+        projectManagerId: initialData.projectManagerId || '',
+        generalContractorId: initialData.generalContractorId || '',
+        workAreas: initialData.workAreas?.map((wa: any) => typeof wa === 'string' ? { value: wa } : wa) || [],
+        workPermits: initialData.workPermits || [],
       });
     }
   }, [initialData, form]);
@@ -255,15 +250,9 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                         </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                        <SelectItem value="Not Started">
-                        Not Started
-                        </SelectItem>
-                        <SelectItem value="In Progress">
-                        In Progress
-                        </SelectItem>
-                        <SelectItem value="Completed">
-                        Completed
-                        </SelectItem>
+                        <SelectItem value="Not Started">Not Started</SelectItem>
+                        <SelectItem value="In Progress">In Progress</SelectItem>
+                        <SelectItem value="Completed">Completed</SelectItem>
                         <SelectItem value="On Hold">On Hold</SelectItem>
                     </SelectContent>
                     </Select>
@@ -279,7 +268,11 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 <FormItem>
                     <FormLabel>Country</FormLabel>
                     <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(val) => {
+                        field.onChange(val);
+                        form.setValue('state', '');
+                        form.setValue('city', '');
+                    }}
                     value={field.value}
                     >
                     <FormControl>
@@ -310,7 +303,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 <FormItem>
                     <FormLabel>State / Province</FormLabel>
                     <Select
-                    onValueChange={field.onChange}
+                    onValueChange={(val) => {
+                        field.onChange(val);
+                        form.setValue('city', '');
+                    }}
                     value={field.value}
                     disabled={!selectedCountry}
                     >
