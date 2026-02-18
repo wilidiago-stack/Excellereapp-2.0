@@ -58,16 +58,7 @@
         "projectManagerId": { "type": "string" },
         "generalContractorId": { "type": "string" },
         "workAreas": { "type": "array", "items": { "type": "string" } },
-        "workPermits": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "properties": {
-              "name": { "type": "string" },
-              "code": { "type": "string" }
-            }
-          }
-        }
+        "workPermits": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["name", "companyName", "country", "state", "city", "startDate", "status"]
     }

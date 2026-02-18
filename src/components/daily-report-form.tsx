@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect } from 'react';
@@ -200,9 +201,9 @@ export function DailyReportForm() {
   const selectedProject = (projectsData || []).find((p: any) => p.id === selectedProjectId);
 
   const locations = selectedProject?.workAreas?.map((wa: string) => ({ id: wa, label: wa })) || [];
-  const permitTypes = selectedProject?.workPermits?.map((wp: { code: string; name: string }) => ({
-    id: wp.code,
-    label: `${wp.name} (${wp.code})`,
+  const permitTypes = selectedProject?.workPermits?.map((wp: string) => ({
+    id: wp,
+    label: wp,
   })) || [];
 
   const manHoursWatch = form.watch('manHours') || [];

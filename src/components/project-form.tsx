@@ -40,11 +40,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { COUNTRIES, LOCATION_DATA } from '@/lib/location-data';
 
-const workPermitSchema = z.object({
-  name: z.string().min(1, 'Permit name is required'),
-  code: z.string().min(1, 'Permit code is required'),
-});
-
 const projectSchema = z.object({
   name: z.string().min(1, 'Project name is required'),
   companyName: z.string().min(1, 'Company name is required'),
@@ -58,10 +53,8 @@ const projectSchema = z.object({
   cell: z.string().optional(),
   projectManagerId: z.string().optional(),
   generalContractorId: z.string().optional(),
-  workAreas: z
-    .array(z.object({ value: z.string() }))
-    .default([]),
-  workPermits: z.array(workPermitSchema).default([]),
+  workAreas: z.array(z.object({ value: z.string() })).default([]),
+  workPermits: z.array(z.object({ value: z.string() })).default([]),
   status: z.enum(["Not Started", "In Progress", "Completed", "On Hold"]),
 });
 
@@ -159,20 +152,20 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         cell: initialData.cell || '',
         projectManagerId: initialData.projectManagerId || '',
         generalContractorId: initialData.generalContractorId || '',
-        workAreas: initialData.workAreas?.map((wa: any) => typeof wa === 'string' ? { value: wa } : wa) || [],
-        workPermits: initialData.workPermits || [],
+        workAreas: (initialData.workAreas || []).map((wa: any) => typeof wa === 'string' ? { value: wa } : { value: '' }),
+        workPermits: (initialData.workPermits || []).map((wp: any) => typeof wp === 'string' ? { value: wp } : { value: wp.name || '' }),
       };
       form.reset(formattedData);
     }
   }, [initialData, form]);
 
   const onSubmit = (data: ProjectFormValues) => {
-    if (!firestore || (!projectsCollection && !isEditMode)) return;
+    if (!firestore) return;
 
-    // Convert workAreas objects back to string array for Firestore
     const dataToSave = {
       ...data,
       workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v.trim() !== '') || [],
+      workPermits: data.workPermits?.map((wp) => wp.value).filter(v => v.trim() !== '') || [],
     };
 
     if (isEditMode) {
@@ -194,7 +187,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      addDoc(projectsCollection!, dataToSave)
+      if (!projectsCollection) return;
+      addDoc(projectsCollection, dataToSave)
         .then(() => {
           toast({
             title: 'Project Created',
@@ -204,7 +198,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         })
         .catch((error) => {
           const permissionError = new FirestorePermissionError({
-            path: projectsCollection!.path,
+            path: projectsCollection.path,
             operation: 'create',
             requestResourceData: dataToSave,
           });
@@ -617,23 +611,11 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 >
                 <FormField
                     control={form.control}
-                    name={`workPermits.${index}.name`}
+                    name={`workPermits.${index}.value`}
                     render={({ field }) => (
                     <FormItem className="flex-grow">
                         <FormControl>
                         <Input placeholder="Permit Name" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}
-                />
-                <FormField
-                    control={form.control}
-                    name={`workPermits.${index}.code`}
-                    render={({ field }) => (
-                    <FormItem className="flex-grow">
-                        <FormControl>
-                        <Input placeholder="Permit Code" {...field} />
                         </FormControl>
                         <FormMessage />
                     </FormItem>
@@ -653,7 +635,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => appendWorkPermit({ name: '', code: '' })}
+                onClick={() => appendWorkPermit({ value: '' })}
             >
                 <PlusCircle className="mr-2 h-4 w-4" />
                 Add Permit
