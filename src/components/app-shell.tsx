@@ -5,11 +5,13 @@ import { ShortcutSidebar } from '@/components/shortcut-sidebar';
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex flex-col min-h-screen bg-white">
+    <div className="flex flex-col h-screen overflow-hidden bg-white">
       <MainHeader />
       <div className="flex flex-1 overflow-hidden">
         <ShortcutSidebar />
-        <main className="flex-1 p-4 sm:p-6 overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white">
+          {children}
+        </main>
       </div>
     </div>
   );
