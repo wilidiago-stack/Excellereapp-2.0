@@ -102,7 +102,7 @@ export function ShortcutSidebar() {
   return (
     <aside 
       className="w-14 border-r flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0"
-      style={{ backgroundColor: 'rgb(170, 164, 164)' }}
+      style={{ backgroundColor: 'rgb(70, 163, 149)' }}
     >
       <TooltipProvider delayDuration={0}>
         {/* "+" Button to manage shortcuts */}
@@ -113,7 +113,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-10 w-10 rounded-full border-dashed border-slate-100 text-slate-100 hover:text-white hover:border-white transition-all hover:scale-110 bg-transparent"
+                  className="h-10 w-10 rounded-full border-dashed border-white/40 text-white hover:text-white hover:border-white transition-all hover:scale-110 bg-transparent"
                 >
                   <Plus className="h-5 w-5" />
                   <span className="sr-only">Quick Actions</span>
@@ -194,7 +194,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl hover:bg-white/10 text-slate-100 hover:text-white transition-all hover:scale-110 active:scale-95 shrink-0"
+                  className="h-10 w-10 rounded-xl hover:bg-white/10 text-white hover:text-white transition-all hover:scale-110 active:scale-95 shrink-0"
                   asChild
                 >
                   <Link href={shortcut.href}>
@@ -217,7 +217,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl text-slate-200 hover:text-white hover:bg-white/10"
+                  className="h-10 w-10 rounded-xl text-white/80 hover:text-white hover:bg-white/10"
                   asChild
                 >
                   <Link href="#">
