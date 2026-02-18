@@ -30,7 +30,7 @@ import {
 } from '@/components/ui/popover';
 import { PlusCircle, Trash2, CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -68,7 +68,7 @@ const projectSchema = z.object({
 type ProjectFormValues = z.infer<typeof projectSchema>;
 
 interface ProjectFormProps {
-    initialData?: any; // Using any to handle Firestore Timestamps and ID
+    initialData?: any; 
 }
 
 export function ProjectForm({ initialData }: ProjectFormProps) {
@@ -127,7 +127,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
 
   useEffect(() => {
     if (initialData) {
-      form.reset({
+      // Format data for the form
+      const formattedData = {
         name: initialData.name || '',
         companyName: initialData.companyName || '',
         status: initialData.status || 'Not Started',
@@ -143,7 +144,10 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         generalContractorId: initialData.generalContractorId || '',
         workAreas: initialData.workAreas?.map((wa: any) => typeof wa === 'string' ? { value: wa } : wa) || [],
         workPermits: initialData.workPermits || [],
-      });
+      };
+      
+      // Use reset to update all values at once
+      form.reset(formattedData);
     }
   }, [initialData, form]);
 
@@ -168,31 +172,48 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore || !projectsCollection) return;
 
+    // Convert workAreas objects back to string array for DB
     const dataToSave = {
       ...data,
-      workAreas: data.workAreas?.map((wa) => wa.value),
+      workAreas: data.workAreas?.map((wa) => wa.value) || [],
     };
 
-    const operation = isEditMode
-      ? updateDoc(doc(firestore, 'projects', initialData.id), dataToSave)
-      : addDoc(projectsCollection, dataToSave);
-
-    operation
-      .then(() => {
-        toast({
-          title: 'Project Saved',
-          description: `Project ${data.name} has been saved successfully.`,
+    if (isEditMode) {
+      const docRef = doc(firestore, 'projects', initialData.id);
+      setDoc(docRef, dataToSave, { merge: true })
+        .then(() => {
+          toast({
+            title: 'Project Updated',
+            description: `Project ${data.name} has been updated successfully.`,
+          });
+          router.push('/projects');
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: `projects/${initialData.id}`,
+            operation: 'update',
+            requestResourceData: dataToSave,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-        router.push('/projects');
-      })
-      .catch((error) => {
-        const permissionError = new FirestorePermissionError({
-          path: isEditMode ? `projects/${initialData.id}` : projectsCollection.path,
-          operation: isEditMode ? 'update' : 'create',
-          requestResourceData: dataToSave,
+    } else {
+      addDoc(projectsCollection, dataToSave)
+        .then(() => {
+          toast({
+            title: 'Project Created',
+            description: `Project ${data.name} has been created successfully.`,
+          });
+          router.push('/projects');
+        })
+        .catch((error) => {
+          const permissionError = new FirestorePermissionError({
+            path: projectsCollection.path,
+            operation: 'create',
+            requestResourceData: dataToSave,
+          });
+          errorEmitter.emit('permission-error', permissionError);
         });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    }
   };
 
   return (
@@ -242,7 +263,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <FormLabel>Status</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    value={field.value}
+                    value={field.value || ""}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -273,7 +294,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                         form.setValue('state', '');
                         form.setValue('city', '');
                     }}
-                    value={field.value}
+                    value={field.value || ""}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -307,7 +328,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                         field.onChange(val);
                         form.setValue('city', '');
                     }}
-                    value={field.value}
+                    value={field.value || ""}
                     disabled={!selectedCountry}
                     >
                     <FormControl>
@@ -336,7 +357,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <FormLabel>City</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    value={field.value}
+                    value={field.value || ""}
                     disabled={!selectedState}
                     >
                     <FormControl>
@@ -499,7 +520,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <FormLabel>Project Manager</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    value={field.value}
+                    value={field.value || ""}
                     >
                     <FormControl>
                         <SelectTrigger>
@@ -526,7 +547,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                     <FormLabel>General Contractor</FormLabel>
                     <Select
                     onValueChange={field.onChange}
-                    value={field.value}
+                    value={field.value || ""}
                     >
                     <FormControl>
                         <SelectTrigger>

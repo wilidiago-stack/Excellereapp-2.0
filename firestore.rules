@@ -51,6 +51,7 @@ service cloud.firestore {
 
     /** 
      * BUSINESS COLLECTIONS (PROJECTS, CONTRACTORS, REPORTS)
+     * Granting full CRUD (Create, Read, Update, Delete) to Admin and Project Manager.
      */
     match /projects/{id} {
       allow read: if isSignedIn();
