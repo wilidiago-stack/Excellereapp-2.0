@@ -61,7 +61,6 @@ export function ShortcutSidebar() {
   const [isOpen, setIsOpen] = useState(false);
 
   // Get pinned shortcut IDs from user profile or provide defaults
-  // Limit increased to 10 shortcuts
   const pinnedIds = (userData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'user-new', 'daily-report-new'];
   const isAdmin = role === 'admin';
 
@@ -101,7 +100,10 @@ export function ShortcutSidebar() {
   }, [] as { name: string, actions: typeof ACTION_REGISTRY }[]);
 
   return (
-    <aside className="w-14 border-r bg-white flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0">
+    <aside 
+      className="w-14 border-r flex flex-col items-center py-6 gap-6 hidden sm:flex shrink-0"
+      style={{ backgroundColor: 'rgb(170, 164, 164)' }}
+    >
       <TooltipProvider delayDuration={0}>
         {/* "+" Button to manage shortcuts */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -111,7 +113,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="outline"
                   size="icon"
-                  className="h-10 w-10 rounded-full border-dashed border-slate-300 text-slate-400 hover:text-[#46a395] hover:border-[#46a395] transition-all hover:scale-110"
+                  className="h-10 w-10 rounded-full border-dashed border-slate-100 text-slate-100 hover:text-white hover:border-white transition-all hover:scale-110 bg-transparent"
                 >
                   <Plus className="h-5 w-5" />
                   <span className="sr-only">Quick Actions</span>
@@ -192,7 +194,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl hover:bg-slate-50 text-slate-500 hover:text-[#46a395] transition-all hover:scale-110 active:scale-95 shrink-0"
+                  className="h-10 w-10 rounded-xl hover:bg-white/10 text-slate-100 hover:text-white transition-all hover:scale-110 active:scale-95 shrink-0"
                   asChild
                 >
                   <Link href={shortcut.href}>
@@ -215,7 +217,7 @@ export function ShortcutSidebar() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-10 w-10 rounded-xl text-slate-400 hover:text-[#46a395]"
+                  className="h-10 w-10 rounded-xl text-slate-200 hover:text-white hover:bg-white/10"
                   asChild
                 >
                   <Link href="#">
