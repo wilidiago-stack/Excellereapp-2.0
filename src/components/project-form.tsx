@@ -556,7 +556,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 Add Permit
             </Button>
             </div>
-            <div className="flex justify-end gap-4">
+            <div className="flex justify-end gap-4 mt-8">
                 <Button variant="outline" type="button" asChild>
                     <Link href="/projects">Cancel</Link>
                 </Button>

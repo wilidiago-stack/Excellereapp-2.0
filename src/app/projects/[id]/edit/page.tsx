@@ -9,7 +9,6 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 export default function EditProjectPage() {
   const params = useParams();
@@ -23,7 +22,7 @@ export default function EditProjectPage() {
   const { data: projectData, isLoading: loading } = useDoc(projectDocRef);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-10">
       <div className="flex items-center gap-4">
         <Button variant="outline" size="icon" asChild>
           <Link href="/projects">
@@ -41,20 +40,16 @@ export default function EditProjectPage() {
             <CardDescription>Update the project's details below.</CardDescription>
         </CardHeader>
         <CardContent className="p-6">
-            <ScrollArea className="max-h-[70vh] p-1">
-                <div className="pr-6">
-                    {loading && (
-                        <div className="space-y-4">
-                            <Skeleton className="h-10 w-full" />
-                            <Skeleton className="h-10 w-full" />
-                            <Skeleton className="h-20 w-full" />
-                        </div>
-                    )}
-                    {!loading && projectData && (
-                        <ProjectForm initialData={{ ...projectData, id }} />
-                    )}
+            {loading && (
+                <div className="space-y-4">
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-10 w-full" />
+                    <Skeleton className="h-20 w-full" />
                 </div>
-            </ScrollArea>
+            )}
+            {!loading && projectData && (
+                <ProjectForm initialData={{ ...projectData, id }} />
+            )}
         </CardContent>
       </Card>
     </div>
