@@ -3,79 +3,79 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - SEGURIDAD FIRESTORE-FIRST
-     * La fuente de verdad absoluta es el documento del usuario en la colección /users.
+     * EXCELLERE REVIVE - SEGURIDAD GRANULAR BASADA EN ROLES
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** 
-     * CONSULTA DIRECTA A LA BASE DE DATOS:
-     * Verifica el rol 'admin' directamente en el documento de Firestore.
-     * Esto garantiza que los cambios de rol manuales tengan efecto inmediato
-     * e independiente del método de inicio de sesión (Google, MS, etc).
-     */
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function getRole() {
+      return getUserData().role;
+    }
+
     function isAdmin() {
       return isSignedIn() && (
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        getRole() == 'admin' ||
         exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
       );
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isProjectManager() {
+      return isSignedIn() && getRole() == 'project_manager';
     }
 
-    /** Metadatos del sistema (Estadísticas del Dashboard) */
-    match /system/metadata {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
+    function isViewer() {
+      return isSignedIn() && getRole() == 'viewer';
     }
 
-    /** Perfiles de Usuario */
+    /** 
+     * PERFILES DE USUARIO
+     * Admin: CRUD total
+     * Usuario: Lectura propia y actualización de campos no críticos
+     */
     match /users/{userId} {
       allow get: if isSignedIn();
       allow list: if isAdmin();
-      allow create: if isSignedIn();
-      allow update: if isOwner(userId) || isAdmin();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (
+        isSignedIn() && 
+        request.auth.uid == userId && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedModules', 'status'])
+      );
       allow delete: if isAdmin();
     }
 
-    /** Proyectos */
-    match /projects/{id} {
+    /** 
+     * PROYECTOS, CONTRATISTAS Y REPORTES
+     * Admin: CRUD (C, R, U, D)
+     * PM: C, R, D (Siguiendo requerimiento específico)
+     * Viewer: R
+     */
+    match /{collection}/{id} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    /** Contratistas */
-    match /contractors/{id} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-    
-    /** Reportes */
-    match /dailyReports/{id} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-    
-    match /monthlyReports/{id} {
-      allow read: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
+      
+      // Permitir creación y eliminación a Admin y PM
+      allow create, delete: if isAdmin() || isProjectManager();
+      
+      // Solo el Admin puede actualizar (Update)
+      allow update: if isAdmin();
+
+      // Aplicar esto solo a las colecciones de negocio
+      match /projects/{id} { allow read, write: if false; } // Cubierto por el bloque superior
+      match /contractors/{id} { allow read, write: if false; }
+      match /dailyReports/{id} { allow read, write: if false; }
+      match /monthlyReports/{id} { allow read, write: if false; }
     }
 
-    /** Marcadores de Seguridad */
-    match /system_roles_admin/{adminUid} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    /** Roles y Módulos */
+    /** CONFIGURACIÓN Y REFERENCIAS (Solo Admin) */
     match /roles/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /modules/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /system_roles_admin/{adminUid} { allow read: if isSignedIn(); allow write: if isAdmin(); }
+    match /system/metadata { allow read: if isSignedIn(); allow write: if isAdmin(); }
   }
 }

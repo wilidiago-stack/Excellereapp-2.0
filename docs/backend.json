@@ -4,178 +4,54 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "UserProfile",
       "type": "object",
-      "description": "Represents a user within the Excellere Revive application, storing their profile information and assigned roles.",
+      "description": "Represents a user within the application, storing their profile information and assigned roles.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserProfile entity."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address, used for identification and communication.",
-          "format": "email"
-        },
-        "displayName": {
-          "type": "string",
-          "description": "The user's display name or full name."
-        },
-        "roleIds": {
-          "type": "array",
-          "description": "References to the Roles assigned to this user. (Relationship: UserProfile N:N Role)",
-          "items": {
-            "type": "string"
-          }
-        }
+        "id": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "role": { "type": "string", "enum": ["admin", "project_manager", "viewer"] },
+        "status": { "type": "string", "enum": ["pending", "active", "invited", "rejected"] },
+        "assignedModules": { "type": "array", "items": { "type": "string" } }
       },
-      "required": [
-        "id",
-        "email",
-        "displayName",
-        "roleIds"
-      ]
+      "required": ["id", "email", "firstName", "lastName", "role"]
     },
     "Role": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Role",
       "type": "object",
-      "description": "Defines a security role within the Excellere Revive application, dictating access levels to modules.",
+      "description": "Defines a security role and its granular permissions.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Role entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the role (e.g., 'Admin', 'Standard User', 'Viewer')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description explaining the purpose and permissions of the role."
-        },
-        "moduleIds": {
-          "type": "array",
-          "description": "References to the Modules that this role grants access to. (Relationship: Role N:N Module)",
-          "items": {
-            "type": "string"
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "permissions": {
+          "type": "object",
+          "properties": {
+            "create": { "type": "boolean" },
+            "read": { "type": "boolean" },
+            "update": { "type": "boolean" },
+            "delete": { "type": "boolean" }
           }
         }
       },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "moduleIds"
-      ]
-    },
-    "Module": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Module",
-      "type": "object",
-      "description": "Represents a distinct functional area or feature within the Excellere Revive application, used for navigation and access control.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Module entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The display name of the module (e.g., 'Dashboard', 'Reports', 'User Management')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the module's functionality."
-        },
-        "iconIdentifier": {
-          "type": "string",
-          "description": "A string identifier for the icon associated with this module, used for iconography navigation (e.g., 'dashboard_icon', 'users_icon')."
-        },
-        "routePath": {
-          "type": "string",
-          "description": "The internal application path or route associated with this module (e.g., '/dashboard', '/admin/users')."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "iconIdentifier",
-        "routePath"
-      ]
+      "required": ["id", "name"]
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "google.com", "microsoft.com"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/users/{userId}",
-        "definition": {
-          "entityName": "UserProfile",
-          "schema": {
-            "$ref": "#/backend/entities/UserProfile"
-          },
-          "description": "Stores individual user profiles. Each document ID (`userId`) corresponds to the Firebase Authentication UID. Includes denormalized 'roleIds' for client-side display and management, but direct rule-based admin checks will use '/system_roles_admin/{adminUid}'.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier (Firebase Auth UID) of the user whose profile is stored."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles/{roleId}",
-        "definition": {
-          "entityName": "Role",
-          "schema": {
-            "$ref": "#/backend/entities/Role"
-          },
-          "description": "Defines the global roles available in the application, including which modules each role grants access to. These are reference data, typically readable by all authenticated users and editable only by administrators.",
-          "params": [
-            {
-              "name": "roleId",
-              "description": "The unique identifier for the role definition."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/modules/{moduleId}",
-        "definition": {
-          "entityName": "Module",
-          "schema": {
-            "$ref": "#/backend/entities/Module"
-          },
-          "description": "Defines the global application modules, used for UI navigation and feature grouping. These are reference data, typically readable by all authenticated users and editable only by administrators.",
-          "params": [
-            {
-              "name": "moduleId",
-              "description": "The unique identifier for the module definition."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/system_roles_admin/{adminUid}",
-        "definition": {
-          "entityName": "AdminRoleAssignment",
-          "schema": {
-            "$ref": "#/backend/entities/AdminRoleAssignment"
-          },
-          "description": "This collection serves as a denormalized lookup for users assigned the 'Admin' role. The existence of a document at this path signifies that the `adminUid` (document ID) is an administrator, enabling simple and performant security rule checks without requiring hierarchical lookups. This directly supports Authorization Independence.",
-          "params": [
-            {
-              "name": "adminUid",
-              "description": "The unique identifier (Firebase Auth UID) of a user who is assigned the 'Admin' role."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The Firestore structure for Excellere Revive prioritizes security, scalability, and debuggability by adhering to the core design principles. The primary goal is to ensure Authorization Independence, particularly for role-based access control, which was highlighted as a potential issue in the user's request.\n\n1.  \n    **Authorization Independence via Denormalization**: The critical aspect for addressing the user's admin role issue is the introduction of a dedicated collection, `/system_roles_admin/{adminUid}`. This collection serves as a direct, denormalized lookup for admin users. Instead of security rules having to perform `get()` operations on a user's `UserProfile` document to find their `roleIds` and then another `get()` on the `Role` collection to determine if 'admin' is among them, rules can simply check for the *existence* of a document at `/system_roles_admin/$(request.auth.uid)`. This eliminates complex, non-atomic rule evaluations, making authorization checks for admin roles immediate, robust, and easy to debug. Similarly, `UserProfile` documents are stored at `/users/{userId}`, directly tying ownership to the path and enabling simple `request.auth.uid == userId` checks.\n\n2.  \n    **QAPs (Queries Are Not Filters)**: Structural Segregation and the denormalization strategy significantly enhance QAP adherence:\n    *   \n        **User Profiles (`/users/{userId}`):** For listing operations, typically only an authenticated user can read their own profile. An administrator (whose role is checked via the `/system_roles_admin` collection) would be granted `list` access to the entire `/users` collection. This allows a uniform rule to be applied, where either `request.auth.uid == userId` for specific reads/writes, or `exists(/system_roles_admin/$(request.auth.uid))` for admin `list`/`read`/`write` on all users. This prevents the need for complex client-side filtering after fetching. If non-admin users could list, the rules would enforce a query constraint (e.g., `where('isPublic', '==', true)`), but given the sensitive nature, full list is restricted.\n    *   \n        **Roles (`/roles/{roleId}`) and Modules (`/modules/{moduleId}`):** These collections contain global, reference data that are generally read-only for all authenticated users (e.g., to display navigation or role names). A simple rule like `allow read, list: if request.auth != null;` ensures all authenticated users can query these collections without requiring server-side filtering. Write/update operations on these global definitions are strictly limited to administrators (verified via `/system_roles_admin/{adminUid}`).\n\n3.  \n    **Structural Segregation**: Each collection maintains a homogeneous security posture:\n    *   `/users`: Stores only `UserProfile` documents, with distinct read/write permissions based on ownership or admin status.\n    *   `/roles`: Stores only `Role` definitions, globally readable, admin-editable.\n    *   `/modules`: Stores only `Module` definitions, globally readable, admin-editable.\n    *   `/system_roles_admin`: Stores only admin role assignments (marker documents), used solely for security rule evaluation.\n\nThis structure ensures clear separation of concerns, simplifies security rules by externalizing critical authorization checks (like admin status), and directly addresses the user's concern about admin role application by providing an explicit, rule-friendly mechanism."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/UserProfile" },
+      "description": "User profiles with role-based access control."
+    },
+    "/roles/{roleId}": {
+      "schema": { "$ref": "#/backend/entities/Role" },
+      "description": "Dynamic role definitions managed by administrators."
+    },
+    "/system_roles_admin/{adminUid}": {
+      "schema": { "type": "object" },
+      "description": "Security marker for high-performance admin checks."
+    }
   }
 }

@@ -1,6 +1,6 @@
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
+import {onDocumentUpdated, onDocumentDeleted} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -49,7 +49,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 });
 
 /**
- * Sincronización DEFINITIVA de roles entre Firestore, Auth y Reglas de Seguridad.
+ * Sincronización DEFINITIVA de roles entre Firestore y Auth.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event) => {
   const beforeData = event.data?.before.data();
@@ -63,10 +63,8 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
   if (!newRole) return;
 
   try {
-    // 1. Actualizar Custom Claims (para acceso rápido en .token.role)
     await admin.auth().setCustomUserClaims(userId, { role: newRole });
     
-    // 2. Sincronizar marcador de Admin (para independencia de autorización con exists())
     const adminMarkerRef = db.doc(`system_roles_admin/${userId}`);
     if (newRole === 'admin') {
       await adminMarkerRef.set({ 
@@ -80,6 +78,30 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
     logger.info(`[onUserRoleChange] Role synced for ${userId}: ${newRole}`);
   } catch (error) {
     logger.error(`[onUserRoleChange] Sync failed for ${userId}:`, error);
+  }
+});
+
+/**
+ * GESTIÓN DE CUENTAS HUÉRFANAS:
+ * Al eliminar un rol, reasigna a todos los usuarios afectados al rol 'viewer'.
+ */
+export const onRoleDeleted = onDocumentDeleted("roles/{roleId}", async (event) => {
+  const roleId = event.params.roleId;
+  const usersRef = db.collection('users');
+  
+  try {
+    const snapshot = await usersRef.where('role', '==', roleId).get();
+    if (snapshot.empty) return;
+
+    const batch = db.batch();
+    snapshot.docs.forEach(doc => {
+      batch.update(doc.ref, { role: 'viewer' });
+    });
+    
+    await batch.commit();
+    logger.info(`[onRoleDeleted] Reassigned ${snapshot.size} users from deleted role ${roleId} to 'viewer'.`);
+  } catch (error) {
+    logger.error(`[onRoleDeleted] Error managing orphan accounts for role ${roleId}:`, error);
   }
 });
 
