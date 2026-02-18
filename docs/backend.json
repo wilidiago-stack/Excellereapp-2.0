@@ -62,6 +62,22 @@
         "workPermits": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["name", "companyName", "country", "state", "city", "startDate", "status"]
+    },
+    "TimeEntry": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "TimeEntry",
+      "type": "object",
+      "description": "Records the daily hours worked by a user on a specific project.",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "projectId": { "type": "string" },
+        "date": { "type": "object", "description": "Firestore Timestamp" },
+        "hours": { "type": "number" },
+        "description": { "type": "string" },
+        "createdAt": { "type": "object", "description": "Server Timestamp" }
+      },
+      "required": ["userId", "projectId", "date", "hours"]
     }
   },
   "auth": {
@@ -79,6 +95,10 @@
     "/projects/{projectId}": {
       "schema": { "$ref": "#/backend/entities/Project" },
       "description": "Construction projects managed by the system."
+    },
+    "/time_entries/{entryId}": {
+      "schema": { "$ref": "#/backend/entities/TimeEntry" },
+      "description": "Daily time logs for users."
     },
     "/system_roles_admin/{adminUid}": {
       "schema": { "type": "object" },
