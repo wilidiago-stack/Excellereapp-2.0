@@ -37,6 +37,7 @@ import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { COUNTRIES, LOCATION_DATA } from '@/lib/location-data';
 
 const workPermitSchema = z.object({
   name: z.string().min(1, 'Permit name is required'),
@@ -46,8 +47,9 @@ const workPermitSchema = z.object({
 const projectSchema = z.object({
   name: z.string().min(1, 'Project name is required'),
   companyName: z.string().min(1, 'Company name is required'),
-  city: z.string().optional(),
-  state: z.string().optional(),
+  country: z.string().min(1, 'Country is required'),
+  state: z.string().min(1, 'State is required'),
+  city: z.string().min(1, 'City is required'),
   startDate: z.date({ required_error: 'Start date is required.' }),
   deliveryDate: z.date().optional(),
   address: z.string().optional(),
@@ -100,8 +102,9 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
     defaultValues: {
       name: '',
       companyName: '',
-      city: '',
+      country: '',
       state: '',
+      city: '',
       startDate: undefined,
       deliveryDate: undefined,
       address: '',
@@ -114,6 +117,27 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       status: 'Not Started',
     },
   });
+
+  // Watch for location changes to update correlated fields
+  const selectedCountry = form.watch('country');
+  const selectedState = form.watch('state');
+
+  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort() : [];
+  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort() : [];
+
+  // Reset dependent fields when parent changes
+  useEffect(() => {
+    if (!isEditMode) {
+      form.setValue('state', '');
+      form.setValue('city', '');
+    }
+  }, [selectedCountry, form, isEditMode]);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      form.setValue('city', '');
+    }
+  }, [selectedState, form, isEditMode]);
 
   useEffect(() => {
     if (initialData) {
@@ -248,32 +272,96 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 </FormItem>
                 )}
             />
+
+            {/* Country Selection */}
+            <FormField
+                control={form.control}
+                name="country"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>Country</FormLabel>
+                    <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    >
+                    <FormControl>
+                        <SelectTrigger>
+                        <SelectValue placeholder="Select a country" />
+                        </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        {COUNTRIES.map((country) => (
+                          <SelectItem key={country} value={country}>
+                            {country}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+
+            {/* State Selection (Correlated) */}
+            <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                <FormItem>
+                    <FormLabel>State / Province</FormLabel>
+                    <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!selectedCountry}
+                    >
+                    <FormControl>
+                        <SelectTrigger>
+                        <SelectValue placeholder={selectedCountry ? "Select a state" : "Select country first"} />
+                        </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                        {states.map((state) => (
+                          <SelectItem key={state} value={state}>
+                            {state}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
+                    <FormMessage />
+                </FormItem>
+                )}
+            />
+
+            {/* City Selection (Correlated) */}
             <FormField
                 control={form.control}
                 name="city"
                 render={({ field }) => (
                 <FormItem>
                     <FormLabel>City</FormLabel>
+                    <Select
+                    onValueChange={field.onChange}
+                    value={field.value}
+                    disabled={!selectedState}
+                    >
                     <FormControl>
-                    <Input placeholder="e.g. Miami" {...field} />
+                        <SelectTrigger>
+                        <SelectValue placeholder={selectedState ? "Select a city" : "Select state first"} />
+                        </SelectTrigger>
                     </FormControl>
+                    <SelectContent>
+                        {cities.map((city) => (
+                          <SelectItem key={city} value={city}>
+                            {city}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                    </Select>
                     <FormMessage />
                 </FormItem>
                 )}
             />
-            <FormField
-                control={form.control}
-                name="state"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>State</FormLabel>
-                    <FormControl>
-                    <Input placeholder="e.g. FL" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
+
             <FormField
                 control={form.control}
                 name="startDate"
@@ -372,40 +460,42 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 </FormItem>
                 )}
             />
-            <FormField
-                control={form.control}
-                name="phone"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Phone</FormLabel>
-                    <FormControl>
-                    <Input
-                        type="tel"
-                        placeholder="+1 234 567 890"
-                        {...field}
-                    />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
-            <FormField
-                control={form.control}
-                name="cell"
-                render={({ field }) => (
-                <FormItem>
-                    <FormLabel>Cell</FormLabel>
-                    <FormControl>
-                    <Input
-                        type="tel"
-                        placeholder="+1 234 567 891"
-                        {...field}
-                    />
-                    </FormControl>
-                    <FormMessage />
-                </FormItem>
-                )}
-            />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+              <FormField
+                  control={form.control}
+                  name="phone"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                      <Input
+                          type="tel"
+                          placeholder="+1 234 567 890"
+                          {...field}
+                      />
+                      </FormControl>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+              />
+              <FormField
+                  control={form.control}
+                  name="cell"
+                  render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>Cell</FormLabel>
+                      <FormControl>
+                      <Input
+                          type="tel"
+                          placeholder="+1 234 567 891"
+                          {...field}
+                      />
+                      </FormControl>
+                      <FormMessage />
+                  </FormItem>
+                  )}
+              />
+            </div>
             <FormField
                 control={form.control}
                 name="projectManagerId"
@@ -556,7 +646,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 Add Permit
             </Button>
             </div>
-            <div className="flex justify-end gap-4 mt-8">
+            <div className="flex justify-end gap-4 mt-8 pb-10">
                 <Button variant="outline" type="button" asChild>
                     <Link href="/projects">Cancel</Link>
                 </Button>
