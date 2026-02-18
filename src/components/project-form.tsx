@@ -59,7 +59,7 @@ const projectSchema = z.object({
   projectManagerId: z.string().optional(),
   generalContractorId: z.string().optional(),
   workAreas: z
-    .array(z.object({ value: z.string().min(1, 'Work area cannot be empty') }))
+    .array(z.object({ value: z.string() }))
     .default([]),
   workPermits: z.array(workPermitSchema).default([]),
   status: z.enum(["Not Started", "In Progress", "Completed", "On Hold"]),
@@ -76,7 +76,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const { toast } = useToast();
   const { user } = useAuth();
   const router = useRouter();
-  const isEditMode = !!initialData;
+  const isEditMode = !!initialData?.id;
 
   const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
@@ -119,38 +119,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
     },
   });
 
-  const selectedCountry = form.watch('country');
-  const selectedState = form.watch('state');
-
-  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort((a, b) => a.localeCompare(b)) : [];
-  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort((a, b) => a.localeCompare(b)) : [];
-
-  useEffect(() => {
-    if (initialData) {
-      // Format data for the form
-      const formattedData = {
-        name: initialData.name || '',
-        companyName: initialData.companyName || '',
-        status: initialData.status || 'Not Started',
-        country: initialData.country || '',
-        state: initialData.state || '',
-        city: initialData.city || '',
-        startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : initialData.startDate,
-        deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : initialData.deliveryDate,
-        address: initialData.address || '',
-        phone: initialData.phone || '',
-        cell: initialData.cell || '',
-        projectManagerId: initialData.projectManagerId || '',
-        generalContractorId: initialData.generalContractorId || '',
-        workAreas: initialData.workAreas?.map((wa: any) => typeof wa === 'string' ? { value: wa } : wa) || [],
-        workPermits: initialData.workPermits || [],
-      };
-      
-      // Use reset to update all values at once
-      form.reset(formattedData);
-    }
-  }, [initialData, form]);
-
   const {
     fields: workAreaFields,
     append: appendWorkArea,
@@ -169,13 +137,42 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
     name: 'workPermits',
   });
 
-  const onSubmit = (data: ProjectFormValues) => {
-    if (!firestore || !projectsCollection) return;
+  const selectedCountry = form.watch('country');
+  const selectedState = form.watch('state');
 
-    // Convert workAreas objects back to string array for DB
+  const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort() : [];
+  const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort() : [];
+
+  useEffect(() => {
+    if (initialData && initialData.id) {
+      const formattedData = {
+        name: initialData.name || '',
+        companyName: initialData.companyName || '',
+        status: initialData.status || 'Not Started',
+        country: initialData.country || '',
+        state: initialData.state || '',
+        city: initialData.city || '',
+        startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : initialData.startDate,
+        deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : initialData.deliveryDate,
+        address: initialData.address || '',
+        phone: initialData.phone || '',
+        cell: initialData.cell || '',
+        projectManagerId: initialData.projectManagerId || '',
+        generalContractorId: initialData.generalContractorId || '',
+        workAreas: initialData.workAreas?.map((wa: any) => typeof wa === 'string' ? { value: wa } : wa) || [],
+        workPermits: initialData.workPermits || [],
+      };
+      form.reset(formattedData);
+    }
+  }, [initialData, form]);
+
+  const onSubmit = (data: ProjectFormValues) => {
+    if (!firestore || (!projectsCollection && !isEditMode)) return;
+
+    // Convert workAreas objects back to string array for Firestore
     const dataToSave = {
       ...data,
-      workAreas: data.workAreas?.map((wa) => wa.value) || [],
+      workAreas: data.workAreas?.map((wa) => wa.value).filter(v => v.trim() !== '') || [],
     };
 
     if (isEditMode) {
@@ -197,7 +194,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
           errorEmitter.emit('permission-error', permissionError);
         });
     } else {
-      addDoc(projectsCollection, dataToSave)
+      addDoc(projectsCollection!, dataToSave)
         .then(() => {
           toast({
             title: 'Project Created',
@@ -207,7 +204,7 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
         })
         .catch((error) => {
           const permissionError = new FirestorePermissionError({
-            path: projectsCollection.path,
+            path: projectsCollection!.path,
             operation: 'create',
             requestResourceData: dataToSave,
           });
