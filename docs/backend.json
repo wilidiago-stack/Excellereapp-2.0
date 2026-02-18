@@ -13,7 +13,8 @@
         "lastName": { "type": "string" },
         "role": { "type": "string", "enum": ["admin", "project_manager", "viewer"] },
         "status": { "type": "string", "enum": ["pending", "active", "invited", "rejected"] },
-        "assignedModules": { "type": "array", "items": { "type": "string" } }
+        "assignedModules": { "type": "array", "items": { "type": "string" } },
+        "pinnedShortcuts": { "type": "array", "items": { "type": "string" }, "description": "Pinned shortcut IDs for the sidebar." }
       },
       "required": ["id", "email", "firstName", "lastName", "role"]
     },
