@@ -1,6 +1,6 @@
 'use client';
 
-import { useParams } from 'next/navigation';
+import React from 'react';
 import { useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { ContractorForm } from '@/components/contractor-form';
@@ -10,9 +10,8 @@ import { ChevronLeft } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 
-export default function EditContractorPage() {
-    const params = useParams();
-    const id = params.id as string;
+export default function EditContractorPage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = React.use(params);
     const firestore = useFirestore();
 
     const contractorDocRef = useMemoFirebase(
