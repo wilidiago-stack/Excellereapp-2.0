@@ -4,10 +4,12 @@ import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
 /**
  * Inicializa Firebase de forma robusta y silenciosa.
- * Evita errores en SSR y prefiere la configuración manual si la automática no está disponible.
+ * Incluye la activación de App Check para proteger Authentication y Firestore.
  */
 export function initializeFirebase() {
   // En el servidor (SSR), si ya hay una app, la usamos.
@@ -18,13 +20,27 @@ export function initializeFirebase() {
 
   let firebaseApp: FirebaseApp;
   
-  // Intentamos inicialización manual directamente para evitar advertencias de "no-options"
-  // a menos que estemos en un entorno que soporte explícitamente la inicialización automática.
   try {
     firebaseApp = initializeApp(firebaseConfig);
   } catch (e) {
-    // Si falla (ej. por re-inicialización), intentamos obtener la app por defecto.
     firebaseApp = getApps()[0];
+  }
+
+  // Inicialización de App Check (Solo en el cliente)
+  if (typeof window !== 'undefined') {
+    try {
+      // Nota: Si estás en desarrollo local, podrías necesitar activar el token de depuración:
+      // (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+      
+      initializeAppCheck(firebaseApp, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+        isTokenAutoRefreshEnabled: true,
+      });
+      console.log('Firebase App Check activado correctamente.');
+    } catch (err) {
+      // Fallará silenciosamente si ya está inicializado o si la llave es inválida
+      console.warn('App Check no pudo inicializarse (esto es normal en algunos flujos de re-renderizado):', err);
+    }
   }
 
   return getSdks(firebaseApp);
