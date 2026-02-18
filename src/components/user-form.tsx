@@ -279,9 +279,9 @@ export function UserForm({ initialData }: UserFormProps) {
         <Separator />
 
         <div className="space-y-4">
-            <h3 className="text-sm font-medium">Visualización de Módulos (Gestión Automática)</h3>
+            <h3 className="text-sm font-medium">Module Visibility (Automatic Management)</h3>
             <p className="text-xs text-muted-foreground">
-                Seleccione los módulos que este usuario podrá visualizar. Esta lista se actualiza automáticamente desde la configuración central.
+                Select the modules that this user will be able to view. This list is automatically updated from the central configuration.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 pt-2">
                 {APP_MODULES.map((module) => (

@@ -36,7 +36,6 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Terminal, Globe, ShieldAlert } from 'lucide-react';
-import { firebaseConfig } from '@/firebase/config';
 
 const signUpSchema = z
   .object({
@@ -156,7 +155,6 @@ export default function SignUpPage() {
       });
       router.push('/login');
     } catch (error: any) {
-      console.error('Sign-up error:', error);
       let code = error.code || 'unknown-error';
       let description = error.message;
 
@@ -178,15 +176,15 @@ export default function SignUpPage() {
       return (
         <Alert variant="destructive">
           <Globe className="h-4 w-4" />
-          <AlertTitle>Navegador bloqueó la ventana</AlertTitle>
+          <AlertTitle>Browser blocked the popup</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-2 mt-2">
-              <p>Tu navegador ha bloqueado la ventana emergente de inicio de sesión.</p>
-              <p className="font-semibold">Solución:</p>
+              <p>Your browser blocked the login popup window.</p>
+              <p className="font-semibold">Solution:</p>
               <ol className="list-decimal list-inside space-y-1 text-xs">
-                <li>Haz clic en el icono de "ventana bloqueada" en la barra de direcciones.</li>
-                <li>Selecciona "Permitir siempre ventanas emergentes de este sitio".</li>
-                <li>Haz clic de nuevo en el botón de Google o Microsoft.</li>
+                <li>Click the "blocked window" icon in the address bar.</li>
+                <li>Select "Allow always popups from this site".</li>
+                <li>Click the Google or Microsoft button again.</li>
               </ol>
             </div>
           </AlertDescription>
@@ -198,11 +196,11 @@ export default function SignUpPage() {
       return (
         <Alert variant="destructive">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Doble factor de seguridad requerido</AlertTitle>
+          <AlertTitle>Two-factor authentication required</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-2 mt-2">
-              <p>Tu cuenta tiene activada la verificación en dos pasos (MFA).</p>
-              <p>Por favor, completa el desafío de seguridad en la ventana emergente.</p>
+              <p>Your account has two-step verification (MFA) enabled.</p>
+              <p>Please complete the security challenge in the popup window.</p>
             </div>
           </AlertDescription>
         </Alert>

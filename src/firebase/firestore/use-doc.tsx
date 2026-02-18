@@ -28,9 +28,9 @@ export function useDoc<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Validación de memoización solo en el cliente para evitar errores en SSR
+    // Memoization validation only on client to avoid SSR errors
     if (memoizedDocRef && !isMemoized(memoizedDocRef)) {
-      throw new Error(`useDoc: El objeto proporcionado no fue memoizado con useMemoFirebase. Esto es necesario para la estabilidad de la conexión.`);
+      throw new Error(`useDoc: The provided object was not memoized with useMemoFirebase. This is required for connection stability.`);
     }
 
     if (!memoizedDocRef) {

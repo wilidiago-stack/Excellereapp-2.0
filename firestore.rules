@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - SEGURIDAD GRANULAR BASADA EN ROLES
+     * EXCELLERE REVIVE - ROLE-BASED GRANULAR SECURITY
      */
 
     function isSignedIn() {
@@ -34,9 +34,9 @@ service cloud.firestore {
     }
 
     /** 
-     * PERFILES DE USUARIO
-     * Admin: CRUD total
-     * Usuario: Lectura propia y actualización de campos no críticos
+     * USER PROFILES
+     * Admin: Total CRUD
+     * User: Own read and non-critical field updates
      */
     match /users/{userId} {
       allow get: if isSignedIn();
@@ -51,28 +51,28 @@ service cloud.firestore {
     }
 
     /** 
-     * PROYECTOS, CONTRATISTAS Y REPORTES
-     * Admin: CRUD (C, R, U, D)
-     * PM: C, R, D (Siguiendo requerimiento específico)
-     * Viewer: R
+     * PROJECTS, CONTRACTORS, AND REPORTS
+     * Admin: CRUD
+     * PM: Create, Read, Delete (Specific requirement)
+     * Viewer: Read
      */
     match /{collection}/{id} {
       allow read: if isSignedIn();
       
-      // Permitir creación y eliminación a Admin y PM
+      // Allow creation and deletion to Admin and PM
       allow create, delete: if isAdmin() || isProjectManager();
       
-      // Solo el Admin puede actualizar (Update)
+      // Only Admin can update
       allow update: if isAdmin();
 
-      // Aplicar esto solo a las colecciones de negocio
-      match /projects/{id} { allow read, write: if false; } // Cubierto por el bloque superior
+      // Apply this only to business collections
+      match /projects/{id} { allow read, write: if false; } // Covered by top block
       match /contractors/{id} { allow read, write: if false; }
       match /dailyReports/{id} { allow read, write: if false; }
       match /monthlyReports/{id} { allow read, write: if false; }
     }
 
-    /** CONFIGURACIÓN Y REFERENCIAS (Solo Admin) */
+    /** CONFIGURATION AND REFERENCES (Admin Only) */
     match /roles/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /modules/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
     match /system_roles_admin/{adminUid} { allow read: if isSignedIn(); allow write: if isAdmin(); }

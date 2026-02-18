@@ -1,10 +1,10 @@
 /**
- * @fileOverview CONFIGURACIÓN CENTRAL DE MÓDULOS DE LA APLICACIÓN
+ * @fileOverview CENTRAL APPLICATION MODULES CONFIGURATION
  * 
- * ATENCIÓN: Este archivo es la ÚNICA fuente de verdad para los módulos del sistema.
- * ES OBLIGATORIO: Cualquier módulo nuevo que se cree en la aplicación DEBE registrarse 
- * en este array 'APP_MODULES' para que aparezca automáticamente tanto en el menú 
- * de navegación como en el panel de permisos de usuario.
+ * ATTENTION: This file is the SINGLE source of truth for system modules.
+ * OBLIGATORY: Any new module created in the application MUST be registered 
+ * in this 'APP_MODULES' array so it appears automatically in both the 
+ * navigation menu and the user permissions panel.
  */
 
 import { 
@@ -18,7 +18,7 @@ export interface AppModule {
   label: string;
   href: string;
   icon: LucideIcon;
-  /** Visibilidad por defecto basada en el rol si no hay configuración explícita */
+  /** Default visibility based on role if no explicit configuration exists */
   defaultVisibility: 'all' | 'manager' | 'admin';
 }
 

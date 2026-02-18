@@ -13,20 +13,20 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const publicPaths = ['/login', '/sign-up'];
   const isPublicPath = publicPaths.some((p) => pathname.startsWith(p));
 
-  // Redirección automática si no está autenticado y no es una ruta pública
+  // Automatic redirection if not authenticated and not a public route
   useEffect(() => {
     if (!loading && !user && !isPublicPath) {
       router.push('/login');
     }
   }, [loading, user, isPublicPath, router]);
 
-  // Mientras Firebase está inicializando el estado de autenticación,
-  // mostramos un estado de carga para evitar peticiones con auth: null.
+  // While Firebase is initializing the authentication state,
+  // we show a loading state to avoid requests with auth: null.
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <p className="text-sm text-muted-foreground animate-pulse">Iniciando sesión segura...</p>
+        <p className="text-sm text-muted-foreground animate-pulse">Starting secure session...</p>
       </div>
     );
   }
@@ -35,11 +35,11 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     return <>{children}</>;
   }
 
-  // Si no hay usuario y no es ruta pública, no renderizamos nada (el useEffect redirigirá)
+  // If no user and not a public route, we render nothing (useEffect will redirect)
   if (!user) {
     return null;
   }
 
-  // Para todas las demás páginas, envolvemos el contenido en el AppShell.
+  // For all other pages, wrap content in AppShell.
   return <AppShell>{children}</AppShell>;
 }

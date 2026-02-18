@@ -8,11 +8,11 @@ import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
 /**
- * Inicializa Firebase de forma robusta y silenciosa.
- * Incluye la activación de App Check para proteger Authentication y Firestore.
+ * Initializes Firebase robustly and silently.
+ * Includes App Check activation to protect Authentication and Firestore.
  */
 export function initializeFirebase() {
-  // En el servidor (SSR), si ya hay una app, la usamos.
+  // On server (SSR), if there's already an app, use it.
   const apps = getApps();
   if (apps.length > 0) {
     return getSdks(apps[0]);
@@ -26,12 +26,12 @@ export function initializeFirebase() {
     firebaseApp = getApps()[0];
   }
 
-  // Inicialización de App Check (Solo en el cliente)
+  // App Check Initialization (Client-side only)
   if (typeof window !== 'undefined') {
     try {
       /**
-       * CONFIGURACIÓN DE DEPURACIÓN (DEBUG MODE):
-       * Usando el token específico proporcionado para el entorno local.
+       * DEBUG MODE CONFIGURATION:
+       * Using the specific token provided for the local environment.
        */
       const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname.includes('cloudworkstations.dev');
       if (isLocalhost) {
@@ -42,9 +42,9 @@ export function initializeFirebase() {
         provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
       });
-      console.log('Firebase App Check inicializado con Token de Depuración específico.');
+      console.log('Firebase App Check initialized with specific Debug Token.');
     } catch (err) {
-      console.warn('App Check no pudo inicializarse:', err);
+      console.warn('App Check failed to initialize:', err);
     }
   }
 

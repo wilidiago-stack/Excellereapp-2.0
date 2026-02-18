@@ -40,7 +40,7 @@ export interface AuthHookResult {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-// WeakSet para rastrear objetos memoizados de forma segura en el cliente.
+// WeakSet to track memoized objects safely on the client.
 const firebaseMemoTags = new WeakSet<object>();
 
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -57,7 +57,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
   });
 
-  // Manejo de la sesión de Auth y Claims
+  // Auth session and Claims management
   useEffect(() => {
     if (!auth) {
       setUserAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
@@ -91,7 +91,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe();
   }, [auth]);
 
-  // Firestore-First: Sincronización en tiempo real del rol y permisos desde el documento de usuario
+  // Firestore-First: Real-time sync of role and permissions from the user document
   useEffect(() => {
     const user = userAuthState.user;
     if (!user || !firestore) return;

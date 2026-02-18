@@ -10,7 +10,7 @@ const db = admin.firestore();
 setGlobalOptions({ maxInstances: 10 });
 
 /**
- * Configuración inicial para nuevos usuarios.
+ * Initial setup for new users.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const { uid, email, displayName } = event.data;
@@ -49,7 +49,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 });
 
 /**
- * Sincronización DEFINITIVA de roles entre Firestore y Auth.
+ * DEFINITIVE sync of roles between Firestore and Auth.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event) => {
   const beforeData = event.data?.before.data();
@@ -82,8 +82,8 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
 });
 
 /**
- * GESTIÓN DE CUENTAS HUÉRFANAS:
- * Al eliminar un rol, reasigna a todos los usuarios afectados al rol 'viewer'.
+ * ORPHAN ACCOUNT MANAGEMENT:
+ * When deleting a role, reassigns all affected users to 'viewer' role.
  */
 export const onRoleDeleted = onDocumentDeleted("roles/{roleId}", async (event) => {
   const roleId = event.params.roleId;
@@ -106,7 +106,7 @@ export const onRoleDeleted = onDocumentDeleted("roles/{roleId}", async (event) =
 });
 
 /**
- * Limpieza al borrar un usuario.
+ * Cleanup when a user is deleted.
  */
 export const cleanupUser = onAuthUserDelete(async (event) => {
   const { uid } = event.data;

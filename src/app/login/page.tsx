@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -124,8 +124,6 @@ export default function LoginPage() {
   ) => {
     if (!auth) return;
     
-    // IMPORTANTE: No ponemos setLoading(true) antes de signInWithPopup
-    // para evitar que el navegador crea que no es una acción del usuario.
     setAuthError(null);
     try {
       await signInWithPopup(auth, provider);
@@ -227,15 +225,15 @@ export default function LoginPage() {
       return (
         <Alert variant="destructive">
           <Globe className="h-4 w-4" />
-          <AlertTitle>Navegador bloqueó la ventana</AlertTitle>
+          <AlertTitle>Browser blocked the popup</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-2 mt-2">
-              <p>Tu navegador ha bloqueado la ventana emergente de inicio de sesión.</p>
-              <p className="font-semibold">Solución:</p>
+              <p>Your browser blocked the login popup window.</p>
+              <p className="font-semibold">Solution:</p>
               <ol className="list-decimal list-inside space-y-1 text-xs">
-                <li>Haz clic en el icono de "ventana bloqueada" en la barra de direcciones.</li>
-                <li>Selecciona "Permitir siempre ventanas emergentes de este sitio".</li>
-                <li>Haz clic de nuevo en el botón de Google o Microsoft.</li>
+                <li>Click the "blocked window" icon in the address bar.</li>
+                <li>Select "Always allow popups from this site".</li>
+                <li>Click the Google or Microsoft button again.</li>
               </ol>
             </div>
           </AlertDescription>
@@ -247,12 +245,12 @@ export default function LoginPage() {
       return (
         <Alert variant="destructive">
           <ShieldAlert className="h-4 w-4" />
-          <AlertTitle>Doble factor de seguridad requerido</AlertTitle>
+          <AlertTitle>Two-factor authentication required</AlertTitle>
           <AlertDescription>
             <div className="flex flex-col gap-2 mt-2">
-              <p>Tu cuenta tiene activada la verificación en dos pasos (MFA).</p>
-              <p>Por favor, asegúrate de completar el desafío de seguridad en la ventana emergente que se abre al intentar entrar.</p>
-              <p className="text-xs italic">Si usas Microsoft, intenta cerrar la sesión en tu cuenta personal antes de intentar de nuevo aquí.</p>
+              <p>Your account has two-step verification (MFA) enabled.</p>
+              <p>Please make sure to complete the security challenge in the popup window that opens when trying to sign in.</p>
+              <p className="text-xs italic">If you use Microsoft, try signing out of your personal account before trying again here.</p>
             </div>
           </AlertDescription>
         </Alert>
