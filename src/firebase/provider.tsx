@@ -33,6 +33,7 @@ export interface AuthHookResult {
   claims: ParsedToken | null;
   userData: any | null;
   role: string;
+  assignedModules: string[];
   loading: boolean;
   error: Error | null;
 }
@@ -40,7 +41,6 @@ export interface AuthHookResult {
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
 // WeakSet para rastrear objetos memoizados de forma segura en el cliente.
-// Usamos un objeto global para asegurar consistencia entre re-renders.
 const firebaseMemoTags = new WeakSet<object>();
 
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
@@ -91,7 +91,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribe();
   }, [auth]);
 
-  // Firestore-First: Sincronización en tiempo real del rol desde el documento de usuario
+  // Firestore-First: Sincronización en tiempo real del rol y permisos desde el documento de usuario
   useEffect(() => {
     const user = userAuthState.user;
     if (!user || !firestore) return;
@@ -105,7 +105,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         isUserLoading: false,
       }));
     }, (error) => {
-        // Si no hay permisos para leer su propio doc, marcamos como cargado igualmente
         setUserAuthState(prev => ({ ...prev, isUserLoading: false }));
     });
 
@@ -154,14 +153,15 @@ export const useFirestore = (): Firestore => {
 export const useAuth = (): AuthHookResult => {
   const { user, claims, userData, isUserLoading, userError } = useFirebase();
   
-  // Prioridad: 1. Firestore Document (Role Manual), 2. Auth Claims (Token), 3. Viewer (Default)
   const role = userData?.role || (claims?.role as string) || 'viewer';
+  const assignedModules = userData?.assignedModules || [];
   
   return { 
     user, 
     claims, 
     userData, 
     role, 
+    assignedModules,
     loading: isUserLoading, 
     error: userError 
   };
@@ -175,8 +175,7 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
   return memoized;
 }
 
-// Exportación interna para validación en hooks
 export const isMemoized = (obj: any) => {
-  if (typeof window === 'undefined') return true; // En el servidor siempre validamos
+  if (typeof window === 'undefined') return true;
   return obj && firebaseMemoTags.has(obj);
 };

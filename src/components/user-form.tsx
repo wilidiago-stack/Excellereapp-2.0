@@ -20,6 +20,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import { useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
@@ -30,6 +31,28 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
+// Definición de todos los módulos del app para asignación de permisos
+const APP_MODULES = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'customers', label: 'Customers' },
+  { id: 'projects', label: 'Projects' },
+  { id: 'users', label: 'Users' },
+  { id: 'contractors', label: 'Contractors' },
+  { id: 'daily-report', label: 'Daily Report' },
+  { id: 'monthly-report', label: 'Monthly Report' },
+  { id: 'project-team', label: 'Project Team' },
+  { id: 'documents', label: 'Documents' },
+  { id: 'project-aerial-view', label: 'Project Aerial View' },
+  { id: 'calendar', label: 'Calendar' },
+  { id: 'map', label: 'Map' },
+  { id: 'capex', label: 'CapEx' },
+  { id: 'reports-analytics', label: 'Report/Analytics' },
+  { id: 'schedule', label: 'Schedule' },
+  { id: 'master-sheet-time', label: 'Master Sheet Time' },
+  { id: 'time-sheet', label: 'Time Sheet' },
+  { id: 'weather', label: 'Weather' },
+];
+
 const userSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
@@ -39,6 +62,7 @@ const userSchema = z.object({
   phoneNumber: z.string().optional(),
   role: z.enum(['admin', 'project_manager', 'viewer']),
   status: z.enum(['pending', 'active', 'invited', 'rejected']).optional(),
+  assignedModules: z.array(z.string()).default([]),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -69,12 +93,16 @@ export function UserForm({ initialData }: UserFormProps) {
       phoneNumber: '',
       role: 'viewer',
       status: 'pending',
+      assignedModules: [],
     },
   });
 
   useEffect(() => {
     if (initialData) {
-      form.reset(initialData);
+      form.reset({
+        ...initialData,
+        assignedModules: initialData.assignedModules || [],
+      });
     }
   }, [initialData, form]);
 
@@ -268,7 +296,49 @@ export function UserForm({ initialData }: UserFormProps) {
             />
             </div>
         </div>
-        <div className="flex justify-end gap-4">
+
+        <Separator />
+
+        <div className="space-y-4">
+            <h3 className="text-sm font-medium">Visualización de Módulos</h3>
+            <p className="text-xs text-muted-foreground">
+                Seleccione los módulos que este usuario podrá visualizar en el menú de navegación.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 pt-2">
+                {APP_MODULES.map((module) => (
+                    <FormField
+                        key={module.id}
+                        control={form.control}
+                        name="assignedModules"
+                        render={({ field }) => {
+                            return (
+                                <FormItem
+                                    key={module.id}
+                                    className="flex flex-row items-center space-x-3 space-y-0"
+                                >
+                                    <FormControl>
+                                        <Checkbox
+                                            checked={field.value?.includes(module.id)}
+                                            onCheckedChange={(checked) => {
+                                                const currentModules = field.value || [];
+                                                return checked
+                                                    ? field.onChange([...currentModules, module.id])
+                                                    : field.onChange(currentModules.filter((id) => id !== module.id));
+                                            }}
+                                        />
+                                    </FormControl>
+                                    <FormLabel className="text-sm font-normal cursor-pointer select-none">
+                                        {module.label}
+                                    </FormLabel>
+                                </FormItem>
+                            );
+                        }}
+                    />
+                ))}
+            </div>
+        </div>
+
+        <div className="flex justify-end gap-4 pt-4">
             <Button variant="outline" type="button" asChild>
                 <Link href="/users">Cancel</Link>
             </Button>

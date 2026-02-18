@@ -35,32 +35,41 @@ import {
 import { useAuth } from '@/firebase';
 
 export function MainHeader() {
-  const { role } = useAuth();
+  const { role, assignedModules } = useAuth();
   
-  // El rol viene directamente de Firestore a través del hook useAuth (Sincronización en tiempo real)
   const isAdmin = role === 'admin';
   const isProjectManager = role === 'project_manager';
   const isManager = isAdmin || isProjectManager;
 
+  // Función para verificar si el usuario tiene acceso a un módulo específico
+  const hasModuleAccess = (moduleId: string, defaultAccess: boolean) => {
+    // Si el usuario tiene una lista explícita de módulos asignados, esa es la fuente de verdad.
+    if (assignedModules && assignedModules.length > 0) {
+      return assignedModules.includes(moduleId);
+    }
+    // Si no tiene configuración específica (usuarios antiguos o por defecto), usamos la lógica de roles.
+    return defaultAccess;
+  };
+
   const menuItems = [
-    { href: '/', label: 'Dashboard', icon: Home, show: true },
-    { href: '/customers', label: 'Customers', icon: Building, show: true },
-    { href: '/projects', label: 'Projects', icon: FolderKanban, show: isManager },
-    { href: '/users', label: 'Users', icon: Users, show: isAdmin },
-    { href: '/contractors', label: 'Contractors', icon: HardHat, show: isManager },
-    { href: '/daily-report', label: 'Daily Report', icon: FileText, show: isManager },
-    { href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays, show: isManager },
-    { href: '#', label: 'Project Team', icon: Users, show: true },
-    { href: '#', label: 'Documents', icon: Files, show: true },
-    { href: '#', label: 'Project Aerial View', icon: Camera, show: true },
-    { href: '#', label: 'Calendar', icon: CalendarDays, show: true },
-    { href: '#', label: 'Map', icon: MapIcon, show: true },
-    { href: '#', label: 'CapEx', icon: DollarSign, show: true },
-    { href: '#', label: 'Report/Analytics', icon: BarChart2, show: true },
-    { href: '#', label: 'Schedule', icon: Clock, show: true },
-    { href: '#', label: 'Master Sheet Time', icon: Sheet, show: true },
-    { href: '#', label: 'Time Sheet', icon: Timer, show: true },
-    { href: '#', label: 'Weather', icon: CloudSun, show: true },
+    { id: 'dashboard', href: '/', label: 'Dashboard', icon: Home, show: hasModuleAccess('dashboard', true) },
+    { id: 'customers', href: '/customers', label: 'Customers', icon: Building, show: hasModuleAccess('customers', true) },
+    { id: 'projects', href: '/projects', label: 'Projects', icon: FolderKanban, show: hasModuleAccess('projects', isManager) },
+    { id: 'users', href: '/users', label: 'Users', icon: Users, show: hasModuleAccess('users', isAdmin) },
+    { id: 'contractors', href: '/contractors', label: 'Contractors', icon: HardHat, show: hasModuleAccess('contractors', isManager) },
+    { id: 'daily-report', href: '/daily-report', label: 'Daily Report', icon: FileText, show: hasModuleAccess('daily-report', isManager) },
+    { id: 'monthly-report', href: '/monthly-report', label: 'Monthly Report', icon: CalendarDays, show: hasModuleAccess('monthly-report', isManager) },
+    { id: 'project-team', href: '#', label: 'Project Team', icon: Users, show: hasModuleAccess('project-team', true) },
+    { id: 'documents', href: '#', label: 'Documents', icon: Files, show: hasModuleAccess('documents', true) },
+    { id: 'project-aerial-view', href: '#', label: 'Project Aerial View', icon: Camera, show: hasModuleAccess('project-aerial-view', true) },
+    { id: 'calendar', href: '#', label: 'Calendar', icon: CalendarDays, show: hasModuleAccess('calendar', true) },
+    { id: 'map', href: '#', label: 'Map', icon: MapIcon, show: hasModuleAccess('map', true) },
+    { id: 'capex', href: '#', label: 'CapEx', icon: DollarSign, show: hasModuleAccess('capex', true) },
+    { id: 'reports-analytics', href: '#', label: 'Report/Analytics', icon: BarChart2, show: hasModuleAccess('reports-analytics', true) },
+    { id: 'schedule', href: '#', label: 'Schedule', icon: Clock, show: hasModuleAccess('schedule', true) },
+    { id: 'master-sheet-time', href: '#', label: 'Master Sheet Time', icon: Sheet, show: hasModuleAccess('master-sheet-time', true) },
+    { id: 'time-sheet', href: '#', label: 'Time Sheet', icon: Timer, show: hasModuleAccess('time-sheet', true) },
+    { id: 'weather', href: '#', label: 'Weather', icon: CloudSun, show: hasModuleAccess('weather', true) },
   ];
 
   const secondaryMenuItems = [
