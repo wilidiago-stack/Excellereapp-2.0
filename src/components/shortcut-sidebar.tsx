@@ -53,6 +53,7 @@ const ACTION_REGISTRY = [
   { id: 'daily-report-list', label: 'Daily Reports', href: '/daily-report', icon: FileText, moduleId: 'daily-report', moduleName: 'Reports' },
   { id: 'monthly-report-new', label: 'New Monthly Report', href: '/monthly-report/new', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
   { id: 'monthly-report-list', label: 'Monthly Reports', href: '/monthly-report', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
+  { id: 'calendar-view', label: 'Calendar', href: '/calendar', icon: CalendarDays, moduleId: 'calendar', moduleName: 'Tools' },
   { id: 'map-view', label: 'Project Map', href: '/map', icon: Map, moduleId: 'map', moduleName: 'Tools' },
   { id: 'ai-assistant', label: 'AI Assistant', href: '#', icon: Sparkles, moduleId: 'dashboard', moduleName: 'Tools' },
 ];
@@ -127,7 +128,7 @@ export function ShortcutSidebar() {
             </TooltipContent>
           </Tooltip>
 
-          <DialogContent className="sm:max-w-[500px] h-[80vh] flex flex-col p-0">
+          <DialogContent className="sm:max-w-[500px] h-[80vh] flex flex-col p-0 rounded-sm">
             <DialogHeader className="p-6 pb-2">
               <DialogTitle className="text-xl">Customize Shortcuts</DialogTitle>
               <DialogDescription>
@@ -144,13 +145,13 @@ export function ShortcutSidebar() {
                       {group.actions.map((action) => {
                         const isPinned = pinnedIds.includes(action.id);
                         return (
-                          <div key={action.id} className="flex items-center justify-between p-2 rounded-lg border border-slate-100 hover:bg-slate-50 group transition-colors">
+                          <div key={action.id} className="flex items-center justify-between p-2 rounded-sm border border-slate-100 hover:bg-slate-50 group transition-colors">
                             <Link 
                               href={action.href} 
                               className="flex items-center gap-3 flex-1" 
                               onClick={() => setIsOpen(false)}
                             >
-                              <div className="h-10 w-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:shadow-sm transition-all">
+                              <div className="h-10 w-10 rounded-sm bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:shadow-sm transition-all">
                                 <action.icon className="h-5 w-5" />
                               </div>
                               <span className="text-sm font-medium">{action.label}</span>
@@ -159,7 +160,7 @@ export function ShortcutSidebar() {
                               variant="ghost"
                               size="icon"
                               className={cn(
-                                "h-10 w-10 rounded-lg transition-all",
+                                "h-10 w-10 rounded-sm transition-all",
                                 isPinned ? "text-[#46a395] bg-[#46a395]/10" : "text-slate-300 opacity-0 group-hover:opacity-100 hover:bg-slate-200"
                               )}
                               onClick={(e) => {
