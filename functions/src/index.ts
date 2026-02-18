@@ -1,3 +1,4 @@
+
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
 import {onDocumentUpdated, onDocumentDeleted} from "firebase-functions/v2/firestore";
@@ -11,6 +12,7 @@ setGlobalOptions({ maxInstances: 10 });
 
 /**
  * Initial setup for new users.
+ * Automatically makes the first user an administrator.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const { uid, email, displayName } = event.data;
@@ -18,30 +20,43 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const metadataRef = db.doc("system/metadata");
 
   try {
-    const role = "viewer";
     const nameParts = displayName?.split(' ') || [];
     const firstName = nameParts[0] || (email ? email.split('@')[0] : 'New');
     const lastName = nameParts.slice(1).join(' ') || 'User';
-
-    const userData = {
-      firstName,
-      lastName,
-      email: email || '',
-      role: role,
-      status: 'active',
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
 
     await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
+      // Make the first registered user an admin automatically
+      const assignedRole = userCount === 0 ? "admin" : "viewer";
+
+      const userData = {
+        firstName,
+        lastName,
+        email: email || '',
+        role: assignedRole,
+        status: 'active',
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
+      
       transaction.set(userDocRef, userData, { merge: true });
       transaction.set(metadataRef, { userCount: userCount + 1 }, { merge: true });
+      
+      // Sync to claims immediately after transaction
+      await admin.auth().setCustomUserClaims(uid, { role: assignedRole });
+      
+      // If admin, add to the fast-check collection
+      if (assignedRole === 'admin') {
+        const adminMarkerRef = db.doc(`system_roles_admin/${uid}`);
+        transaction.set(adminMarkerRef, { 
+          assignedAt: admin.firestore.FieldValue.serverTimestamp(),
+          email: email 
+        });
+      }
     });
 
-    await admin.auth().setCustomUserClaims(uid, { role });
-    logger.info(`[setupInitialUserRole] User ${uid} set up with role ${role}`);
+    logger.info(`[setupInitialUserRole] User ${uid} set up successfully.`);
 
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);

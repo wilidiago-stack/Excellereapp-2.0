@@ -12,17 +12,19 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : null;
     }
 
     function getRole() {
-      return getUserData().role;
+      let data = getUserData();
+      return data != null ? data.role : 'viewer';
     }
 
     function isAdmin() {
       return isSignedIn() && (
-        getRole() == 'admin' ||
-        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid))
+        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid)) ||
+        getRole() == 'admin'
       );
     }
 
@@ -31,7 +33,8 @@ service cloud.firestore {
     }
 
     function hasModule(moduleId) {
-      return isSignedIn() && getUserData().get('assignedModules', []).hasAny([moduleId]);
+      let data = getUserData();
+      return isSignedIn() && data != null && data.get('assignedModules', []).hasAny([moduleId]);
     }
 
     /** 
