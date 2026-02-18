@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useEffect } from 'react';
@@ -118,24 +119,21 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
     },
   });
 
-  // Watch for location changes to update correlated fields
   const selectedCountry = form.watch('country');
   const selectedState = form.watch('state');
 
-  // Sorted alphabetical lists
   const states = selectedCountry ? Object.keys(LOCATION_DATA[selectedCountry]?.states || {}).sort((a, b) => a.localeCompare(b)) : [];
   const cities = (selectedCountry && selectedState) ? (LOCATION_DATA[selectedCountry]?.states[selectedState] || []).sort((a, b) => a.localeCompare(b)) : [];
 
-  // Reset dependent fields when parent changes
   useEffect(() => {
-    if (!isEditMode) {
+    if (!isEditMode && selectedCountry) {
       form.setValue('state', '');
       form.setValue('city', '');
     }
   }, [selectedCountry, form, isEditMode]);
 
   useEffect(() => {
-    if (!isEditMode) {
+    if (!isEditMode && selectedState) {
       form.setValue('city', '');
     }
   }, [selectedState, form, isEditMode]);
@@ -145,11 +143,11 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
       form.reset({
         ...initialData,
         // @ts-ignore
-        startDate: initialData.startDate?.toDate(),
+        startDate: initialData.startDate?.toDate ? initialData.startDate.toDate() : initialData.startDate,
         // @ts-ignore
-        deliveryDate: initialData.deliveryDate?.toDate(),
+        deliveryDate: initialData.deliveryDate?.toDate ? initialData.deliveryDate.toDate() : initialData.deliveryDate,
         // @ts-ignore
-        workAreas: initialData.workAreas?.map(wa => ({ value: wa })) || [],
+        workAreas: initialData.workAreas?.map(wa => typeof wa === 'string' ? { value: wa } : wa) || [],
       });
     }
   }, [initialData, form]);
@@ -274,7 +272,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 )}
             />
 
-            {/* Country Selection */}
             <FormField
                 control={form.control}
                 name="country"
@@ -306,7 +303,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 )}
             />
 
-            {/* State Selection (Correlated & Alphabetical) */}
             <FormField
                 control={form.control}
                 name="state"
@@ -336,7 +332,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
                 )}
             />
 
-            {/* City Selection (Correlated & Alphabetical) */}
             <FormField
                 control={form.control}
                 name="city"

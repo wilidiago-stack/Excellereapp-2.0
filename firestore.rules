@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -35,8 +36,6 @@ service cloud.firestore {
 
     /** 
      * USER PROFILES
-     * Admin: Total CRUD
-     * User: Own read and non-critical field updates
      */
     match /users/{userId} {
       allow get: if isSignedIn();
@@ -51,25 +50,26 @@ service cloud.firestore {
     }
 
     /** 
-     * PROJECTS, CONTRACTORS, AND REPORTS
-     * Admin: CRUD
-     * PM: Create, Read, Delete (Specific requirement)
-     * Viewer: Read
+     * BUSINESS COLLECTIONS (PROJECTS, CONTRACTORS, REPORTS)
      */
-    match /{collection}/{id} {
+    match /projects/{id} {
       allow read: if isSignedIn();
-      
-      // Allow creation and deletion to Admin and PM
-      allow create, delete: if isAdmin() || isProjectManager();
-      
-      // Only Admin can update
-      allow update: if isAdmin();
+      allow create, update, delete: if isAdmin() || isProjectManager();
+    }
 
-      // Apply this only to business collections
-      match /projects/{id} { allow read, write: if false; } // Covered by top block
-      match /contractors/{id} { allow read, write: if false; }
-      match /dailyReports/{id} { allow read, write: if false; }
-      match /monthlyReports/{id} { allow read, write: if false; }
+    match /contractors/{id} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() || isProjectManager();
+    }
+
+    match /dailyReports/{id} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() || isProjectManager();
+    }
+
+    match /monthlyReports/{id} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if isAdmin() || isProjectManager();
     }
 
     /** CONFIGURATION AND REFERENCES (Admin Only) */

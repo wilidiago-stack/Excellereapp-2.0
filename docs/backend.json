@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "UserProfile": {
@@ -35,6 +36,40 @@
         }
       },
       "required": ["id", "name"]
+    },
+    "Project": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Project",
+      "type": "object",
+      "description": "Represents a construction project with location and management details.",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "companyName": { "type": "string" },
+        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Completed", "On Hold"] },
+        "country": { "type": "string" },
+        "state": { "type": "string" },
+        "city": { "type": "string" },
+        "startDate": { "type": "object" },
+        "deliveryDate": { "type": "object" },
+        "address": { "type": "string" },
+        "phone": { "type": "string" },
+        "cell": { "type": "string" },
+        "projectManagerId": { "type": "string" },
+        "generalContractorId": { "type": "string" },
+        "workAreas": { "type": "array", "items": { "type": "string" } },
+        "workPermits": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "code": { "type": "string" }
+            }
+          }
+        }
+      },
+      "required": ["name", "companyName", "country", "state", "city", "startDate", "status"]
     }
   },
   "auth": {
@@ -48,6 +83,10 @@
     "/roles/{roleId}": {
       "schema": { "$ref": "#/backend/entities/Role" },
       "description": "Dynamic role definitions managed by administrators."
+    },
+    "/projects/{projectId}": {
+      "schema": { "$ref": "#/backend/entities/Project" },
+      "description": "Construction projects managed by the system."
     },
     "/system_roles_admin/{adminUid}": {
       "schema": { "type": "object" },
