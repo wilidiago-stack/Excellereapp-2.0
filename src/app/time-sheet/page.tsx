@@ -20,7 +20,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -29,7 +29,7 @@ export default function TimeSheetPage() {
 
   // Principal Query: Required composite index [userId: ASC, date: DESC]
   const timeEntriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
+    if (!firestore || !user?.uid) return null;
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
@@ -47,11 +47,12 @@ export default function TimeSheetPage() {
     return acc;
   }, {});
 
-  // Helper to normalize Firestore Timestamp vs JS Date
+  // Robust date normalizer for Firestore Timestamps vs JS Date objects
   const normalizeDate = (dateVal: any): Date | null => {
     if (!dateVal) return null;
-    if (dateVal.toDate) return dateVal.toDate();
+    if (typeof dateVal.toDate === 'function') return dateVal.toDate();
     if (dateVal instanceof Date) return dateVal;
+    if (dateVal.seconds) return new Date(dateVal.seconds * 1000);
     return new Date(dateVal);
   };
 
@@ -65,15 +66,16 @@ export default function TimeSheetPage() {
 
   const totalHours = (entries || []).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
   
-  const weekStart = startOfWeek(new Date());
-  const weekEnd = endOfWeek(new Date());
+  const now = new Date();
+  const weekStart = startOfWeek(now);
+  const weekEnd = endOfWeek(now);
   
   const weeklyHours = (entries || []).filter(e => {
     const d = normalizeDate(e.date);
     return d && isWithinInterval(d, { start: weekStart, end: weekEnd });
   }).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
 
-  // Calculate dynamic project progress based on actual logged hours
+  // Calculate project focus stats
   const projectStats = (entries || []).reduce((acc: any, curr) => {
     const name = projectMap[curr.projectId] || 'Unknown Project';
     acc[name] = (acc[name] || 0) + (Number(curr.hours) || 0);
@@ -105,7 +107,7 @@ export default function TimeSheetPage() {
       });
   };
 
-  const loading = entriesLoading || projectsLoading;
+  const loading = authLoading || entriesLoading || projectsLoading;
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -200,7 +202,7 @@ export default function TimeSheetPage() {
                 {loading ? (
                   [1, 2, 3, 4, 5].map(i => (
                     <TableRow key={i}>
-                      <TableCell colSpan={5}><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
+                      <TableCell colSpan={5} className="py-4"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                     </TableRow>
                   ))
                 ) : filteredEntries.length === 0 ? (
@@ -210,41 +212,44 @@ export default function TimeSheetPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredEntries.map((entry: any) => (
-                    <TableRow key={entry.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
-                      <TableCell className="py-2.5 text-xs font-semibold">
-                        {entry.date ? format(normalizeDate(entry.date)!, 'PPP') : 'N/A'}
-                      </TableCell>
-                      <TableCell className="py-2.5 text-xs font-medium text-slate-700">
-                        {projectMap[entry.projectId] || <span className="text-slate-400 italic">Deleted Project</span>}
-                      </TableCell>
-                      <TableCell className="py-2.5 text-center">
-                        <Badge variant="outline" className="text-[10px] font-bold bg-[#46a395]/5 text-[#46a395] border-[#46a395]/20 rounded-sm">
-                          {entry.hours}h
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="py-2.5 text-xs text-slate-500 max-w-xs truncate">
-                        {entry.description}
-                      </TableCell>
-                      <TableCell className="py-2.5">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100">
-                              <MoreHorizontal className="h-3.5 w-3.5" />
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="rounded-sm">
-                            <DropdownMenuItem 
-                              onClick={() => { setSelectedEntry(entry); setShowDeleteDialog(true); }}
-                              className="text-xs text-destructive cursor-pointer"
-                            >
-                              Remove record
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filteredEntries.map((entry: any) => {
+                    const normDate = normalizeDate(entry.date);
+                    return (
+                      <TableRow key={entry.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
+                        <TableCell className="py-2.5 text-xs font-semibold">
+                          {normDate ? format(normDate, 'PPP') : 'N/A'}
+                        </TableCell>
+                        <TableCell className="py-2.5 text-xs font-medium text-slate-700">
+                          {projectMap[entry.projectId] || <span className="text-slate-400 italic">Deleted Project</span>}
+                        </TableCell>
+                        <TableCell className="py-2.5 text-center">
+                          <Badge variant="outline" className="text-[10px] font-bold bg-[#46a395]/5 text-[#46a395] border-[#46a395]/20 rounded-sm">
+                            {entry.hours}h
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="py-2.5 text-xs text-slate-500 max-w-xs truncate">
+                          {entry.description}
+                        </TableCell>
+                        <TableCell className="py-2.5 text-right pr-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100">
+                                <MoreHorizontal className="h-3.5 w-3.5" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-sm">
+                              <DropdownMenuItem 
+                                onClick={() => { setSelectedEntry(entry); setShowDeleteDialog(true); }}
+                                className="text-xs text-destructive cursor-pointer"
+                              >
+                                Remove record
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>
