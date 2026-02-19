@@ -42,10 +42,11 @@ export default function MasterSheetTimePage() {
     return eachDayOfInterval({ start: currentWeekStart, end });
   }, [currentWeekStart]);
 
-  // IMPORTANT: For collection-wide list operations, we must be sure isAdmin is true
+  // Fetch users to map IDs to names
   const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
+  // Fetch all entries for the week (Admin only or scoped by security rules)
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(
@@ -54,7 +55,7 @@ export default function MasterSheetTimePage() {
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
-  }, [firestore, currentUser, currentWeekStart]);
+  }, [firestore, currentUser?.uid, currentWeekStart]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -91,6 +92,7 @@ export default function MasterSheetTimePage() {
     };
   }, [entries]);
 
+  // ONLY show users who have entries in this period
   const activeUsers = useMemo(() => {
     if (!allUsers) return [];
     return allUsers.filter(u => processedData.activeUserIds.includes(u.id));
@@ -130,7 +132,7 @@ export default function MasterSheetTimePage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Master Sheet Time</h1>
-          <p className="text-xs text-muted-foreground">Weekly consolidated hours per active user.</p>
+          <p className="text-xs text-muted-foreground">Weekly consolidated hours for active contributors.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -174,7 +176,7 @@ export default function MasterSheetTimePage() {
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between px-1">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <LayoutDashboard className="h-3 w-3" /> Burden Distribution
+                  <LayoutDashboard className="h-3 w-3" /> Distribution
                 </h4>
               </div>
               <div className="space-y-3">
@@ -200,7 +202,7 @@ export default function MasterSheetTimePage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed">
-                  Only users with entries in this period are shown.
+                  Only contributors with registered hours are displayed.
                 </p>
               </div>
             </div>
@@ -275,35 +277,6 @@ export default function MasterSheetTimePage() {
                   </TableRow>
                 </tfoot>
               </Table>
-            </div>
-          </Card>
-
-          <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
-            <div className="max-w-xl mx-auto">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
-                  <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
-                    <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
-                  ))}
-                  {eachDayOfInterval({ 
-                    start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
-                    end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
-                  }).map((day, i) => (
-                    <div 
-                      key={i} 
-                      className={cn(
-                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent bg-[#46a395] text-white font-bold shadow-sm"
-                      )}
-                    >
-                      {format(day, 'd')}
-                    </div>
-                  ))}
-                </div>
-              </div>
             </div>
           </Card>
         </div>

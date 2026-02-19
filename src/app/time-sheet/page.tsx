@@ -72,7 +72,6 @@ export default function TimeSheetPage() {
   };
 
   useEffect(() => {
-    // Si estamos navegando, no sincronizamos hasta que la consulta de entries se estabilice
     if (isNavigating) return;
 
     if (!entriesLoading) {
@@ -163,10 +162,9 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Limpieza inmediata para evitar "flash" de datos antiguos
+    setGridHours({});
     setCurrentWeekStart(newDate);
-    // Un pequeño delay artificial asegura que el estado de carga se vea limpio
-    setTimeout(() => setIsNavigating(false), 300);
+    setTimeout(() => setIsNavigating(false), 400);
   };
 
   return (
@@ -246,7 +244,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Los cambios se guardan automáticamente al perder el foco de la celda.
+                  Changes save automatically on cell blur.
                 </p>
               </div>
             </div>
@@ -276,7 +274,11 @@ export default function TimeSheetPage() {
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={i}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
-                        {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
+                        {weekDays.map(d => (
+                          <TableCell key={d.toString()} className="border-r p-2">
+                            <Skeleton className="h-10 w-full rounded-sm" />
+                          </TableCell>
+                        ))}
                         <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                       </TableRow>
                     ))
@@ -360,16 +362,20 @@ export default function TimeSheetPage() {
                   {eachDayOfInterval({ 
                     start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
                     end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
-                  }).map((day, i) => (
-                    <div 
-                      key={i} 
-                      className={cn(
-                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent bg-[#46a395] text-white font-bold shadow-sm"
-                      )}
-                    >
-                      {format(day, 'd')}
-                    </div>
-                  ))}
+                  }).map((day, i) => {
+                    const isSelected = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
+                    return (
+                      <div 
+                        key={i} 
+                        className={cn(
+                          "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent",
+                          isSelected ? "bg-[#46a395] text-white font-bold shadow-sm" : "bg-white text-slate-400"
+                        )}
+                      >
+                        {format(day, 'd')}
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             </div>
