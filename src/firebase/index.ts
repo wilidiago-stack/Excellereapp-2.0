@@ -57,8 +57,8 @@ export function initializeFirebase() {
     auth = getAuth(firebaseApp);
   }
 
-  // App Check Initialization
-  if (!appCheck) {
+  // App Check Initialization - Singleton check
+  if (!appCheck && typeof window !== 'undefined') {
     try {
       const isLocalhost = 
         window.location.hostname === 'localhost' || 
@@ -74,7 +74,7 @@ export function initializeFirebase() {
       });
       console.log('Firebase App Check initialized.');
     } catch (err) {
-      // Silently fail if already initialized or other error
+      // Silently fail if already initialized
     }
   }
 

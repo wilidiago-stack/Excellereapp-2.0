@@ -9,7 +9,6 @@ import {
   CardTitle,
   CardDescription,
   CardContent,
-  CardFooter,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -49,20 +48,22 @@ import { FirestorePermissionError } from '@/firebase/errors';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Separator } from '@/components/ui/separator';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function UsersPage() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, role } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Critical Optimization: Only attempt to fetch the collection if the user is an admin.
+  // This prevents "Missing or insufficient permissions" errors for non-admin users
+  // during fast navigation or session synchronization.
   const usersCollection = useMemoFirebase(
-    () => (firestore && currentUser ? collection(firestore, 'users') : null),
-    [firestore, currentUser?.uid]
+    () => (firestore && currentUser && role === 'admin' ? collection(firestore, 'users') : null),
+    [firestore, currentUser?.uid, role]
   );
   const { data: users, isLoading: usersLoading } = useCollection(usersCollection);
 

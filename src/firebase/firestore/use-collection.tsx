@@ -26,12 +26,19 @@ export interface UseCollectionResult<T> {
  */
 function getPath(target: any): string {
   if (!target) return 'unknown';
+  // CollectionReference has a path property
   if (typeof target.path === 'string') return target.path;
   
-  // Extract path from internal query representation if available
-  const queryPath = target._query?.path || target.query?.path;
-  if (queryPath && Array.isArray(queryPath.segments)) {
-    return queryPath.segments.join('/');
+  // Query objects have the path hidden in the internal _query or query property
+  const internalQuery = target._query || target.query;
+  if (internalQuery && internalQuery.path) {
+    // Some versions have segments, others have a string path
+    if (Array.isArray(internalQuery.path.segments)) {
+      return internalQuery.path.segments.join('/');
+    }
+    if (typeof internalQuery.path.toString === 'function') {
+      return internalQuery.path.toString();
+    }
   }
   
   return 'collection';
@@ -45,9 +52,9 @@ export function useCollection<T = any>(
   const [error, setError] = useState<FirestoreError | Error | null>(null);
 
   useEffect(() => {
-    // Memoization validation only on client to avoid SSR errors
+    // Memoization validation
     if (memoizedTargetRefOrQuery && !isMemoized(memoizedTargetRefOrQuery)) {
-      throw new Error(`useCollection: The provided object was not memoized with useMemoFirebase. This is required for connection stability.`);
+      console.warn(`useCollection: The provided object was not memoized with useMemoFirebase. This can lead to stability issues.`);
     }
 
     if (!memoizedTargetRefOrQuery) {
@@ -83,7 +90,7 @@ export function useCollection<T = any>(
         setData(null);
         setIsLoading(false);
         
-        // Only emit if it's likely a rules issue
+        // Only emit if it's a permission issue
         if (err.code === 'permission-denied') {
           errorEmitter.emit('permission-error', contextualError);
         } else {
