@@ -9,6 +9,7 @@ service cloud.firestore {
     }
 
     // Robust Admin validation targeting the user's primary email
+    // Optimized for immediate recognition and case-insensitivity
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -23,12 +24,14 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Allow list and get for Admin or the data owner
-      allow read, list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Admin has full access to everything
+      allow read, write: if isAdmin();
       
-      // Allow creation and updates if Admin or if the entry belongs to the user
-      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
-      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Regular users can only see and manage their own entries
+      // Note: 'list' operations require a filter where('userId', '==', request.auth.uid)
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     match /projects/{projectId} {
@@ -63,10 +66,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Catch-all for other collections: Full access for Admins only
+    // Catch-all for other collections
     match /{document=**} {
       allow read, write: if isAdmin();
     }
   }
 }
-// Force Rule Update: 2024-05-21 - Ensuring robust list permissions and Admin override.
+// Force Rule Update: 2024-05-22 - Stabilizing Time Sheet list permissions and Admin override.

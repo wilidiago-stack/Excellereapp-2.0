@@ -64,14 +64,15 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL: Wait for auth and role to be fully loaded before querying
+    // CRITICAL FIX: To avoid "Missing Permissions", we MUST wait for the auth and role to resolve.
+    // Firestore security rules reject queries before the token claims (admin) are fully propagated.
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // Always filter by personal userId for this specific view to satisfy security rules
+    // Admin or not, we query personal entries for this view to satisfy standard index/rule logic
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -162,24 +163,28 @@ export default function TimeSheetPage() {
     }, 0);
   };
 
+  // LOGIC: 40 hours regular per week (total sum), rest is overtime
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
-  
-  // LOGIC: 40 hours regular per week, rest is overtime
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
 
   const projectDistribution = (projects || []).map(p => {
     const total = calculateProjectTotal(p.id);
-    return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
+    return { 
+      name: p.name, 
+      total, 
+      percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 
+    };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // We only show full skeleton if we have NO data and we are loading
-  const mainLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
+  // We only show full skeleton if we have NO data and we are loading the first time.
+  // During week changes, we keep the table structure to prevent annoying "flashing".
+  const initialLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   const handleWeekChange = (newDate: Date) => {
     setCurrentWeekStart(newDate);
-    // Note: We no longer clear gridHours here to avoid full table skeleton flickering.
-    // The grid will update when the new entries arrive.
+    // Note: We don't clear gridHours here to avoid flicker. 
+    // New data will override the grid when the Firestore snapshot arrives.
   };
 
   return (
@@ -258,7 +263,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Hours are saved automatically when you leave the cell. Overtime kicks in after 40 total weekly hours.
+                  Hours are saved automatically. Regular hours are capped at 40 per week total.
                 </p>
               </div>
             </div>
@@ -284,7 +289,7 @@ export default function TimeSheetPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {mainLoading ? (
+                  {initialLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
@@ -297,7 +302,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No assigned projects found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No projects found.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
@@ -345,14 +350,14 @@ export default function TimeSheetPage() {
                         <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
                           <div className="flex flex-col items-center justify-center">
                             <span className="text-sm font-black text-slate-700">
-                              {mainLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
+                              {initialLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
                             </span>
                           </div>
                         </TableCell>
                       );
                     })}
                     <TableCell className="text-center text-sm font-black text-[#46a395] bg-white">
-                      {mainLoading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
+                      {initialLoading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
                     </TableCell>
                   </TableRow>
                 </tfoot>
