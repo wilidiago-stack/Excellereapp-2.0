@@ -8,16 +8,13 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  startOfDay,
-  isSameDay
+  startOfDay
 } from 'date-fns';
 import { 
   ChevronLeft, 
   ChevronRight, 
-  Timer, 
   Clock, 
   Calendar as CalendarIcon,
-  Info,
   TrendingUp,
   AlertCircle,
   Loader2,
@@ -74,13 +71,15 @@ export default function TimeSheetPage() {
     if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
     else if (dateVal instanceof Date) d = dateVal;
     else d = new Date(dateVal);
+    // Important: Use startOfDay to normalize keys
     return format(startOfDay(d), 'yyyy-MM-dd');
   };
 
   useEffect(() => {
-    if (!entriesLoading) {
+    // Only synchronize once loading is finished
+    if (!entriesLoading && !isNavigating) {
       const newHours: Record<string, string> = {};
-      if (entries && entries.length > 0) {
+      if (entries) {
         entries.forEach(e => {
           const dateKey = normalizeDateKey(e.date);
           if (dateKey) {
@@ -89,9 +88,8 @@ export default function TimeSheetPage() {
         });
       }
       setGridHours(newHours);
-      setIsNavigating(false);
     }
-  }, [entries, entriesLoading]);
+  }, [entries, entriesLoading, isNavigating]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
@@ -102,19 +100,23 @@ export default function TimeSheetPage() {
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
-    const hours = value === '' ? 0 : parseFloat(value);
+    const hours = value === '' || value === '0' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
     const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
+    // Find if there's an existing entry in the data from Firestore
     const existingEntry = (entries || []).find(e => {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
+    // Skip if value hasn't changed
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
+    if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
+    // Use a composite ID to ensure uniqueness per user/project/date
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -166,8 +168,10 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({});
+    setGridHours({}); // Clear immediately to avoid "jump"
     setCurrentWeekStart(newDate);
+    // Entries loading will trigger the restoration of data
+    setTimeout(() => setIsNavigating(false), 500); 
   };
 
   return (
@@ -175,7 +179,7 @@ export default function TimeSheetPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">My Time Sheet</h1>
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Weekly Performance Tracking</p>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Performance Tracking</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -200,74 +204,46 @@ export default function TimeSheetPage() {
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-primary" /> Period Summary
+              <Clock className="h-3.5 w-3.5 text-primary" /> Weekly Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
               <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center relative overflow-hidden group">
-                <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity"><TrendingUp className="h-8 w-8 text-primary" /></div>
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Hours</p>
                 <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
               </div>
               
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="h-2.5 w-2.5 rounded-full bg-[#46a395]" />
-                    <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
-                  </div>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
                 </div>
                 <div className={cn("p-3 rounded-sm border flex items-center justify-between transition-colors", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
-                  <div className="flex items-center gap-2">
-                    <div className={cn("h-2.5 w-2.5 rounded-full", totalOvertime > 0 ? "bg-orange-500 animate-pulse" : "bg-slate-200")} />
-                    <span className="text-[10px] font-bold uppercase">Overtime</span>
-                  </div>
+                  <span className="text-[10px] font-bold uppercase">Overtime</span>
                   <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-4 pt-4 border-t">
-              <div className="flex items-center justify-between px-1">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <PieChart className="h-3 w-3" /> Distribution
-                </h4>
-                <Badge variant="outline" className="text-[8px] h-4 px-1 rounded-sm opacity-70">Weekly</Badge>
-              </div>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
+                <PieChart className="h-3 w-3" /> Distribution
+              </h4>
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
                   projectDistribution.map((pd, i) => (
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold uppercase">
-                        <span className="text-slate-500 truncate pr-2 max-w-[120px]">{pd.name}</span>
+                        <span className="text-slate-500 truncate pr-2">{pd.name}</span>
                         <span className="text-slate-700">{pd.total.toFixed(1)}h</span>
                       </div>
                       <Progress value={pd.percentage} className="h-1 rounded-full bg-slate-100" />
                     </div>
                   ))
                 ) : (
-                  <div className="py-4 text-center">
-                    <p className="text-[9px] text-slate-400 italic">No project data for this period</p>
-                  </div>
+                  <p className="text-[9px] text-slate-400 italic text-center">No data for this period</p>
                 )}
-              </div>
-            </div>
-
-            <div className="space-y-3 pt-4 border-t">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <Target className="h-3 w-3" /> Quick Stats
-              </h4>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="p-2 rounded-sm bg-white border border-slate-100 flex flex-col items-center justify-center text-center">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase">Avg / Day</span>
-                  <span className="text-xs font-black text-slate-700">{(totalWeekHours / 7).toFixed(1)}</span>
-                </div>
-                <div className="p-2 rounded-sm bg-white border border-slate-100 flex flex-col items-center justify-center text-center">
-                  <span className="text-[8px] font-bold text-slate-400 uppercase">Projects</span>
-                  <span className="text-xs font-black text-slate-700">{projectDistribution.length}</span>
-                </div>
               </div>
             </div>
 
@@ -275,7 +251,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Los cambios se guardan automáticamente al perder el foco de la celda.
+                  Changes save automatically when the cell loses focus.
                 </p>
               </div>
             </div>
@@ -288,12 +264,12 @@ export default function TimeSheetPage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project Reference</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project / Reference</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
-                          <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEEE')}</span>
-                          <span className="text-[11px] text-slate-400">{format(day, 'MMM dd')}</span>
+                          <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEE')}</span>
+                          <span className="text-[11px] text-slate-400">{format(day, 'dd')}</span>
                         </div>
                       </TableHead>
                     ))}
@@ -338,11 +314,13 @@ export default function TimeSheetPage() {
                                 className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} 
                                 placeholder="0.0" 
                               />
-                              {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary opacity-50" /></div>}
+                              {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary" /></div>}
                             </TableCell>
                           );
                         })}
-                        <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">{calculateProjectTotal(project.id) > 0 ? calculateProjectTotal(project.id).toFixed(1) : '-'}</TableCell>
+                        <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">
+                          {calculateProjectTotal(project.id).toFixed(1)}
+                        </TableCell>
                       </TableRow>
                     ))
                   )}
@@ -351,19 +329,22 @@ export default function TimeSheetPage() {
                   <TableRow className="h-14">
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
                     {weekDays.map(day => {
-                      if (loading) return <TableCell key={day.toString()} className="text-center border-r px-2"><Skeleton className="h-6 w-12 mx-auto" /></TableCell>;
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
                       return (
                         <TableCell key={day.toString()} className="text-center border-r px-2">
-                          <div className="flex flex-col items-center justify-center gap-0.5">
-                            <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>{dailyTotal.toFixed(1)}</span>
-                            {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT: {(dailyTotal - 8).toFixed(1)}</span>}
+                          <div className="flex flex-col items-center justify-center">
+                            <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
+                              {loading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
+                            </span>
+                            {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT</span>}
                           </div>
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">{loading ? <Skeleton className="h-6 w-12 mx-auto" /> : totalWeekHours.toFixed(1)}</TableCell>
+                    <TableCell className="text-center text-sm font-black text-primary bg-white">
+                      {loading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
+                    </TableCell>
                   </TableRow>
                 </tfoot>
               </Table>
@@ -374,7 +355,7 @@ export default function TimeSheetPage() {
             <div className="max-w-xl mx-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation Context</h4>
                   <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
                 </div>
                 <div className="grid grid-cols-7 gap-1">
@@ -387,9 +368,7 @@ export default function TimeSheetPage() {
                   }).map((day, i) => (
                     <div 
                       key={i} 
-                      className={cn(
-                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent bg-[#46a395] text-white font-bold shadow-sm"
-                      )}
+                      className="h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all bg-[#46a395] text-white font-bold shadow-sm"
                     >
                       {format(day, 'd')}
                     </div>
