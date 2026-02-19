@@ -124,7 +124,7 @@ export default function TimeSheetPage() {
     if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
-    // Use a deterministic ID to avoid duplicates
+    // Use a deterministic ID to avoid duplicates and handle updates correctly
     const entryId = `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
     const data = {

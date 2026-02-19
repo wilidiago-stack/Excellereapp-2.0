@@ -8,7 +8,7 @@ import { format } from 'date-fns';
 import { CalendarIcon, Timer, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -76,15 +76,19 @@ export function TimeEntryForm() {
       return;
     }
 
-    const timeEntriesCollection = collection(firestore, 'time_entries');
+    // Use deterministic ID: userId_projectId_date
+    const dateKey = format(data.date, 'yyyy-MM-dd');
+    const entryId = `${user.uid}_${data.projectId}_${dateKey}`;
+    const entryRef = doc(firestore, 'time_entries', entryId);
+
     const entryData = {
       ...data,
       userId: user.uid,
-      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+      status: 'draft'
     };
 
-    // Use non-blocking approach with contextual error handling
-    addDoc(timeEntriesCollection, entryData)
+    setDoc(entryRef, entryData, { merge: true })
       .then(() => {
         toast({
           title: 'Hours Registered',
@@ -94,8 +98,8 @@ export function TimeEntryForm() {
       })
       .catch((error) => {
         const permissionError = new FirestorePermissionError({
-          path: 'time_entries',
-          operation: 'create',
+          path: `time_entries/${entryId}`,
+          operation: 'write',
           requestResourceData: entryData,
         });
         errorEmitter.emit('permission-error', permissionError);
