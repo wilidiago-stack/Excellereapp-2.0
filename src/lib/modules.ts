@@ -39,7 +39,7 @@ export const APP_MODULES: AppModule[] = [
   { id: 'capex', label: 'CapEx', href: '#', icon: DollarSign, defaultVisibility: 'all' },
   { id: 'reports-analytics', label: 'Report/Analytics', href: '#', icon: BarChart2, defaultVisibility: 'all' },
   { id: 'schedule', label: 'Schedule', href: '#', icon: Clock, defaultVisibility: 'all' },
-  { id: 'master-sheet-time', label: 'Master Sheet Time', href: '#', icon: Sheet, defaultVisibility: 'all' },
+  { id: 'master-sheet-time', label: 'Master Sheet Time', href: '/master-sheet-time', icon: Sheet, defaultVisibility: 'all' },
   { id: 'time-sheet', label: 'Time Sheet', href: '/time-sheet', icon: Timer, defaultVisibility: 'all' },
   { id: 'weather', label: 'Weather', href: '/weather', icon: CloudSun, defaultVisibility: 'all' },
 ];
