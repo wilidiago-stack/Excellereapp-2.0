@@ -14,7 +14,7 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onUserCreated(async (event) => {
+export const setupInitialUserRole = onUserCreated(async (event: any) => {
   const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -61,7 +61,7 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
 /**
  * Triggered on user deletion from Firebase Authentication.
  */
-export const cleanupUser = onUserDeleted(async (event) => {
+export const cleanupUser = onUserDeleted(async (event: any) => {
   const {uid} = event.data;
   logger.info(`[cleanupUser] UID: ${uid}`);
 
