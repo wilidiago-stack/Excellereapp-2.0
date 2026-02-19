@@ -1,278 +1,336 @@
 'use client';
 
-import { useState } from 'react';
-import Link from 'next/link';
-import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
-import { PlusCircle, MoreHorizontal, Timer, Clock, Calendar as CalendarIcon, History, Search } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
-import { collection, query, where, orderBy, deleteDoc, doc } from 'firebase/firestore';
-
+import { useState, useMemo } from 'react';
+import { 
+  format, 
+  startOfWeek, 
+  endOfWeek, 
+  eachDayOfInterval, 
+  addWeeks, 
+  subWeeks, 
+  isSameDay, 
+  startOfDay 
+} from 'date-fns';
+import { 
+  ChevronLeft, 
+  ChevronRight, 
+  Timer, 
+  Clock, 
+  Calendar as CalendarIcon,
+  Info,
+  TrendingUp,
+  AlertCircle
+} from 'lucide-react';
+import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
+import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
-import { useToast } from '@/hooks/use-toast';
-import { Input } from '@/components/ui/input';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
   const { user, loading: authLoading } = useAuth();
   const firestore = useFirestore();
-  const { toast } = useToast();
-  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [selectedEntry, setSelectedEntry] = useState<any>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  
+  // State for week navigation (Starts on Monday)
+  const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
 
-  // Principal Query: Required composite index [userId: ASC, date: DESC]
-  const timeEntriesQuery = useMemoFirebase(() => {
+  const weekDays = useMemo(() => {
+    const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start: currentWeekStart, end });
+  }, [currentWeekStart]);
+
+  // Queries
+  const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
+  const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
+
+  const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
-      orderBy('date', 'desc')
+      where('date', '>=', currentWeekStart),
+      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 }))
     );
-  }, [firestore, user?.uid]);
+  }, [firestore, user?.uid, currentWeekStart]);
 
-  const { data: entries, isLoading: entriesLoading } = useCollection(timeEntriesQuery);
+  const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
-  const { data: projectsData, isLoading: projectsLoading } = useCollection(projectsCollection);
+  // Data mapping: key = projectId_dateKey
+  const entriesMap = useMemo(() => {
+    const map: Record<string, any> = {};
+    (entries || []).forEach(e => {
+      const dateKey = format(e.date?.toDate ? e.date.toDate() : new Date(e.date), 'yyyy-MM-dd');
+      const key = `${e.projectId}_${dateKey}`;
+      map[key] = e;
+    });
+    return map;
+  }, [entries]);
 
-  const projectMap = (projectsData || []).reduce((acc: any, p: any) => {
-    acc[p.id] = p.name;
-    return acc;
-  }, {});
-
-  // Robust date normalizer for Firestore Timestamps vs JS Date objects
-  const normalizeDate = (dateVal: any): Date | null => {
-    if (!dateVal) return null;
-    if (typeof dateVal.toDate === 'function') return dateVal.toDate();
-    if (dateVal instanceof Date) return dateVal;
-    if (dateVal.seconds) return new Date(dateVal.seconds * 1000);
-    return new Date(dateVal);
-  };
-
-  // Robust filtering with safe access to project names
-  const filteredEntries = (entries || []).filter(e => {
-    const projectName = projectMap[e.projectId] || '';
-    const desc = e.description || '';
-    return projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-           desc.toLowerCase().includes(searchQuery.toLowerCase());
-  });
-
-  const totalHours = (entries || []).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
-  
-  const now = new Date();
-  const weekStart = startOfWeek(now);
-  const weekEnd = endOfWeek(now);
-  
-  const weeklyHours = (entries || []).filter(e => {
-    const d = normalizeDate(e.date);
-    return d && isWithinInterval(d, { start: weekStart, end: weekEnd });
-  }).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
-
-  // Calculate project focus stats
-  const projectStats = (entries || []).reduce((acc: any, curr) => {
-    const name = projectMap[curr.projectId] || 'Unknown Project';
-    acc[name] = (acc[name] || 0) + (Number(curr.hours) || 0);
-    return acc;
-  }, {});
-
-  const sortedProjects = Object.entries(projectStats || {})
-    .sort(([, a], [, b]) => (b as number) - (a as number))
-    .slice(0, 3);
-
-  const handleDelete = () => {
-    if (!firestore || !selectedEntry) return;
+  const handleCellChange = async (projectId: string, date: Date, value: string) => {
+    if (!firestore || !user?.uid) return;
     
-    const entryRef = doc(firestore, 'time_entries', selectedEntry.id);
+    const hours = parseFloat(value);
+    if (isNaN(hours) && value !== '') return;
+
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const lookupKey = `${projectId}_${dateKey}`;
+    const existingEntry = entriesMap[lookupKey];
     
-    deleteDoc(entryRef)
-      .then(() => {
-        toast({ title: 'Entry Removed', description: 'Your time entry has been deleted.' });
-        setShowDeleteDialog(false);
-        setSelectedEntry(null);
-      })
-      .catch((err) => {
-        const permissionError = new FirestorePermissionError({
-          path: entryRef.path,
-          operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
-        setShowDeleteDialog(false);
+    // Consistent ID: uid_projId_dateKey
+    const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
+    const entryRef = doc(firestore, 'time_entries', entryId);
+
+    const data = {
+      userId: user.uid,
+      projectId,
+      date: startOfDay(date),
+      hours: hours || 0,
+      description: 'Weekly Entry',
+      updatedAt: serverTimestamp(),
+    };
+
+    try {
+      await setDoc(entryRef, data, { merge: true });
+    } catch (err) {
+      const permissionError = new FirestorePermissionError({
+        path: entryRef.path,
+        operation: 'write',
+        requestResourceData: data,
       });
+      errorEmitter.emit('permission-error', permissionError);
+    }
   };
 
-  const loading = authLoading || entriesLoading || projectsLoading;
+  // Calculations
+  const calculateDayTotal = (day: Date) => {
+    const dateKey = format(day, 'yyyy-MM-dd');
+    return (projects || []).reduce((acc, proj) => {
+      const key = `${proj.id}_${dateKey}`;
+      return acc + (entriesMap[key]?.hours || 0);
+    }, 0);
+  };
+
+  const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
+  
+  // OT Logic: Sum of daily OT (daily > 8)
+  const totalOvertime = weekDays.reduce((acc, day) => {
+    const dailyTotal = calculateDayTotal(day);
+    return acc + Math.max(0, dailyTotal - 8);
+  }, 0);
+
+  const totalRegular = Math.max(0, totalWeekHours - totalOvertime);
+
+  const loading = authLoading || projectsLoading || entriesLoading;
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">My Time Sheet</h1>
-          <p className="text-xs text-muted-foreground">Manage your daily work hours and project assignments.</p>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Weekly Performance Tracking</p>
         </div>
-        <Button asChild size="sm" className="h-8 rounded-sm gap-2">
-          <Link href="/time-sheet/new">
-            <PlusCircle className="h-3.5 w-3.5" />
-            Add Entry
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <div className="flex items-center gap-2 px-4 py-1 bg-slate-100 rounded-sm border border-slate-200">
+            <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
+            <span className="text-xs font-black text-slate-700">
+              {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
+            </span>
+          </div>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+            Current Week
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
-          <CardHeader className="p-4 border-b bg-slate-50/50">
-            <div className="relative">
-              <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-              <Input 
-                placeholder="Filter logs..." 
-                className="pl-8 h-9 bg-white border-slate-200 text-xs" 
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </div>
+        {/* Sidebar: Totals & Overtime Analytics */}
+        <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
+          <CardHeader className="p-4 border-b bg-white">
+            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
+              <Clock className="h-3.5 w-3.5 text-primary" /> Period Summary
+            </CardTitle>
           </CardHeader>
-          <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-4">
+          <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Weekly Summary</h4>
-              <div className="grid grid-cols-1 gap-2">
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-2">
-                    <Clock className="h-3.5 w-3.5 text-[#46a395]" />
-                    <span className="text-xs font-medium">This Week</span>
-                  </div>
-                  <span className="text-xs font-bold text-[#46a395]">{weeklyHours}h</span>
+              <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center relative overflow-hidden group">
+                <div className="absolute top-0 right-0 p-1 opacity-10 group-hover:opacity-20 transition-opacity">
+                   <TrendingUp className="h-8 w-8 text-primary" />
                 </div>
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between shadow-sm">
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Hours</p>
+                <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
+              </div>
+              
+              <div className="grid grid-cols-1 gap-2">
+                <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <History className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-medium">Total Lifetime</span>
+                    <div className="h-2 w-2 rounded-full bg-[#46a395]" />
+                    <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
                   </div>
-                  <span className="text-xs font-bold">{totalHours}h</span>
+                  <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
+                </div>
+                <div className={cn(
+                  "p-3 rounded-sm border flex items-center justify-between transition-colors",
+                  totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400"
+                )}>
+                  <div className="flex items-center gap-2">
+                    <div className={cn("h-2 w-2 rounded-full", totalOvertime > 0 ? "bg-orange-500 animate-pulse" : "bg-slate-200")} />
+                    <span className="text-[10px] font-bold uppercase">Overtime</span>
+                  </div>
+                  <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
                 </div>
               </div>
             </div>
 
-            <div className="pt-4 border-t space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Focus</h4>
+            <div className="space-y-3 pt-2">
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Timer className="h-3 w-3" /> Distribution
+              </h4>
               <div className="space-y-3">
-                {loading ? (
-                  [1, 2].map(i => <Skeleton key={i} className="h-8 w-full rounded-sm" />)
-                ) : sortedProjects.length === 0 ? (
-                  <p className="text-[10px] text-slate-400 italic">No project data available.</p>
-                ) : (
-                  sortedProjects.map(([name, hours]) => (
-                    <div key={name} className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="truncate pr-2 font-bold text-slate-600">{name}</span>
-                        <span className="text-slate-400">{hours}h</span>
+                {projects?.slice(0, 4).map(p => {
+                  const pTotal = weekDays.reduce((acc, day) => {
+                    const key = `${p.id}_${format(day, 'yyyy-MM-dd')}`;
+                    return acc + (entriesMap[key]?.hours || 0);
+                  }, 0);
+                  const percent = totalWeekHours > 0 ? (pTotal / totalWeekHours) * 100 : 0;
+                  if (pTotal === 0) return null;
+                  return (
+                    <div key={p.id} className="space-y-1">
+                      <div className="flex justify-between text-[9px]">
+                        <span className="truncate font-bold text-slate-600 uppercase">{p.name}</span>
+                        <span className="font-mono text-slate-400">{pTotal.toFixed(1)}h</span>
                       </div>
                       <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div 
-                          className="h-full bg-[#46a395] transition-all duration-500" 
-                          style={{ width: `${totalHours > 0 ? Math.min(100, (hours as number / totalHours) * 100) : 0}%` }} 
-                        />
+                        <div className="h-full bg-primary transition-all duration-700" style={{ width: `${percent}%` }} />
                       </div>
                     </div>
-                  ))
-                )}
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="mt-auto pt-4">
+              <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
+                <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
+                <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
+                  Hours exceeding 8 per day are calculated as overtime. Changes are saved automatically.
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Main Content: Weekly Grid */}
         <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
-          <div className="flex-1 overflow-y-auto no-scrollbar">
-            <Table>
-              <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
-                <TableRow className="hover:bg-transparent border-b-slate-200">
-                  <TableHead className="text-[11px] font-bold h-10 w-32"><div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3"/> Date</div></TableHead>
-                  <TableHead className="text-[11px] font-bold h-10">Project Reference</TableHead>
-                  <TableHead className="text-[11px] font-bold h-10 w-24 text-center">Hours</TableHead>
-                  <TableHead className="text-[11px] font-bold h-10">Work Description</TableHead>
-                  <TableHead className="h-10 w-10"></TableHead>
+          <div className="flex-1 overflow-x-auto no-scrollbar">
+            <Table className="border-collapse">
+              <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
+                <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
+                  <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project Reference</TableHead>
+                  {weekDays.map(day => (
+                    <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
+                      <div className="flex flex-col gap-0.5">
+                        <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>
+                          {format(day, 'EEEE')}
+                        </span>
+                        <span className="text-[11px] text-slate-400">{format(day, 'MMM dd')}</span>
+                      </div>
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   [1, 2, 3, 4, 5].map(i => (
                     <TableRow key={i}>
-                      <TableCell colSpan={5} className="py-4"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
+                      <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
+                      {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
+                      <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                     </TableRow>
                   ))
-                ) : filteredEntries.length === 0 ? (
+                ) : projects?.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={5} className="h-32 text-center text-xs text-slate-500 italic">
-                      No matching records found.
-                    </TableCell>
+                    <TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found. Please create a project to log time.</TableCell>
                   </TableRow>
                 ) : (
-                  filteredEntries.map((entry: any) => {
-                    const normDate = normalizeDate(entry.date);
+                  projects?.map(project => {
+                    const pWeeklyTotal = weekDays.reduce((acc, day) => {
+                      const key = `${project.id}_${format(day, 'yyyy-MM-dd')}`;
+                      return acc + (entriesMap[key]?.hours || 0);
+                    }, 0);
+
                     return (
-                      <TableRow key={entry.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
-                        <TableCell className="py-2.5 text-xs font-semibold">
-                          {normDate ? format(normDate, 'PPP') : 'N/A'}
+                      <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
+                        <TableCell className="py-4 px-6 border-r">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-700 tracking-tight">{project.name}</span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase truncate mt-0.5">{project.companyName}</span>
+                          </div>
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs font-medium text-slate-700">
-                          {projectMap[entry.projectId] || <span className="text-slate-400 italic">Deleted Project</span>}
-                        </TableCell>
-                        <TableCell className="py-2.5 text-center">
-                          <Badge variant="outline" className="text-[10px] font-bold bg-[#46a395]/5 text-[#46a395] border-[#46a395]/20 rounded-sm">
-                            {entry.hours}h
-                          </Badge>
-                        </TableCell>
-                        <TableCell className="py-2.5 text-xs text-slate-500 max-w-xs truncate">
-                          {entry.description}
-                        </TableCell>
-                        <TableCell className="py-2.5 text-right pr-4">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100">
-                                <MoreHorizontal className="h-3.5 w-3.5" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="rounded-sm">
-                              <DropdownMenuItem 
-                                onClick={() => { setSelectedEntry(entry); setShowDeleteDialog(true); }}
-                                className="text-xs text-destructive cursor-pointer"
-                              >
-                                Remove record
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                        {weekDays.map(day => {
+                          const dateKey = format(day, 'yyyy-MM-dd');
+                          const lookupKey = `${project.id}_${dateKey}`;
+                          const currentVal = entriesMap[lookupKey]?.hours || '';
+                          
+                          return (
+                            <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30">
+                              <input
+                                type="number"
+                                step="0.5"
+                                min="0"
+                                max="24"
+                                defaultValue={currentVal}
+                                onBlur={(e) => handleCellChange(project.id, day, e.target.value)}
+                                className="w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200"
+                                placeholder="0.0"
+                              />
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">
+                          {pWeeklyTotal > 0 ? pWeeklyTotal.toFixed(1) : '-'}
                         </TableCell>
                       </TableRow>
                     );
                   })
                 )}
               </TableBody>
+              <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
+                <TableRow className="h-14">
+                  <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
+                  {weekDays.map(day => {
+                    const dailyTotal = calculateDayTotal(day);
+                    const isOT = dailyTotal > 8;
+                    return (
+                      <TableCell key={day.toString()} className="text-center border-r px-2">
+                        <div className="flex flex-col items-center justify-center gap-0.5">
+                          <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
+                            {dailyTotal.toFixed(1)}
+                          </span>
+                          {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT: {(dailyTotal - 8).toFixed(1)}</span>}
+                        </div>
+                      </TableCell>
+                    );
+                  })}
+                  <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">
+                    {totalWeekHours.toFixed(1)}
+                  </TableCell>
+                </TableRow>
+              </tfoot>
             </Table>
           </div>
         </Card>
       </div>
-
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent className="rounded-sm">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete time entry?</AlertDialogTitle>
-            <AlertDialogDescription className="text-xs">
-              Are you sure you want to permanently remove this log? This will update your total hours balance immediately.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-sm text-xs h-8">Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-sm text-xs h-8">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
