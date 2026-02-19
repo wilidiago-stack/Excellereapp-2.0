@@ -8,7 +8,14 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  startOfDay 
+  startOfDay,
+  startOfMonth,
+  endOfMonth,
+  isSameMonth,
+  isSameDay,
+  addDays,
+  startOfWeeks,
+  isWithinInterval
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -19,7 +26,8 @@ import {
   Info,
   TrendingUp,
   AlertCircle,
-  Loader2
+  Loader2,
+  CalendarDays
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
@@ -69,8 +77,6 @@ export default function TimeSheetPage() {
 
   // Sync gridHours when entries arrive from Firestore
   useEffect(() => {
-    // CRITICAL: Only update local state if we have entries. 
-    // This prevents wiping out current user input while data is loading.
     if (entries) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
@@ -91,14 +97,12 @@ export default function TimeSheetPage() {
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
-    // Allow empty string as 0
     const hours = value === '' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
-    // Check if value actually changed to avoid unnecessary writes
     const existingEntry = (entries || []).find(e => {
       const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
       return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
@@ -140,7 +144,6 @@ export default function TimeSheetPage() {
       });
   };
 
-  // Calculations based on gridHours (live feedback)
   const calculateDayTotal = (day: Date) => {
     const dateKey = format(day, 'yyyy-MM-dd');
     return (projects || []).reduce((acc, proj) => {
@@ -167,6 +170,55 @@ export default function TimeSheetPage() {
 
   const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
+  // Helper to render mini calendar
+  const renderMiniCalendar = () => {
+    const monthStart = startOfMonth(currentWeekStart);
+    const monthEnd = endOfMonth(monthStart);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const weekInterval = { 
+      start: currentWeekStart, 
+      end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
+    };
+
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+    const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    return (
+      <div className="space-y-3 pt-4 border-t mt-4">
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
+          <span className="text-[10px] font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {weekLabels.map((label, i) => (
+            <div key={i} className="text-[8px] font-bold text-slate-300 text-center py-1">{label}</div>
+          ))}
+          {days.map((day, i) => {
+            const isSelectedWeek = isWithinInterval(day, weekInterval);
+            const isToday = isSameDay(day, new Date());
+            const isCurrentMonth = isSameMonth(day, monthStart);
+
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  "h-6 w-full flex items-center justify-center text-[9px] rounded-sm transition-all relative",
+                  !isCurrentMonth && "opacity-20",
+                  isSelectedWeek ? "bg-[#46a395] text-white font-bold" : "text-slate-500",
+                  isToday && !isSelectedWeek && "border border-[#46a395] text-[#46a395]"
+                )}
+              >
+                {format(day, 'd')}
+                {isSelectedWeek && i % 7 === 0 && <div className="absolute -left-1 top-0 bottom-0 w-0.5 bg-[#46a395] rounded-full" />}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
@@ -177,7 +229,7 @@ export default function TimeSheetPage() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
             setCurrentWeekStart(subWeeks(currentWeekStart, 1));
-            setGridHours({}); // Clear for navigation
+            setGridHours({}); 
           }}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -189,7 +241,7 @@ export default function TimeSheetPage() {
           </div>
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
             setCurrentWeekStart(addWeeks(currentWeekStart, 1));
-            setGridHours({}); // Clear for navigation
+            setGridHours({});
           }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
@@ -203,7 +255,6 @@ export default function TimeSheetPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: Totals & Overtime Analytics */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
@@ -241,29 +292,7 @@ export default function TimeSheetPage() {
               </div>
             </div>
 
-            <div className="space-y-3 pt-2">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
-                <Timer className="h-3 w-3" /> Distribution
-              </h4>
-              <div className="space-y-3">
-                {projects?.slice(0, 4).map(p => {
-                  const pTotal = calculateProjectTotal(p.id);
-                  const percent = totalWeekHours > 0 ? (pTotal / totalWeekHours) * 100 : 0;
-                  if (pTotal === 0) return null;
-                  return (
-                    <div key={p.id} className="space-y-1">
-                      <div className="flex justify-between text-[9px]">
-                        <span className="truncate font-bold text-slate-600 uppercase">{p.name}</span>
-                        <span className="font-mono text-slate-400">{pTotal.toFixed(1)}h</span>
-                      </div>
-                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-primary transition-all duration-700" style={{ width: `${percent}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {renderMiniCalendar()}
 
             <div className="mt-auto pt-4">
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
@@ -276,7 +305,6 @@ export default function TimeSheetPage() {
           </CardContent>
         </Card>
 
-        {/* Main Content: Weekly Grid */}
         <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
           <div className="flex-1 overflow-x-auto no-scrollbar">
             <Table className="border-collapse">

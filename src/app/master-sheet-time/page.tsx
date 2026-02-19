@@ -8,7 +8,12 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  startOfDay 
+  startOfDay,
+  startOfMonth,
+  endOfMonth,
+  isSameMonth,
+  isSameDay,
+  isWithinInterval
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -68,7 +73,6 @@ export default function MasterSheetTimePage() {
 
   // Sync local state with Firestore data
   useEffect(() => {
-    // Only update if entries is populated to avoid wiping user input
     if (entries) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
@@ -154,6 +158,54 @@ export default function MasterSheetTimePage() {
 
   const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
+  // Helper to render mini calendar
+  const renderMiniCalendar = () => {
+    const monthStart = startOfMonth(currentWeekStart);
+    const monthEnd = endOfMonth(monthStart);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
+    const weekInterval = { 
+      start: currentWeekStart, 
+      end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
+    };
+
+    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+    const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+
+    return (
+      <div className="space-y-3 pt-4 border-t mt-4">
+        <div className="flex items-center justify-between px-1">
+          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Week Context</h4>
+          <span className="text-[10px] font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
+        </div>
+        <div className="grid grid-cols-7 gap-1">
+          {weekLabels.map((label, i) => (
+            <div key={i} className="text-[8px] font-bold text-slate-300 text-center py-1">{label}</div>
+          ))}
+          {days.map((day, i) => {
+            const isSelectedWeek = isWithinInterval(day, weekInterval);
+            const isToday = isSameDay(day, new Date());
+            const isCurrentMonth = isSameMonth(day, monthStart);
+
+            return (
+              <div 
+                key={i} 
+                className={cn(
+                  "h-6 w-full flex items-center justify-center text-[9px] rounded-sm transition-all relative",
+                  !isCurrentMonth && "opacity-20",
+                  isSelectedWeek ? "bg-[#46a395] text-white font-bold" : "text-slate-500",
+                  isToday && !isSelectedWeek && "border border-[#46a395] text-[#46a395]"
+                )}
+              >
+                {format(day, 'd')}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
@@ -214,26 +266,7 @@ export default function MasterSheetTimePage() {
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b pb-1">Distribución</h4>
-              <div className="space-y-3">
-                {projects?.slice(0, 5).map(p => {
-                  const pTotal = calculateProjectTotal(p.id);
-                  const percent = totalWeekHours > 0 ? (pTotal / totalWeekHours) * 100 : 0;
-                  return (
-                    <div key={p.id} className="space-y-1">
-                      <div className="flex justify-between text-[10px]">
-                        <span className="truncate font-bold text-slate-600">{p.name}</span>
-                        <span className="font-mono text-slate-400">{pTotal.toFixed(1)}h</span>
-                      </div>
-                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                        <div className="h-full bg-[#46a395]" style={{ width: `${percent}%` }} />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
+            {renderMiniCalendar()}
 
             <div className="mt-auto pt-4">
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
