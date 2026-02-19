@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -8,7 +9,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Comprehensive Admin check with redundant validation for session stability
+    // REDUNDANT ADMIN VALIDATION: Priority access for developer and admin roles
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == "andres.diago@outlook.com" || 
@@ -21,13 +22,26 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
+    // Check if a weekly period is locked (submitted or approved)
+    function isPeriodLocked(userId, weekId) {
+      let submission = get(/databases/$(database)/documents/weekly_submissions/$(userId + "_" + weekId));
+      return submission != null && submission.data.status != "draft";
+    }
+
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Allow list and read if admin or if the data belongs to the user
       allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid));
+      
+      // Prevention: Users can't create or edit entries if the week is already submitted/approved
+      // Extracting YYYY-WW from date is complex in rules, so we rely on client-side lock + admin review.
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+    }
+
+    match /weekly_submissions/{submissionId} {
+      allow read: if isSignedIn() && (isAdmin() || submissionId.startsWith(request.auth.uid));
+      allow create, update: if isSignedIn() && (isAdmin() || submissionId.startsWith(request.auth.uid));
     }
 
     match /projects/{projectId} {
@@ -45,27 +59,14 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /dailyReports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.authorId);
-    }
-
-    match /monthlyReports/{reportId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.authorId);
-    }
-
     match /system/metadata {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    // Catch-all for other collections
     match /{document=**} {
       allow read, write: if isAdmin();
     }
   }
 }
-// Force Deployment: 2024-05-24 Security & Access Optimization for andres.diago@outlook.com
+// Force Deployment: 2024-05-24 Security & Access Optimization - Admin ID redundant check enabled

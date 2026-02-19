@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -9,7 +10,8 @@ import {
   addWeeks, 
   subWeeks, 
   startOfDay,
-  parseISO
+  parseISO,
+  getISOWeek
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -18,10 +20,13 @@ import {
   Calendar as CalendarIcon,
   PieChart,
   AlertCircle,
-  Loader2
+  Loader2,
+  Send,
+  Lock,
+  CheckCircle2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
+import { useFirestore, useCollection, useDoc, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -31,6 +36,7 @@ import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { Badge } from '@/components/ui/badge';
 
 export default function TimeSheetPage() {
   const { user, loading: authLoading, role } = useAuth();
@@ -40,14 +46,24 @@ export default function TimeSheetPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     return eachDayOfInterval({ start: currentWeekStart, end });
   }, [currentWeekStart]);
 
+  const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
+  const submissionId = useMemo(() => (user ? `${user.uid}_${weekId}` : null), [user, weekId]);
+
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
+
+  const submissionRef = useMemoFirebase(() => (firestore && submissionId ? doc(firestore, 'weekly_submissions', submissionId) : null), [firestore, submissionId]);
+  const { data: submissionData, isLoading: submissionLoading } = useDoc(submissionRef);
+
+  const weekStatus = submissionData?.status || 'draft';
+  const isLocked = weekStatus !== 'draft';
 
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
@@ -95,13 +111,14 @@ export default function TimeSheetPage() {
   }, [entries, entriesLoading]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
+    if (isLocked) return;
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     setGridHours(prev => ({ ...prev, [key]: value }));
   };
 
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
-    if (!firestore || !user?.uid) return;
+    if (!firestore || !user?.uid || isLocked) return;
     
     const hours = value === '' || value === '0' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
@@ -128,6 +145,7 @@ export default function TimeSheetPage() {
       hours: hours,
       description: 'Logged via Weekly Sheet',
       updatedAt: serverTimestamp(),
+      status: weekStatus
     };
 
     setDoc(entryRef, data, { merge: true })
@@ -141,6 +159,33 @@ export default function TimeSheetPage() {
           path: entryRef.path, 
           operation: 'write', 
           requestResourceData: data 
+        }));
+      });
+  };
+
+  const handleSubmitWeek = async () => {
+    if (!firestore || !submissionRef || isLocked) return;
+    setIsSubmitting(true);
+
+    const data = {
+      userId: user?.uid,
+      weekId,
+      status: 'submitted',
+      submittedAt: serverTimestamp(),
+      weekStart: startOfDay(currentWeekStart)
+    };
+
+    setDoc(submissionRef, data, { merge: true })
+      .then(() => {
+        setIsSubmitting(false);
+        toast({ title: "Week Submitted", description: "Your hours have been sent for review." });
+      })
+      .catch(err => {
+        setIsSubmitting(false);
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: submissionRef.path,
+          operation: 'write',
+          requestResourceData: data
         }));
       });
   };
@@ -164,16 +209,7 @@ export default function TimeSheetPage() {
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
 
-  const projectDistribution = (projects || []).map(p => {
-    const total = calculateProjectTotal(p.id);
-    return { 
-      name: p.name, 
-      total, 
-      percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 
-    };
-  }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
-
-  const initialLoading = authLoading || projectsLoading || !projects;
+  const initialLoading = authLoading || projectsLoading || !projects || submissionLoading;
   const isSyncing = entriesLoading;
 
   return (
@@ -202,6 +238,36 @@ export default function TimeSheetPage() {
         </div>
       </div>
 
+      {/* Week Status Banner */}
+      <div className={cn(
+        "p-2 px-4 rounded-sm flex items-center justify-between border shadow-sm transition-all",
+        weekStatus === 'draft' ? "bg-slate-50 border-slate-200" :
+        weekStatus === 'submitted' ? "bg-orange-50 border-orange-200" :
+        "bg-green-50 border-green-200"
+      )}>
+        <div className="flex items-center gap-3">
+          {weekStatus === 'draft' ? <AlertCircle className="h-4 w-4 text-slate-400" /> : 
+           weekStatus === 'submitted' ? <Loader2 className="h-4 w-4 text-orange-500 animate-spin" /> : 
+           <CheckCircle2 className="h-4 w-4 text-[#46a395]" />}
+          <div className="flex flex-col">
+            <span className="text-[10px] font-bold uppercase text-slate-400">Current Period Status</span>
+            <span className="text-xs font-black uppercase text-slate-700">{weekStatus}</span>
+          </div>
+        </div>
+        {weekStatus === 'draft' && totalWeekHours > 0 && (
+          <Button size="sm" className="h-8 gap-2 font-bold text-[10px] uppercase tracking-wider" onClick={handleSubmitWeek} disabled={isSubmitting}>
+            {isSubmitting ? <Loader2 className="h-3 w-3 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+            Submit Week for Review
+          </Button>
+        )}
+        {isLocked && (
+          <div className="flex items-center gap-2 text-slate-500 text-[10px] font-bold uppercase italic">
+            <Lock className="h-3.5 w-3.5" />
+            Entry Locked for Review
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
@@ -227,32 +293,11 @@ export default function TimeSheetPage() {
               </div>
             </div>
 
-            <div className="space-y-4 pt-4 border-t">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <PieChart className="h-3 w-3" /> Hours by Project
-              </h4>
-              <div className="space-y-3">
-                {projectDistribution.length > 0 ? (
-                  projectDistribution.map((pd, i) => (
-                    <div key={`dist-${i}`} className="space-y-1">
-                      <div className="flex items-center justify-between text-[9px] font-bold uppercase">
-                        <span className="text-slate-500 truncate pr-2">{pd.name}</span>
-                        <span className="text-slate-700 font-black">{pd.total.toFixed(1)}h</span>
-                      </div>
-                      <Progress value={pd.percentage} className="h-1 rounded-full bg-slate-100" />
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">No activity registered this week.</p>
-                )}
-              </div>
-            </div>
-
             <div className="mt-auto pt-4">
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes are saved automatically. The first 40 hours of the week are considered regular time.
+                  {isLocked ? "Editing is disabled because this week has been submitted." : "Changes are saved automatically as you type."}
                 </p>
               </div>
             </div>
@@ -277,7 +322,7 @@ export default function TimeSheetPage() {
                     <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className={cn(isSyncing && "opacity-60 transition-opacity")}>
+                <TableBody className={cn((isSyncing || isLocked) && "opacity-60 transition-opacity")}>
                   {initialLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>
@@ -314,9 +359,14 @@ export default function TimeSheetPage() {
                                 min="0" 
                                 max="24" 
                                 value={currentVal} 
+                                readOnly={isLocked}
                                 onChange={(e) => handleInputChange(project.id, day, e.target.value)} 
                                 onBlur={(e) => handleCellBlur(project.id, day, e.target.value)} 
-                                className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} 
+                                className={cn(
+                                  "w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200",
+                                  saving && "opacity-50",
+                                  isLocked && "cursor-not-allowed bg-slate-50/10"
+                                )} 
                                 placeholder="0.0" 
                               />
                               {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary" /></div>}

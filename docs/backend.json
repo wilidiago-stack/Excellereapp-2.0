@@ -12,9 +12,24 @@
         "date": { "type": "string", "format": "date-time" },
         "hours": { "type": "number" },
         "description": { "type": "string" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["draft", "submitted", "approved"] }
       },
       "required": ["userId", "projectId", "date", "hours"]
+    },
+    "WeeklySubmission": {
+      "title": "WeeklySubmission",
+      "type": "object",
+      "description": "Control document to manage the submission and approval status of a user's entire week.",
+      "properties": {
+        "userId": { "type": "string" },
+        "weekId": { "type": "string", "description": "Format: YYYY-WW" },
+        "status": { "type": "string", "enum": ["draft", "submitted", "approved"] },
+        "submittedAt": { "type": "string", "format": "date-time" },
+        "approvedAt": { "type": "string", "format": "date-time" },
+        "approvedBy": { "type": "string" }
+      },
+      "required": ["userId", "weekId", "status"]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
@@ -35,7 +50,8 @@
         "firstName": { "type": "string" },
         "lastName": { "type": "string" },
         "role": { "type": "string" },
-        "assignedModules": { "type": "array", "items": { "type": "string" } }
+        "assignedModules": { "type": "array", "items": { "type": "string" } },
+        "pinnedShortcuts": { "type": "array", "items": { "type": "string" } }
       }
     },
     "Contractor": {
@@ -47,16 +63,6 @@
         "status": { "type": "string", "enum": ["Active", "Inactive"] }
       },
       "required": ["name", "contactPerson", "status"]
-    },
-    "DailyReport": {
-      "title": "DailyReport",
-      "type": "object",
-      "properties": {
-        "projectId": { "type": "string" },
-        "date": { "type": "string", "format": "date-time" },
-        "shift": { "type": "string" },
-        "authorId": { "type": "string" }
-      }
     }
   },
   "auth": {
@@ -70,6 +76,14 @@
           "entityName": "TimeSheetEntry",
           "schema": { "$ref": "#/backend/entities/TimeSheetEntry" },
           "description": "Consolidated time entries for all users."
+        }
+      },
+      {
+        "path": "/weekly_submissions/{submissionId}",
+        "definition": {
+          "entityName": "WeeklySubmission",
+          "schema": { "$ref": "#/backend/entities/WeeklySubmission" },
+          "description": "Locks and status for weekly periods."
         }
       },
       {
@@ -94,22 +108,6 @@
           "entityName": "Contractor",
           "schema": { "$ref": "#/backend/entities/Contractor" },
           "description": "Registered contractors."
-        }
-      },
-      {
-        "path": "/dailyReports/{reportId}",
-        "definition": {
-          "entityName": "DailyReport",
-          "schema": { "$ref": "#/backend/entities/DailyReport" },
-          "description": "Daily site activities."
-        }
-      },
-      {
-        "path": "/monthlyReports/{reportId}",
-        "definition": {
-          "entityName": "MonthlyReport",
-          "schema": { "type": "object" },
-          "description": "Monthly site analysis."
         }
       }
     ]
