@@ -1,8 +1,7 @@
 import {setGlobalOptions} from "firebase-functions/v2";
 import {
-  onAuthUserCreate,
-  onAuthUserDelete,
-  AuthBlockingEvent,
+  onAuthUserCreated,
+  onAuthUserDeleted,
 } from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
@@ -17,44 +16,49 @@ setGlobalOptions({maxInstances: 10});
  * Initial setup for new users.
  * Automatically makes the first user an administrator.
  */
-export const setupInitialUserRole = onAuthUserCreate(
-  async (event: AuthBlockingEvent) => {
-    const {uid, email, displayName} = event.data;
-    const userDocRef = db.doc(`users/${uid}`);
-    const metadataRef = db.doc("system/metadata");
+export const setupInitialUserRole = onAuthUserCreated(async (event) => {
+  const user = event.data;
+  if (!user) {
+    logger.error("No user data in event");
+    return;
+  }
 
-    try {
-      const nameParts = displayName?.split(" ") || [];
-      const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-      const lastName = nameParts.slice(1).join(" ") || "User";
+  const {uid, email, displayName} = user;
+  const userDocRef = db.doc(`users/${uid}`);
+  const metadataRef = db.doc("system/metadata");
 
-      await db.runTransaction(async (transaction) => {
-        const metadataDoc = await transaction.get(metadataRef);
-        const userCount = metadataDoc.exists ?
-          metadataDoc.data()?.userCount || 0 : 0;
+  try {
+    const nameParts = displayName?.split(" ") || [];
+    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = nameParts.slice(1).join(" ") || "User";
 
-        const assignedRole = userCount === 0 ? "admin" : "viewer";
+    await db.runTransaction(async (transaction) => {
+      const metadataDoc = await transaction.get(metadataRef);
+      const userCount = metadataDoc.exists ?
+        metadataDoc.data()?.userCount || 0 : 0;
 
-        const userData = {
-          firstName,
-          lastName,
-          email: email || "",
-          role: assignedRole,
-          status: "active",
-          createdAt: admin.firestore.FieldValue.serverTimestamp(),
-        };
+      const assignedRole = userCount === 0 ? "admin" : "viewer";
 
-        transaction.set(userDocRef, userData, {merge: true});
-        transaction.set(metadataRef, {userCount: userCount + 1}, {merge: true});
+      const userData = {
+        firstName,
+        lastName,
+        email: email || "",
+        role: assignedRole,
+        status: "active",
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
 
-        await admin.auth().setCustomUserClaims(uid, {role: assignedRole});
-      });
+      transaction.set(userDocRef, userData, {merge: true});
+      transaction.set(metadataRef, {userCount: userCount + 1}, {merge: true});
 
-      logger.info(`[setupInitialUserRole] User ${uid} set up successfully.`);
-    } catch (error) {
-      logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
-    }
-  });
+      await admin.auth().setCustomUserClaims(uid, {role: assignedRole});
+    });
+
+    logger.info(`[setupInitialUserRole] User ${uid} set up successfully.`);
+  } catch (error) {
+    logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
+  }
+});
 
 /**
  * DEFINITIVE sync of roles between Firestore and Auth.
@@ -83,20 +87,22 @@ export const onUserRoleChange = onDocumentUpdated(
 /**
  * Cleanup when a user is deleted.
  */
-export const cleanupUser = onAuthUserDelete(
-  async (event: AuthBlockingEvent) => {
-    const {uid} = event.data;
-    const userDocRef = db.doc(`users/${uid}`);
-    const metadataRef = db.doc("system/metadata");
+export const cleanupUser = onAuthUserDeleted(async (event) => {
+  const user = event.data;
+  if (!user) return;
 
-    try {
-      const batch = db.batch();
-      batch.delete(userDocRef);
-      batch.update(metadataRef, {
-        userCount: admin.firestore.FieldValue.increment(-1),
-      });
-      await batch.commit();
-    } catch (error) {
-      logger.error(`[cleanupUser] Error for ${uid}:`, error);
-    }
-  });
+  const {uid} = user;
+  const userDocRef = db.doc(`users/${uid}`);
+  const metadataRef = db.doc("system/metadata");
+
+  try {
+    const batch = db.batch();
+    batch.delete(userDocRef);
+    batch.update(metadataRef, {
+      userCount: admin.firestore.FieldValue.increment(-1),
+    });
+    await batch.commit();
+  } catch (error) {
+    logger.error(`[cleanupUser] Error for ${uid}:`, error);
+  }
+});
