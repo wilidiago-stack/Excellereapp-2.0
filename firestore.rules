@@ -8,7 +8,8 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Force deployment trigger: Robust admin check for andres.diago@outlook.com
+    // ROBUST ADMIN CHECK: Direct comparison with prioritized developer email
+    // Added comment to force immediate rules deployment refresh: v2.0.1
     function isAdmin() {
       return isSignedIn() && (
         (request.auth.token.role == 'admin') || 
@@ -24,7 +25,8 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Allow list if admin. If not admin, only allow filtered queries by userId
+      // Logic: Admins see everything. Owners see their own.
+      // Important: Queries must match these filters to be allowed for non-admins.
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);

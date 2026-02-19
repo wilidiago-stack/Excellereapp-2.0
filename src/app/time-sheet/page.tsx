@@ -49,6 +49,16 @@ export default function TimeSheetPage() {
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
+  // Normalization logic: Stable keys for dates to prevent timezone shifts
+  const normalizeDateKey = (dateVal: any): string => {
+    if (!dateVal) return '';
+    let d: Date;
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
+    else if (dateVal instanceof Date) d = dateVal;
+    else d = new Date(dateVal);
+    return format(d, 'yyyy-MM-dd');
+  };
+
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
     return query(
@@ -62,30 +72,20 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  const normalizeDateKey = (dateVal: any): string => {
-    if (!dateVal) return '';
-    let d: Date;
-    if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
-    else if (dateVal instanceof Date) d = dateVal;
-    else d = new Date(dateVal);
-    return format(startOfDay(d), 'yyyy-MM-dd');
-  };
-
+  // Sync entries to local grid
   useEffect(() => {
-    if (isNavigating) return;
+    if (isNavigating || entriesLoading) return;
 
-    if (!entriesLoading) {
-      const newHours: Record<string, string> = {};
-      if (entries) {
-        entries.forEach(e => {
-          const dateKey = normalizeDateKey(e.date);
-          if (dateKey) {
-            newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
-          }
-        });
-      }
-      setGridHours(newHours);
+    const newHours: Record<string, string> = {};
+    if (entries) {
+      entries.forEach(e => {
+        const dateKey = normalizeDateKey(e.date);
+        if (dateKey) {
+          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+        }
+      });
     }
+    setGridHours(newHours);
   }, [entries, entriesLoading, isNavigating]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
@@ -299,7 +299,7 @@ export default function TimeSheetPage() {
                           const currentVal = gridHours[lookupKey] || '';
                           const saving = isSaving === lookupKey;
                           return (
-                            <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
+                            <TableCell key={`${project.id}-${dateKey}`} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
                               <input 
                                 type="number" 
                                 step="0.5" 
@@ -329,7 +329,7 @@ export default function TimeSheetPage() {
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
                       return (
-                        <TableCell key={day.toString()} className="text-center border-r px-2">
+                        <TableCell key={`footer-${day.toString()}`} className="text-center border-r px-2">
                           <div className="flex flex-col items-center justify-center">
                             <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
                               {loading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
@@ -357,7 +357,7 @@ export default function TimeSheetPage() {
                 </div>
                 <div className="grid grid-cols-7 gap-1">
                   {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
-                    <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
+                    <div key={`nav-label-${i}`} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
                   ))}
                   {eachDayOfInterval({ 
                     start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
@@ -366,7 +366,7 @@ export default function TimeSheetPage() {
                     const isSelected = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
                     return (
                       <div 
-                        key={i} 
+                        key={`nav-day-${i}`} 
                         className={cn(
                           "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent",
                           isSelected ? "bg-[#46a395] text-white font-bold shadow-sm" : "bg-white text-slate-400"

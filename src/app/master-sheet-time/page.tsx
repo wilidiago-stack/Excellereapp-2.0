@@ -16,7 +16,6 @@ import {
   Sheet as SheetIcon, 
   Clock, 
   Calendar as CalendarIcon,
-  TrendingUp,
   Users,
   LayoutDashboard,
   Info
@@ -46,16 +45,16 @@ export default function MasterSheetTimePage() {
   const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
-  // Fetch all entries for the week (Admin only or scoped by security rules)
+  // CRITICAL: Condition the query based on role to avoid "Missing Permissions" loops
   const entriesQuery = useMemoFirebase(() => {
-    if (!firestore || !currentUser) return null;
+    if (!firestore || !currentUser || role !== 'admin') return null;
     return query(
       collection(firestore, 'time_entries'),
       where('date', '>=', startOfDay(currentWeekStart)),
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
-  }, [firestore, currentUser?.uid, currentWeekStart]);
+  }, [firestore, currentUser?.uid, currentWeekStart, role]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -65,7 +64,7 @@ export default function MasterSheetTimePage() {
     if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
     else if (dateVal instanceof Date) d = dateVal;
     else d = new Date(dateVal);
-    return format(startOfDay(d), 'yyyy-MM-dd');
+    return format(d, 'yyyy-MM-dd');
   };
 
   const processedData = useMemo(() => {
@@ -99,7 +98,7 @@ export default function MasterSheetTimePage() {
   }, [allUsers, processedData.activeUserIds]);
 
   const calculateDayTotal = (day: Date) => {
-    const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
+    const dateKey = format(day, 'yyyy-MM-dd');
     return processedData.activeUserIds.reduce((acc, uId) => {
       return acc + (processedData.userHours[uId]?.[dateKey] || 0);
     }, 0);
@@ -107,7 +106,7 @@ export default function MasterSheetTimePage() {
 
   const calculateUserWeekTotal = (uId: string) => {
     return weekDays.reduce((acc, day) => {
-      const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
+      const dateKey = format(day, 'yyyy-MM-dd');
       return acc + (processedData.userHours[uId]?.[dateKey] || 0);
     }, 0);
   };
@@ -116,7 +115,11 @@ export default function MasterSheetTimePage() {
 
   const teamStats = activeUsers.map(u => {
     const total = calculateUserWeekTotal(u.id);
-    return { name: `${u.firstName} ${u.lastName}`, total, percentage: totalTeamHours > 0 ? (total / totalTeamHours) * 100 : 0 };
+    return { 
+      name: `${u.firstName} ${u.lastName}`, 
+      total, 
+      percentage: totalTeamHours > 0 ? (total / totalTeamHours) * 100 : 0 
+    };
   }).sort((a, b) => b.total - a.total);
 
   const loading = authLoading || usersLoading || (entriesLoading && !isNavigating) || isNavigating;
@@ -182,7 +185,7 @@ export default function MasterSheetTimePage() {
               <div className="space-y-3">
                 {teamStats.length > 0 ? (
                   teamStats.map((ts, i) => (
-                    <div key={i} className="space-y-1">
+                    <div key={`stat-${i}`} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold">
                         <span className="text-slate-500 truncate pr-2">{ts.name}</span>
                         <span className="text-slate-700 font-black">{ts.total.toFixed(1)}h</span>
@@ -216,8 +219,8 @@ export default function MasterSheetTimePage() {
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20">
                   <TableRow className="hover:bg-transparent border-b-slate-200">
                     <TableHead className="text-[10px] font-black uppercase h-12 w-64 min-w-[200px] border-r px-4">User / Contributor</TableHead>
-                    {weekDays.map(day => (
-                      <TableHead key={day.toString()} className="text-[10px] font-black uppercase h-12 text-center border-r min-w-[80px]">
+                    {weekDays.map((day, i) => (
+                      <TableHead key={`head-${i}`} className="text-[10px] font-black uppercase h-12 text-center border-r min-w-[80px]">
                         <div className="flex flex-col"><span>{format(day, 'EEE')}</span><span className="text-slate-400">{format(day, 'dd')}</span></div>
                       </TableHead>
                     ))}
@@ -227,14 +230,14 @@ export default function MasterSheetTimePage() {
                 <TableBody>
                   {loading ? (
                     [1, 2, 3, 4, 5].map(i => (
-                      <TableRow key={i}>
+                      <TableRow key={`row-loading-${i}`}>
                         <TableCell className="border-r px-4"><Skeleton className="h-8 w-full" /></TableCell>
-                        {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full" /></TableCell>)}
+                        {weekDays.map((d, j) => <TableCell key={`cell-loading-${i}-${j}`} className="border-r p-2"><Skeleton className="h-10 w-full" /></TableCell>)}
                         <TableCell className="p-2"><Skeleton className="h-10 w-full" /></TableCell>
                       </TableRow>
                     ))
                   ) : activeUsers.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No activity registered for any user this week.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No activity registered for any user this week.</TableCell></TableRow>
                   ) : (
                     activeUsers.map(u => (
                       <TableRow key={u.id} className="hover:bg-slate-50/30 border-b-slate-100 group">
@@ -249,11 +252,11 @@ export default function MasterSheetTimePage() {
                             </div>
                           </div>
                         </TableCell>
-                        {weekDays.map(day => {
-                          const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
+                        {weekDays.map((day, i) => {
+                          const dateKey = format(day, 'yyyy-MM-dd');
                           const hours = processedData.userHours[u.id]?.[dateKey] || 0;
                           return (
-                            <TableCell key={day.toString()} className={cn("text-center text-xs font-bold border-r", hours > 8 ? "text-orange-600 bg-orange-50/30" : hours > 0 ? "text-slate-600" : "text-slate-200")}>
+                            <TableCell key={`${u.id}-${dateKey}`} className={cn("text-center text-xs font-bold border-r", hours > 8 ? "text-orange-600 bg-orange-50/30" : hours > 0 ? "text-slate-600" : "text-slate-200")}>
                               {hours > 0 ? hours.toFixed(1) : '-'}
                             </TableCell>
                           );
@@ -266,8 +269,8 @@ export default function MasterSheetTimePage() {
                 <tfoot className="bg-slate-50/50 font-bold border-t-2 border-slate-200">
                   <TableRow>
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-4">Daily Totals</TableCell>
-                    {weekDays.map(day => (
-                      <TableCell key={day.toString()} className="text-center text-xs text-slate-600 border-r">
+                    {weekDays.map((day, i) => (
+                      <TableCell key={`foot-${i}`} className="text-center text-xs text-slate-600 border-r">
                         {loading ? <Skeleton className="h-6 w-12 mx-auto" /> : calculateDayTotal(day).toFixed(1)}
                       </TableCell>
                     ))}
