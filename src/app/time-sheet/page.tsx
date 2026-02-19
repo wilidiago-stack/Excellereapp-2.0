@@ -72,7 +72,6 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Helper function to normalize dates from Firestore (Timestamps or Dates)
   const normalizeDate = (dateVal: any): Date => {
     if (!dateVal) return new Date();
     if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate();
@@ -81,10 +80,9 @@ export default function TimeSheetPage() {
   };
 
   useEffect(() => {
-    // Reset navigation state and sync data when loading finishes
     if (!entriesLoading) {
       const newHours: Record<string, string> = {};
-      if (entries) {
+      if (entries && entries.length > 0) {
         entries.forEach(e => {
           const dateVal = normalizeDate(e.date);
           const dateKey = format(dateVal, 'yyyy-MM-dd');
@@ -170,7 +168,7 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({});
+    // Don't clear gridHours here to avoid flash, the useEffect will sync it
     setCurrentWeekStart(newDate);
   };
 

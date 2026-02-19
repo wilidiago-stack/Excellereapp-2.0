@@ -53,7 +53,7 @@ export default function MasterSheetTimePage() {
   const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
-  // Fetch ALL time entries for the selected week (Admin/Manager View)
+  // Fetch ALL time entries for the selected week
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(
@@ -66,7 +66,6 @@ export default function MasterSheetTimePage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Helper to normalize dates
   const normalizeDate = (dateVal: any): Date => {
     if (!dateVal) return new Date();
     if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate();
@@ -74,7 +73,6 @@ export default function MasterSheetTimePage() {
     return new Date(dateVal);
   };
 
-  // Process data: Group hours by User -> Date
   const processedData = useMemo(() => {
     if (!entries) return { userHours: {}, activeUserIds: [] };
 
@@ -130,7 +128,6 @@ export default function MasterSheetTimePage() {
     setCurrentWeekStart(newDate);
   };
 
-  // Reset navigation status when data is ready
   useEffect(() => {
     if (!entriesLoading) setIsNavigating(false);
   }, [entriesLoading]);
