@@ -32,7 +32,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
-  const { user, loading: authLoading, role } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -49,7 +49,7 @@ export default function TimeSheetPage() {
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
-  // Normalización estricta para asegurar que la "llave" de búsqueda coincida siempre
+  // Función infalible para normalizar fechas y evitar problemas de zona horaria
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
     let d: Date;
@@ -72,7 +72,7 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Sincronización de Firestore hacia la cuadrícula visual
+  // Sincronizar datos de Firestore a la cuadrícula visual
   useEffect(() => {
     if (isNavigating || entriesLoading || !entries) return;
 
@@ -101,7 +101,7 @@ export default function TimeSheetPage() {
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
-    // Buscar si ya existe para evitar duplicados en la base de datos
+    // Buscar registro existente para evitar duplicados
     const existingEntry = (entries || []).find(e => {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
@@ -111,7 +111,7 @@ export default function TimeSheetPage() {
 
     setIsSaving(key);
     
-    // ID determinístico para asegurar sobrescritura correcta
+    // ID determinístico para sobrescritura correcta
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -167,7 +167,7 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Limpieza inmediata para evitar saltos visuales
+    setGridHours({}); 
     setCurrentWeekStart(newDate);
     setTimeout(() => setIsNavigating(false), 400);
   };
