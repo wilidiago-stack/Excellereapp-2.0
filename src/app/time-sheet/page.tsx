@@ -347,7 +347,7 @@ export default function TimeSheetPage() {
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={i}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
-                        {weekDays.map(d => <TableCell key(d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
+                        {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
                         <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                       </TableRow>
                     ))
