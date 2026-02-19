@@ -8,8 +8,7 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  startOfDay,
-  isSameDay
+  startOfDay
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -122,18 +121,16 @@ export default function MasterSheetTimePage() {
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
     setCurrentWeekStart(newDate);
+    // Transitory state to show skeletons while query resets
+    setTimeout(() => setIsNavigating(false), 50);
   };
-
-  useEffect(() => {
-    if (!entriesLoading) setIsNavigating(false);
-  }, [entriesLoading]);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Master Sheet Time</h1>
-          <p className="text-xs text-muted-foreground">Consolidado semanal de horas por usuario activo.</p>
+          <p className="text-xs text-muted-foreground">Weekly consolidated hours per active user.</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -148,7 +145,7 @@ export default function MasterSheetTimePage() {
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(addWeeks(currentWeekStart, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoy</Button>
+          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Today</Button>
         </div>
       </div>
 
@@ -156,19 +153,19 @@ export default function MasterSheetTimePage() {
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <SheetIcon className="h-3.5 w-3.5 text-[#46a395]" /> Resumen de Equipo
+              <SheetIcon className="h-3.5 w-3.5 text-[#46a395]" /> Team Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
               <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Horas Totales Equipo</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Team Hours</p>
                 <p className="text-3xl font-black text-[#46a395]">{totalTeamHours.toFixed(1)}h</p>
               </div>
               <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Users className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Usuarios Activos</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Active Users</span>
                 </div>
                 <span className="text-xs font-bold">{activeUsers.length}</span>
               </div>
@@ -177,7 +174,7 @@ export default function MasterSheetTimePage() {
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between px-1">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
-                  <LayoutDashboard className="h-3 w-3" /> Distribución de Carga
+                  <LayoutDashboard className="h-3 w-3" /> Burden Distribution
                 </h4>
               </div>
               <div className="space-y-3">
@@ -193,7 +190,7 @@ export default function MasterSheetTimePage() {
                   ))
                 ) : (
                   <div className="py-2 text-center">
-                    <p className="text-[9px] text-slate-400 italic">Sin actividad registrada</p>
+                    <p className="text-[9px] text-slate-400 italic">No activity registered</p>
                   </div>
                 )}
               </div>
@@ -203,7 +200,7 @@ export default function MasterSheetTimePage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <Info className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed">
-                  Solo se muestran usuarios que han ingresado horas en este periodo.
+                  Only users with entries in this period are shown.
                 </p>
               </div>
             </div>
@@ -216,7 +213,7 @@ export default function MasterSheetTimePage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20">
                   <TableRow className="hover:bg-transparent border-b-slate-200">
-                    <TableHead className="text-[10px] font-black uppercase h-12 w-64 min-w-[200px] border-r px-4">Usuario / Colaborador</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase h-12 w-64 min-w-[200px] border-r px-4">User / Contributor</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase h-12 text-center border-r min-w-[80px]">
                         <div className="flex flex-col"><span>{format(day, 'EEE')}</span><span className="text-slate-400">{format(day, 'dd')}</span></div>
@@ -235,7 +232,7 @@ export default function MasterSheetTimePage() {
                       </TableRow>
                     ))
                   ) : activeUsers.length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No hay actividad registrada para ningún usuario en esta semana.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No activity registered for any user this week.</TableCell></TableRow>
                   ) : (
                     activeUsers.map(u => (
                       <TableRow key={u.id} className="hover:bg-slate-50/30 border-b-slate-100 group">
@@ -266,7 +263,7 @@ export default function MasterSheetTimePage() {
                 </TableBody>
                 <tfoot className="bg-slate-50/50 font-bold border-t-2 border-slate-200">
                   <TableRow>
-                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-4">Totales Diarios Equipo</TableCell>
+                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-4">Daily Totals</TableCell>
                     {weekDays.map(day => (
                       <TableCell key={day.toString()} className="text-center text-xs text-slate-600 border-r">
                         {loading ? <Skeleton className="h-6 w-12 mx-auto" /> : calculateDayTotal(day).toFixed(1)}

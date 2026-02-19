@@ -72,12 +72,8 @@ export default function TimeSheetPage() {
     else if (dateVal instanceof Date) d = dateVal;
     else d = new Date(dateVal);
     
-    // CRITICAL: We format to YYYY-MM-DD using UTC values to avoid timezone shifts
-    // This ensures that the key matches exactly across all devices
-    const year = d.getFullYear();
-    const month = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    // Consistent normalization to local YYYY-MM-DD
+    return format(startOfDay(d), 'yyyy-MM-dd');
   };
 
   useEffect(() => {
@@ -118,7 +114,7 @@ export default function TimeSheetPage() {
     if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
-    // Unique ID combining user, project and date string to avoid duplicates
+    // Use a deterministic ID to avoid duplicates
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -134,7 +130,7 @@ export default function TimeSheetPage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Horas guardadas", description: `Registrado ${hours}h para el ${format(date, 'MMM dd')}`, duration: 2000 });
+        toast({ title: "Hours saved", description: `Registered ${hours}h for ${format(date, 'MMM dd')}`, duration: 2000 });
       })
       .catch((err) => {
         setIsSaving(null);
@@ -170,10 +166,10 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Clear local state to prevent "jumps"
+    setGridHours({}); // Clean state immediately to show skeletons
     setCurrentWeekStart(newDate);
-    // Briefly keep skeleton showing to allow Firestore query to resolve
-    setTimeout(() => setIsNavigating(false), 300);
+    // Transitory state to allow the new Firestore query to trigger its own loading state
+    setTimeout(() => setIsNavigating(false), 50);
   };
 
   return (
@@ -238,7 +234,7 @@ export default function TimeSheetPage() {
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold uppercase">
                         <span className="text-slate-500 truncate pr-2">{pd.name}</span>
-                        <span className="text-className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{pd.total.toFixed(1)}h</span>
+                        <span className="text-slate-700">{pd.total.toFixed(1)}h</span>
                       </div>
                       <Progress value={pd.percentage} className="h-1 rounded-full bg-slate-100" />
                     </div>
@@ -253,7 +249,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Los cambios se guardan automáticamente al perder el foco de la celda.
+                  Changes are saved automatically when leaving the cell.
                 </p>
               </div>
             </div>
@@ -266,7 +262,7 @@ export default function TimeSheetPage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Proyecto / Referencia</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project / Reference</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
@@ -329,7 +325,7 @@ export default function TimeSheetPage() {
                 </TableBody>
                 <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
                   <TableRow className="h-14">
-                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Totales Diarios</TableCell>
+                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
                     {weekDays.map(day => {
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
@@ -353,7 +349,7 @@ export default function TimeSheetPage() {
             </div>
           </Card>
 
-          <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-slate-50/10">
+          <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
             <div className="max-w-xl mx-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
