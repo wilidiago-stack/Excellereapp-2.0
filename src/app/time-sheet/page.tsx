@@ -49,7 +49,7 @@ export default function TimeSheetPage() {
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
-  // Normalización estricta para evitar desfases de zona horaria
+  // Normalización estricta para asegurar que la "llave" de búsqueda coincida siempre
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
     let d: Date;
@@ -72,7 +72,7 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Sincronización de datos guardados hacia la cuadrícula visual
+  // Sincronización de Firestore hacia la cuadrícula visual
   useEffect(() => {
     if (isNavigating || entriesLoading || !entries) return;
 
@@ -101,15 +101,17 @@ export default function TimeSheetPage() {
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
+    // Buscar si ya existe para evitar duplicados en la base de datos
     const existingEntry = (entries || []).find(e => {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
-    // Evitar guardados innecesarios si el valor es igual
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
     if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
+    
+    // ID determinístico para asegurar sobrescritura correcta
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -165,7 +167,7 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Limpieza inmediata para evitar saltos de datos
+    setGridHours({}); // Limpieza inmediata para evitar saltos visuales
     setCurrentWeekStart(newDate);
     setTimeout(() => setIsNavigating(false), 400);
   };
@@ -229,7 +231,7 @@ export default function TimeSheetPage() {
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
                   projectDistribution.map((pd, i) => (
-                    <div key={i} className="space-y-1">
+                    <div key={`dist-${i}`} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold uppercase">
                         <span className="text-slate-500 truncate pr-2">{pd.name}</span>
                         <span className="text-slate-700 font-black">{pd.total.toFixed(1)}h</span>
@@ -275,10 +277,10 @@ export default function TimeSheetPage() {
                 <TableBody>
                   {loading ? (
                     [1, 2, 3, 4, 5].map(i => (
-                      <TableRow key={i}>
+                      <TableRow key={`loading-row-${i}`}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
-                        {weekDays.map(d => (
-                          <TableCell key={d.toString()} className="border-r p-2">
+                        {weekDays.map((d, j) => (
+                          <TableCell key={`loading-cell-${i}-${j}`} className="border-r p-2">
                             <Skeleton className="h-10 w-full rounded-sm" />
                           </TableCell>
                         ))}
@@ -286,7 +288,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No se encontraron proyectos activos.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No se encontraron proyectos activos.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
@@ -348,39 +350,6 @@ export default function TimeSheetPage() {
                   </TableRow>
                 </tfoot>
               </Table>
-            </div>
-          </Card>
-
-          <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
-            <div className="max-w-xl mx-auto">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between px-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Vista de Navegación</h4>
-                  <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
-                </div>
-                <div className="grid grid-cols-7 gap-1">
-                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((label, i) => (
-                    <div key={`nav-label-${i}`} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
-                  ))}
-                  {eachDayOfInterval({ 
-                    start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
-                    end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
-                  }).map((day, i) => {
-                    const isSelected = format(day, 'yyyy-MM-dd') === format(new Date(), 'yyyy-MM-dd');
-                    return (
-                      <div 
-                        key={`nav-day-${i}`} 
-                        className={cn(
-                          "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent",
-                          isSelected ? "bg-[#46a395] text-white font-bold shadow-sm" : "bg-white text-slate-400"
-                        )}
-                      >
-                        {format(day, 'd')}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
             </div>
           </Card>
         </div>

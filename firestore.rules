@@ -2,19 +2,18 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- HELPER FUNCTIONS ---
+    // --- FUNCIONES HELPER ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // ROBUST ADMIN CHECK: Direct comparison with prioritized developer email
-    // Added comment to force immediate rules deployment refresh: v3.0.5
+    // Validación de Administrador robusta basada en correo
+    // v4.0.0 - Forzando despliegue de privilegios para andres.diago@outlook.com
     function isAdmin() {
       return isSignedIn() && (
-        (request.auth.token.role == 'admin') || 
-        (request.auth.token.email == 'andres.diago@outlook.com') ||
-        (request.auth.token.email.lower() == 'andres.diago@outlook.com')
+        request.auth.token.email == 'andres.diago@outlook.com' || 
+        request.auth.token.role == 'admin'
       );
     }
 
@@ -22,13 +21,15 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- COLLECTION RULES ---
+    // --- REGLAS DE COLECCIONES ---
 
     match /time_entries/{entryId} {
-      // Admins see everything. Owners see their own.
-      // List operation is allowed for admins explicitly.
+      // Permitir lectura si es Admin o si el documento pertenece al usuario
+      // Se añade soporte explícito para 'list'
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      
+      // Permitir creación/escritura si el usuario es el dueño o Admin
+      allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
@@ -64,7 +65,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // --- DEFAULT DENY / ADMIN OVERRIDE ---
+    // Denegación por defecto para cualquier otra ruta no especificada
     match /{document=**} {
       allow read, write: if isAdmin();
     }
