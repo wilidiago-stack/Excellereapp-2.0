@@ -83,16 +83,18 @@ export default function MasterSheetTimePage() {
   };
 
   useEffect(() => {
-    // CRITICAL: Only sync if entries are loaded and NOT in a loading transition
-    if (entries && !entriesLoading) {
+    // Reset navigation and sync data when loading is done
+    if (!entriesLoading) {
       const newHours: Record<string, string> = {};
-      entries.forEach(e => {
-        const dateVal = normalizeDate(e.date);
-        const dateKey = format(dateVal, 'yyyy-MM-dd');
-        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
-      });
+      if (entries) {
+        entries.forEach(e => {
+          const dateVal = normalizeDate(e.date);
+          const dateKey = format(dateVal, 'yyyy-MM-dd');
+          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+        });
+      }
       setGridHours(newHours);
-      setIsNavigating(false); // Finished loading/syncing
+      setIsNavigating(false);
     }
   }, [entries, entriesLoading]);
 
@@ -163,12 +165,11 @@ export default function MasterSheetTimePage() {
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // Improved loading logic to prevent jumpy navigation
   const loading = authLoading || projectsLoading || entriesLoading || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
-    setIsNavigating(true); // Trigger transition state
-    setGridHours({}); // Proactive clearing of grid to avoid stale data
+    setIsNavigating(true);
+    setGridHours({});
     setCurrentWeekStart(newDate);
   };
 

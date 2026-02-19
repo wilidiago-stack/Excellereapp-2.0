@@ -81,16 +81,18 @@ export default function TimeSheetPage() {
   };
 
   useEffect(() => {
-    // CRITICAL: Only sync if entries are loaded and NOT in a loading transition
-    if (entries && !entriesLoading) {
+    // Reset navigation state and sync data when loading finishes
+    if (!entriesLoading) {
       const newHours: Record<string, string> = {};
-      entries.forEach(e => {
-        const dateVal = normalizeDate(e.date);
-        const dateKey = format(dateVal, 'yyyy-MM-dd');
-        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
-      });
+      if (entries) {
+        entries.forEach(e => {
+          const dateVal = normalizeDate(e.date);
+          const dateKey = format(dateVal, 'yyyy-MM-dd');
+          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+        });
+      }
       setGridHours(newHours);
-      setIsNavigating(false); // Navigation finished
+      setIsNavigating(false);
     }
   }, [entries, entriesLoading]);
 
@@ -164,12 +166,11 @@ export default function TimeSheetPage() {
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // Improved loading logic to prevent stale data display during week switches
   const loading = authLoading || projectsLoading || entriesLoading || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
-    setIsNavigating(true); // Trigger loading state immediately
-    setGridHours({}); // Proactive clearing of grid to avoid "jumps"
+    setIsNavigating(true);
+    setGridHours({});
     setCurrentWeekStart(newDate);
   };
 
@@ -354,7 +355,7 @@ export default function TimeSheetPage() {
                         <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                       </TableRow>
                     ))
-                  ) : projects?.length === 0 ? (
+                  ) : (projects || []).length === 0 ? (
                     <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
