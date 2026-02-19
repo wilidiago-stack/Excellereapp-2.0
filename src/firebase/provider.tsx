@@ -13,7 +13,6 @@ interface FirebaseProviderProps {
   auth: Auth;
 }
 
-// Internal state for user authentication including claims
 interface UserAuthState {
   user: User | null;
   claims: ParsedToken | null;
@@ -21,7 +20,6 @@ interface UserAuthState {
   userError: Error | null;
 }
 
-// Combined state for the Firebase context
 export interface FirebaseContextState {
   areServicesAvailable: boolean;
   firebaseApp: FirebaseApp | null;
@@ -34,6 +32,9 @@ export interface FirebaseContextState {
 }
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
+
+// Constant to maintain a stable reference for empty arrays
+const EMPTY_ARRAY: string[] = [];
 
 /**
  * FirebaseProvider manages and provides Firebase services and user authentication state.
@@ -57,7 +58,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    // Use onIdTokenChanged to capture custom claims (roles, permissions)
     const unsubscribe = onIdTokenChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
@@ -111,7 +111,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   );
 };
 
-/** Hook to access all Firebase state */
 export const useFirebase = () => {
   const context = useContext(FirebaseContext);
   if (context === undefined) {
@@ -120,37 +119,37 @@ export const useFirebase = () => {
   return context;
 };
 
-/** Hook to access Firebase Auth instance. */
 export const useAuthInstance = (): Auth => {
   const { auth } = useFirebase();
   if (!auth) throw new Error('Auth not initialized');
   return auth;
 };
 
-/** Hook to access Firestore instance. */
 export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   if (!firestore) throw new Error('Firestore not initialized');
   return firestore;
 };
 
-/** Hook to access Firebase App instance. */
 export const useFirebaseApp = (): FirebaseApp => {
   const { firebaseApp } = useFirebase();
   if (!firebaseApp) throw new Error('FirebaseApp not initialized');
   return firebaseApp;
 };
 
-/** Session hook providing user info and permissions */
+/** Session hook providing stable user info and permissions */
 export const useAuth = () => {
   const { user, isUserLoading, claims, userError } = useFirebase();
   
-  // Developer override
-  const isAdminEmail = user?.email?.toLowerCase() === 'andres.diago@outlook.com';
-  const role = isAdminEmail ? 'admin' : (claims?.role as string) || 'viewer';
-  const assignedModules = (claims?.assignedModules as string[]) || [];
+  const role = useMemo(() => {
+    const isAdminEmail = user?.email?.toLowerCase() === 'andres.diago@outlook.com';
+    return isAdminEmail ? 'admin' : (claims?.role as string) || 'viewer';
+  }, [user?.email, claims?.role]);
 
-  // Memoize the return object to prevent infinite loops in components that use useAuth as a dependency
+  const assignedModules = useMemo(() => {
+    return (claims?.assignedModules as string[]) || EMPTY_ARRAY;
+  }, [claims?.assignedModules]);
+
   return useMemo(() => ({
     user,
     claims,

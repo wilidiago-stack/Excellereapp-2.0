@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -46,6 +45,8 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
+const DEFAULT_SHORTCUTS = ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
+
 const ACTION_REGISTRY = [
   { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, moduleId: 'dashboard', moduleName: 'System' },
   { id: 'project-new', label: 'New Project', href: '/projects/new', icon: PlusCircle, moduleId: 'projects', moduleName: 'Projects' },
@@ -74,24 +75,28 @@ export function ShortcutSidebar() {
   const [isSaving, setIsSaving] = useState(false);
 
   const userDocRef = useMemoFirebase(
-    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    () => (firestore && user?.uid ? doc(firestore, 'users', user.uid) : null),
     [firestore, user?.uid]
   );
   
   const { data: userProfileData, isLoading: profileLoading } = useDoc(userDocRef);
 
   const pinnedIds = useMemo(() => {
-    return (userProfileData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
-  }, [userProfileData]);
+    return (userProfileData?.pinnedShortcuts as string[]) || DEFAULT_SHORTCUTS;
+  }, [userProfileData?.pinnedShortcuts]);
 
   const isAdmin = role === 'admin';
 
-  const availableActions = ACTION_REGISTRY.filter(action => {
-    if (isAdmin) return true;
-    return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map', 'time-sheet', 'master-sheet-time'].includes(action.moduleId);
-  });
+  const availableActions = useMemo(() => {
+    return ACTION_REGISTRY.filter(action => {
+      if (isAdmin) return true;
+      return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map', 'time-sheet', 'master-sheet-time'].includes(action.moduleId);
+    });
+  }, [isAdmin, assignedModules]);
 
-  const shortcuts = ACTION_REGISTRY.filter(a => pinnedIds.includes(a.id)).slice(0, 10);
+  const shortcuts = useMemo(() => {
+    return ACTION_REGISTRY.filter(a => pinnedIds.includes(a.id)).slice(0, 10);
+  }, [pinnedIds]);
 
   const handleTogglePin = async (actionId: string) => {
     if (!user || !firestore) return;
@@ -124,15 +129,17 @@ export function ShortcutSidebar() {
       });
   };
 
-  const groupedActions = availableActions.reduce((acc, action) => {
-    const group = acc.find(g => g.name === action.moduleName);
-    if (group) {
-      group.actions.push(action);
-    } else {
-      acc.push({ name: action.moduleName, actions: [action] });
-    }
-    return acc;
-  }, [] as { name: string, actions: typeof ACTION_REGISTRY }[]);
+  const groupedActions = useMemo(() => {
+    return availableActions.reduce((acc, action) => {
+      const group = acc.find(g => g.name === action.moduleName);
+      if (group) {
+        group.actions.push(action);
+      } else {
+        acc.push({ name: action.moduleName, actions: [action] });
+      }
+      return acc;
+    }, [] as { name: string, actions: typeof ACTION_REGISTRY }[]);
+  }, [availableActions]);
 
   const isLoading = authLoading || profileLoading;
 
