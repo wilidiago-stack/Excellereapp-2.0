@@ -148,15 +148,17 @@ export const useAuth = () => {
   // Developer override
   const isAdminEmail = user?.email?.toLowerCase() === 'andres.diago@outlook.com';
   const role = isAdminEmail ? 'admin' : (claims?.role as string) || 'viewer';
-  
-  return {
+  const assignedModules = (claims?.assignedModules as string[]) || [];
+
+  // Memoize the return object to prevent infinite loops in components that use useAuth as a dependency
+  return useMemo(() => ({
     user,
     claims,
     loading: isUserLoading,
     error: userError,
     role,
-    assignedModules: (claims?.assignedModules as string[]) || [],
-  };
+    assignedModules,
+  }), [user, claims, isUserLoading, userError, role, assignedModules]);
 };
 
 export const useUser = () => {

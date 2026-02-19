@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useEffect, useMemo } from 'react';
@@ -72,8 +71,8 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const isEditMode = !!initialData?.id;
 
   const projectsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'projects') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'projects') : null),
+    [firestore, user?.uid]
   );
   
   const usersCollection = useMemoFirebase(
@@ -133,7 +132,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const selectedCountry = form.watch('country');
   const selectedState = form.watch('state');
 
-  // Memoized states and cities to prevent calculation on every render
   const statesList = useMemo(() => {
     if (!selectedCountry || !LOCATION_DATA[selectedCountry]) return [];
     return Object.keys(LOCATION_DATA[selectedCountry].states).sort();
@@ -170,7 +168,6 @@ export function ProjectForm({ initialData }: ProjectFormProps) {
   const onSubmit = (data: ProjectFormValues) => {
     if (!firestore) return;
 
-    // Explicitly construct the data object ensuring ALL fields are captured
     const dataToSave = {
       name: data.name,
       companyName: data.companyName,

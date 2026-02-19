@@ -59,8 +59,8 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
   const isEditMode = !!initialData;
 
   const contractorsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'contractors') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'contractors') : null),
+    [firestore, user?.uid]
   );
   
   const projectsCollection = useMemoFirebase(

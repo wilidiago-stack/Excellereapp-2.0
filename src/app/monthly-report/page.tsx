@@ -54,15 +54,15 @@ export default function MonthlyReportPage() {
   const [searchQuery, setSearchQuery] = useState('');
 
   const projectsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'projects') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'projects') : null),
+    [firestore, user?.uid]
   );
   const { data: projects, isLoading: projectsLoading } =
     useCollection(projectsCollection);
 
   const monthlyReportsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'monthlyReports') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'monthlyReports') : null),
+    [firestore, user?.uid]
   );
   const { data: monthlyReports, isLoading: reportsLoading } =
     useCollection(monthlyReportsCollection);

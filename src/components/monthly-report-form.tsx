@@ -45,14 +45,14 @@ export function MonthlyReportForm() {
   const router = useRouter();
 
   const projectsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'projects') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'projects') : null),
+    [firestore, user?.uid]
   );
   const { data: projects } = useCollection(projectsCollection);
 
   const monthlyReportsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'monthlyReports') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'monthlyReports') : null),
+    [firestore, user?.uid]
   );
 
   const form = useForm<MonthlyReportFormValues>({

@@ -133,8 +133,8 @@ export function DailyReportForm() {
   const router = useRouter();
 
   const dailyReportsCollection = useMemoFirebase(
-    () => (firestore && user ? collection(firestore, 'dailyReports') : null),
-    [firestore, user]
+    () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
+    [firestore, user?.uid]
   );
 
   const projectsCollection = useMemoFirebase(
@@ -462,7 +462,7 @@ export function DailyReportForm() {
 
         <Separator className="opacity-50" />
 
-        {/* Section: Daily Activities (Rediseñada con Badges) */}
+        {/* Section: Daily Activities */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-[#46a395]">
@@ -757,7 +757,7 @@ export function DailyReportForm() {
                       )}
                     />
                     <Button type="button" variant="outline" size="sm" className="h-8 rounded-sm gap-2 text-[10px] uppercase font-bold">
-                      <Paperclip className="h-3 w-3" /> Upload Photo
+                      <Paperclip className="h-3.5 w-3.5" /> Upload Photo
                     </Button>
                     <Button
                       type="button"
@@ -766,7 +766,7 @@ export function DailyReportForm() {
                       className="h-8 rounded-sm text-destructive hover:bg-destructive/10 gap-2 text-[10px] uppercase font-bold mt-auto"
                       onClick={() => removeNote(index)}
                     >
-                      <Trash2 className="h-3 w-3" /> Remove Note
+                      <Trash2 className="h-3.5 w-3.5" /> Remove Note
                     </Button>
                   </div>
                 </div>
