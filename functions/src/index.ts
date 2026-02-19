@@ -21,7 +21,8 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
   const userDocRef = db.doc(`users/${uid}`);
 
   try {
-    const nameParts = displayName?.split(" ").filter((p: string) => p.length > 0) || [];
+    const nameParts = displayName?.split(" ")
+      .filter((p: string) => p.length > 0) || [];
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") :
       (email ? "(from email)" : "User");
