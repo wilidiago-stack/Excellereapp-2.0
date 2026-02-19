@@ -31,7 +31,7 @@ import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 export default function MasterSheetTimePage() {
-  const { user: currentUser, loading: authLoading } = useAuth();
+  const { user: currentUser, role, loading: authLoading } = useAuth();
   const firestore = useFirestore();
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -42,6 +42,7 @@ export default function MasterSheetTimePage() {
     return eachDayOfInterval({ start: currentWeekStart, end });
   }, [currentWeekStart]);
 
+  // IMPORTANT: For collection-wide list operations, we must be sure isAdmin is true
   const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
@@ -121,7 +122,7 @@ export default function MasterSheetTimePage() {
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
     setCurrentWeekStart(newDate);
-    setTimeout(() => setIsNavigating(false), 300);
+    setTimeout(() => setIsNavigating(false), 400);
   };
 
   return (

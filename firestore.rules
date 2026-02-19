@@ -10,8 +10,8 @@ service cloud.firestore {
 
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.role == 'admin' || 
-        request.auth.token.email == 'andres.diago@outlook.com'
+        (request.auth.token.role == 'admin') || 
+        (request.auth.token.email.lower() == 'andres.diago@outlook.com')
       );
     }
 
@@ -22,8 +22,7 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Allow reading if the user is an admin OR if the document belongs to them.
-      // Firestore rules for queries: if isAdmin() is true, collection-wide lists are allowed.
+      // Allow list and get if admin OR if it's the owner's record
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);

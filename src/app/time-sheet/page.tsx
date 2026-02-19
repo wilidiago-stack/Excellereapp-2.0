@@ -165,9 +165,9 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); 
+    setGridHours({}); // CLEAR IMMEDIATELY TO PREVENT JUMP
     setCurrentWeekStart(newDate);
-    setTimeout(() => setIsNavigating(false), 300);
+    setTimeout(() => setIsNavigating(false), 400);
   };
 
   return (
