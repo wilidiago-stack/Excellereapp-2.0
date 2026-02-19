@@ -29,15 +29,6 @@
         "*.local"
       ],
       "source": "functions"
-    },
-    {
-      "source": "y",
-      "codebase": "y",
-      "disallowLegacyRuntimeConfig": true,
-      "predeploy": [
-        "npm --prefix \"$RESOURCE_DIR\" run lint",
-        "npm --prefix \"$RESOURCE_DIR\" run build"
-      ]
     }
   ],
   "apphosting": {

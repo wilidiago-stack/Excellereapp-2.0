@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Comprehensive Admin check including explicit email and UID
+    // Comprehensive Admin check with redundant validation for session stability
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
