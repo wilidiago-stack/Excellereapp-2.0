@@ -82,7 +82,8 @@ export default function MasterSheetTimePage() {
   };
 
   useEffect(() => {
-    if (entries) {
+    // CRITICAL: Only sync if entries are loaded and NOT in a loading transition
+    if (entries && !entriesLoading) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
         const dateVal = normalizeDate(e.date);
@@ -91,7 +92,7 @@ export default function MasterSheetTimePage() {
       });
       setGridHours(newHours);
     }
-  }, [entries]);
+  }, [entries, entriesLoading]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const key = `${projectId}_${format(date, 'yyyy-MM-dd')}`;
@@ -160,7 +161,13 @@ export default function MasterSheetTimePage() {
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
+  // Improved loading logic to prevent jumpy navigation
+  const loading = authLoading || projectsLoading || entriesLoading;
+
+  const handleWeekChange = (newDate: Date) => {
+    setGridHours({}); // Proactive clearing of grid to avoid stale data
+    setCurrentWeekStart(newDate);
+  };
 
   const renderMiniCalendar = () => {
     const monthStart = startOfMonth(currentWeekStart);
@@ -212,7 +219,7 @@ export default function MasterSheetTimePage() {
           <p className="text-xs text-muted-foreground">Vista semanal de carga horaria por proyecto.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => { setCurrentWeekStart(subWeeks(currentWeekStart, 1)); setGridHours({}); }}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-sm border border-slate-200">
@@ -221,10 +228,10 @@ export default function MasterSheetTimePage() {
               {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
             </span>
           </div>
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => { setCurrentWeekStart(addWeeks(currentWeekStart, 1)); setGridHours({}); }}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(addWeeks(currentWeekStart, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => { setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 })); setGridHours({}); }}>Hoy</Button>
+          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>Hoy</Button>
         </div>
       </div>
 
