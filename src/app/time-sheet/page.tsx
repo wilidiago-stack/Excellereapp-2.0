@@ -63,23 +63,15 @@ export default function TimeSheetPage() {
     }
   };
 
-  // Condition query on user existence and role readiness to avoid permission race conditions
   const entriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid || authLoading) return null;
+    // CRITICAL: Wait for auth and role to be fully loaded before querying
+    if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    if (role === 'admin') {
-      return query(
-        baseRef,
-        where('date', '>=', start),
-        where('date', '<=', end),
-        orderBy('date', 'asc')
-      );
-    }
-
+    // Always filter by personal userId for this specific view to satisfy security rules
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -96,16 +88,13 @@ export default function TimeSheetPage() {
 
     const newHours: Record<string, string> = {};
     entries.forEach(e => {
-      // Show entries belonging to current user or all if admin
-      if (role === 'admin' || e.userId === user?.uid) {
-        const dateKey = normalizeDateKey(e.date);
-        if (dateKey) {
-          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
-        }
+      const dateKey = normalizeDateKey(e.date);
+      if (dateKey) {
+        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       }
     });
     setGridHours(newHours);
-  }, [entries, entriesLoading, user?.uid, role]);
+  }, [entries, entriesLoading]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
@@ -123,7 +112,7 @@ export default function TimeSheetPage() {
     const key = `${projectId}_${dateKey}`;
     
     const existingEntry = (entries || []).find(e => {
-      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey && e.userId === user.uid;
+      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
@@ -174,19 +163,23 @@ export default function TimeSheetPage() {
   };
 
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
-  const totalOvertime = weekDays.reduce((acc, day) => acc + Math.max(0, calculateDayTotal(day) - 8), 0);
-  const totalRegular = Math.max(0, totalWeekHours - totalOvertime);
+  
+  // LOGIC: 40 hours regular per week, rest is overtime
+  const totalRegular = Math.min(totalWeekHours, 40);
+  const totalOvertime = Math.max(0, totalWeekHours - 40);
 
   const projectDistribution = (projects || []).map(p => {
     const total = calculateProjectTotal(p.id);
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
+  // We only show full skeleton if we have NO data and we are loading
   const mainLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   const handleWeekChange = (newDate: Date) => {
-    setGridHours({}); // Clear current view to signal transition
     setCurrentWeekStart(newDate);
+    // Note: We no longer clear gridHours here to avoid full table skeleton flickering.
+    // The grid will update when the new entries arrive.
   };
 
   return (
@@ -230,7 +223,7 @@ export default function TimeSheetPage() {
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Regular (Max 40h)</span>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
                 </div>
                 <div className={cn("p-3 rounded-sm border flex items-center justify-between", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
@@ -265,7 +258,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes are saved automatically when leaving the cell.
+                  Hours are saved automatically when you leave the cell. Overtime kicks in after 40 total weekly hours.
                 </p>
               </div>
             </div>
@@ -348,14 +341,12 @@ export default function TimeSheetPage() {
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
                     {weekDays.map(day => {
                       const dailyTotal = calculateDayTotal(day);
-                      const isOT = dailyTotal > 8;
                       return (
                         <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
                           <div className="flex flex-col items-center justify-center">
-                            <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
+                            <span className="text-sm font-black text-slate-700">
                               {mainLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
                             </span>
-                            {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT</span>}
                           </div>
                         </TableCell>
                       );
