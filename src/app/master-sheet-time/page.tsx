@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -49,7 +48,6 @@ export default function MasterSheetTimePage() {
 
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
 
-  // CRITICAL: Delay query until auth is fully resolved and role is confirmed as admin
   const isReady = !authLoading && role === 'admin';
 
   const usersCollection = useMemoFirebase(() => (firestore && isReady ? collection(firestore, 'users') : null), [firestore, isReady]);
@@ -79,29 +77,24 @@ export default function MasterSheetTimePage() {
 
   const submissionMap = useMemo(() => {
     const map: Record<string, any> = {};
-    submissions?.forEach(s => {
-      map[s.userId] = s;
-    });
+    submissions?.forEach(s => { map[s.userId] = s; });
     return map;
   }, [submissions]);
 
   const processedData = useMemo(() => {
     const userHours: Record<string, Record<string, number>> = {};
     const userSet = new Set<string>();
-
     entries?.forEach(e => {
       const uId = e.userId;
       const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
       const dateKey = format(d, 'yyyy-MM-dd');
       const hours = parseFloat(e.hours.toString()) || 0;
-      
       if (hours > 0) {
         if (!userHours[uId]) userHours[uId] = {};
         userHours[uId][dateKey] = (userHours[uId][dateKey] || 0) + hours;
         userSet.add(uId);
       }
     });
-
     return { userHours, activeUserIds: Array.from(userSet) };
   }, [entries]);
 
@@ -118,34 +111,20 @@ export default function MasterSheetTimePage() {
   const handleApproveWeek = async (userId: string) => {
     if (!firestore || role !== 'admin') return;
     setApprovingId(userId);
-
     const submissionDocId = `${userId}_${weekId}`;
     const subRef = doc(firestore, 'weekly_submissions', submissionDocId);
-
-    const data = {
-      status: 'approved',
-      approvedAt: serverTimestamp(),
-      approvedBy: currentUser?.uid,
-      userId,
-      weekId
-    };
-
+    const data = { status: 'approved', approvedAt: serverTimestamp(), approvedBy: currentUser?.uid, userId, weekId };
     setDoc(subRef, data, { merge: true })
       .then(() => {
         setApprovingId(null);
-        toast({ title: "Approved", description: "The week has been approved and locked." });
+        toast({ title: "Approved", description: "The week has been approved." });
       })
       .catch(err => {
         setApprovingId(null);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: subRef.path,
-          operation: 'write',
-          requestResourceData: data
-        }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: subRef.path, operation: 'write', requestResourceData: data }));
       });
   };
 
-  // Improved loading state to prevent flicker
   const initialLoad = authLoading || (isReady && !allUsers && usersLoading);
 
   return (
@@ -184,14 +163,11 @@ export default function MasterSheetTimePage() {
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Team Hours</p>
                 <p className="text-3xl font-black text-[#46a395]">{totalTeamHours.toFixed(1)}h</p>
               </div>
-              <div className="grid grid-cols-1 gap-2">
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Active Contributors</span>
-                  <span className="text-xs font-bold">{activeUsers.length}</span>
-                </div>
+              <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
+                <span className="text-[10px] font-bold uppercase text-slate-500">Active Contributors</span>
+                <span className="text-xs font-bold">{activeUsers.length}</span>
               </div>
             </div>
-
             <div className="space-y-4 pt-4 border-t">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Approval Status</h4>
               <div className="space-y-2">
@@ -218,13 +194,13 @@ export default function MasterSheetTimePage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-4">Contributor / Team Member</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-4">Contributor</TableHead>
                     {weekDays.map((day, i) => (
                       <TableHead key={`head-${i}`} className="text-[10px] font-black uppercase text-center border-r min-w-[80px]">
                         <div className="flex flex-col"><span>{format(day, 'EEE')}</span><span className="text-slate-400">{format(day, 'dd')}</span></div>
                       </TableHead>
                     ))}
-                    <TableHead className="text-[10px] font-black uppercase text-center w-24 border-r">Week Total</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase text-center w-24 border-r">Total</TableHead>
                     <TableHead className="text-[10px] font-black uppercase text-center w-32 bg-slate-100/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -239,14 +215,13 @@ export default function MasterSheetTimePage() {
                       </TableRow>
                     ))
                   ) : activeUsers.length === 0 ? (
-                    <TableRow><TableCell colSpan={weekDays.length + 3} className="h-48 text-center text-xs text-slate-400 italic">No activity registered for any user this week.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 3} className="h-48 text-center text-xs text-slate-400 italic">No activity registered.</TableCell></TableRow>
                   ) : (
                     activeUsers.map(u => {
                       const userSubmission = submissionMap[u.id];
                       const status = userSubmission?.status || 'draft';
                       const userTotal = weekDays.reduce((acc, day) => acc + (processedData.userHours[u.id]?.[format(day, 'yyyy-MM-dd')] || 0), 0);
                       const isApproving = approvingId === u.id;
-
                       return (
                         <TableRow key={u.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
                           <TableCell className="py-3 px-4 border-r">
@@ -264,10 +239,9 @@ export default function MasterSheetTimePage() {
                             </div>
                           </TableCell>
                           {weekDays.map((day, i) => {
-                            const dateKey = format(day, 'yyyy-MM-dd');
-                            const hours = processedData.userHours[u.id]?.[dateKey] || 0;
+                            const hours = processedData.userHours[u.id]?.[format(day, 'yyyy-MM-dd')] || 0;
                             return (
-                              <TableCell key={`${u.id}-${dateKey}`} className={cn("text-center text-xs font-bold border-r", hours > 0 ? "text-slate-600" : "text-slate-200")}>
+                              <TableCell key={`${u.id}-${i}`} className={cn("text-center text-xs font-bold border-r", hours > 0 ? "text-slate-600" : "text-slate-200")}>
                                 {hours > 0 ? hours.toFixed(1) : '-'}
                               </TableCell>
                             );
@@ -275,22 +249,13 @@ export default function MasterSheetTimePage() {
                           <TableCell className="text-center font-black text-xs text-slate-700 border-r">{userTotal.toFixed(1)}h</TableCell>
                           <TableCell className="py-2.5 px-2 bg-slate-50/20">
                             {status === 'submitted' ? (
-                              <Button 
-                                size="sm" 
-                                className="w-full h-8 text-[9px] font-bold uppercase tracking-wider bg-orange-500 hover:bg-orange-600 shadow-sm"
-                                onClick={() => handleApproveWeek(u.id)}
-                                disabled={isApproving}
-                              >
-                                {isApproving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Approve Week"}
+                              <Button size="sm" className="w-full h-8 text-[9px] font-bold uppercase tracking-wider bg-orange-500" onClick={() => handleApproveWeek(u.id)} disabled={isApproving}>
+                                {isApproving ? <Loader2 className="h-3 w-3 animate-spin" /> : "Approve"}
                               </Button>
                             ) : status === 'approved' ? (
-                              <Badge className="w-full justify-center h-8 text-[9px] font-bold uppercase rounded-sm bg-green-100 text-green-700 border-green-200">
-                                Approved
-                              </Badge>
+                              <Badge className="w-full justify-center h-8 text-[9px] font-bold uppercase rounded-sm bg-green-100 text-green-700">Approved</Badge>
                             ) : (
-                              <Badge variant="outline" className="w-full justify-center h-8 text-[9px] font-bold uppercase rounded-sm text-slate-400 border-slate-200 bg-white">
-                                Draft
-                              </Badge>
+                              <Badge variant="outline" className="w-full justify-center h-8 text-[9px] font-bold uppercase rounded-sm text-slate-400">Draft</Badge>
                             )}
                           </TableCell>
                         </TableRow>

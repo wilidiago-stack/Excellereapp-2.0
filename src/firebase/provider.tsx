@@ -33,12 +33,8 @@ export interface FirebaseContextState {
 
 export const FirebaseContext = createContext<FirebaseContextState | undefined>(undefined);
 
-// Constant to maintain a stable reference for empty arrays
 const EMPTY_ARRAY: string[] = [];
 
-/**
- * FirebaseProvider manages and provides Firebase services and user authentication state.
- */
 export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   children,
   firebaseApp,
@@ -137,7 +133,6 @@ export const useFirebaseApp = (): FirebaseApp => {
   return firebaseApp;
 };
 
-/** Session hook providing stable user info and permissions */
 export const useAuth = () => {
   const { user, isUserLoading, claims, userError } = useFirebase();
   

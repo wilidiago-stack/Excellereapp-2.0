@@ -1,8 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {
-  onAuthUserCreated,
-  onAuthUserDeleted,
-} from "firebase-functions/v2/identity";
+import {onAuthUserCreated, onAuthUserDeleted} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -16,42 +13,33 @@ setGlobalOptions({maxInstances: 10});
  * Initial setup for new users.
  */
 export const setupInitialUserRole = onAuthUserCreated(async (event) => {
-  if (!event.data) {
-    logger.error("No user data in event");
-    return;
-  }
-
+  if (!event.data) return;
   const {uid, email, displayName} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
   try {
-    const nameParts = displayName?.split(" ") || [];
-    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.slice(1).join(" ") || "User";
+    const parts = displayName?.split(" ") || [];
+    const firstName = parts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = parts.slice(1).join(" ") || "User";
 
     await db.runTransaction(async (transaction) => {
-      const metadataDoc = await transaction.get(metadataRef);
-      const userCount = metadataDoc.exists ?
-        metadataDoc.data()?.userCount || 0 : 0;
+      const snap = await transaction.get(metadataRef);
+      const count = snap.exists ? snap.data()?.userCount || 0 : 0;
+      const role = count === 0 ? "admin" : "viewer";
 
-      const assignedRole = userCount === 0 ? "admin" : "viewer";
-
-      const userData = {
+      transaction.set(userDocRef, {
         firstName,
         lastName,
         email: email || "",
-        role: assignedRole,
+        role,
         status: "active",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      };
+      }, {merge: true});
 
-      transaction.set(userDocRef, userData, {merge: true});
-      transaction.set(metadataRef, {userCount: userCount + 1}, {merge: true});
-
-      await admin.auth().setCustomUserClaims(uid, {role: assignedRole});
+      transaction.set(metadataRef, {userCount: count + 1}, {merge: true});
+      await admin.auth().setCustomUserClaims(uid, {role});
     });
-
     logger.info(`[setupInitialUserRole] User ${uid} set up successfully.`);
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
@@ -61,24 +49,18 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
 /**
  * Sync role to Auth claims on Firestore update.
  */
-export const onUserRoleChange = onDocumentUpdated(
-  "users/{userId}",
+export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
-    const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!after?.role || before?.role === after.role) return;
 
-    if (beforeData?.role === afterData?.role) return;
-
-    const userId = event.params.userId;
-    const newRole = afterData?.role;
-
-    if (!newRole) return;
-
+    const uid = event.params.userId;
     try {
-      await admin.auth().setCustomUserClaims(userId, {role: newRole});
-      logger.info(`[onUserRoleChange] Role synced for ${userId}: ${newRole}`);
+      await admin.auth().setCustomUserClaims(uid, {role: after.role});
+      logger.info(`[onUserRoleChange] Role synced for ${uid}: ${after.role}`);
     } catch (error) {
-      logger.error(`[onUserRoleChange] Sync failed for ${userId}:`, error);
+      logger.error(`[onUserRoleChange] Sync failed for ${uid}:`, error);
     }
   });
 

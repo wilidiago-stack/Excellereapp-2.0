@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -36,7 +35,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
-  const { user, loading: authLoading, role } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -53,7 +52,6 @@ export default function TimeSheetPage() {
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
   const submissionId = useMemo(() => (user ? `${user.uid}_${weekId}` : null), [user, weekId]);
 
-  // CRITICAL: Delay queries until auth is fully resolved to prevent permission errors
   const isReady = !authLoading && !!user;
 
   const projectsCollection = useMemoFirebase(() => (firestore && isReady ? collection(firestore, 'projects') : null), [firestore, isReady]);
@@ -81,10 +79,8 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid || !isReady) return null;
-    
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-    
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
@@ -98,7 +94,6 @@ export default function TimeSheetPage() {
 
   useEffect(() => {
     if (entriesLoading || !entries) return;
-
     const newHours: Record<string, string> = {};
     entries.forEach(e => {
       const dateKey = normalizeDateKey(e.date);
@@ -118,25 +113,16 @@ export default function TimeSheetPage() {
 
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid || isLocked) return;
-    
     const hours = value === '' || value === '0' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
-
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
-    
-    const existingEntry = (entries || []).find(e => {
-      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
-    });
-
+    const existingEntry = (entries || []).find(e => e.projectId === projectId && normalizeDateKey(e.date) === dateKey);
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
     if (!existingEntry && hours === 0) return;
-
     setIsSaving(key);
-    
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
-
     const data = {
       userId: user.uid,
       projectId,
@@ -146,26 +132,20 @@ export default function TimeSheetPage() {
       updatedAt: serverTimestamp(),
       status: weekStatus
     };
-
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Saved", description: `${hours}h registered successfully.`, duration: 1500 });
+        toast({ title: "Saved", description: `${hours}h registered.`, duration: 1500 });
       })
       .catch((err) => {
         setIsSaving(null);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
-          path: entryRef.path, 
-          operation: 'write', 
-          requestResourceData: data 
-        }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: entryRef.path, operation: 'write', requestResourceData: data }));
       });
   };
 
   const handleSubmitWeek = async () => {
     if (!firestore || !submissionRef || isLocked) return;
     setIsSubmitting(true);
-
     const data = {
       userId: user?.uid,
       weekId,
@@ -173,7 +153,6 @@ export default function TimeSheetPage() {
       submittedAt: serverTimestamp(),
       weekStart: startOfDay(currentWeekStart)
     };
-
     setDoc(submissionRef, data, { merge: true })
       .then(() => {
         setIsSubmitting(false);
@@ -181,11 +160,7 @@ export default function TimeSheetPage() {
       })
       .catch(err => {
         setIsSubmitting(false);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: submissionRef.path,
-          operation: 'write',
-          requestResourceData: data
-        }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: submissionRef.path, operation: 'write', requestResourceData: data }));
       });
   };
 
@@ -208,7 +183,6 @@ export default function TimeSheetPage() {
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
 
-  // Simplified loading to prevent flicker
   const initialLoading = authLoading || (isReady && !projects && projectsLoading);
 
   return (
@@ -290,12 +264,11 @@ export default function TimeSheetPage() {
                 </div>
               </div>
             </div>
-
             <div className="mt-auto pt-4">
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  {isLocked ? "Editing is disabled because this week has been submitted." : "Changes are saved automatically as you type."}
+                  {isLocked ? "Editing is disabled." : "Changes saved automatically."}
                 </p>
               </div>
             </div>
@@ -325,11 +298,7 @@ export default function TimeSheetPage() {
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
-                        {weekDays.map((d, j) => (
-                          <TableCell key={`load-cell-${i}-${j}`} className="border-r p-2">
-                            <Skeleton className="h-10 w-full rounded-sm" />
-                          </TableCell>
-                        ))}
+                        {weekDays.map((d, j) => <TableCell key={`load-cell-${i}-${j}`} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
                         <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
                       </TableRow>
                     ))
