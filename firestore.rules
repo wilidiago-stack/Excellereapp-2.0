@@ -19,26 +19,19 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    function isAssigned(uid, assignedList) {
-      return uid != null && assignedList != null && uid in assignedList;
-    }
-
     // --- COLLECTION RULES ---
 
-    /**
-     * @description Rules for time_entries.
-     * Allow owners to manage their own data.
-     * Allow admins to see everything for reporting.
-     */
     match /time_entries/{entryId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      // Allow reading if the user is an admin OR if the document belongs to them.
+      // Firestore rules for queries: if isAdmin() is true, collection-wide lists are allowed.
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
     match /projects/{projectId} {
       allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || (isSignedIn() && isAssigned(request.auth.uid, resource.data.assignedUserIds));
+      allow write: if isAdmin();
     }
 
     match /users/{userId} {
@@ -65,10 +58,10 @@ service cloud.firestore {
 
     match /system/metadata {
       allow read: if isSignedIn();
-      allow write: if isAdmin(); // Only via Cloud Functions or Admin
+      allow write: if isAdmin();
     }
 
-    // --- DEFAULT DENY ---
+    // --- DEFAULT DENY / ADMIN OVERRIDE ---
     match /{document=**} {
       allow read, write: if isAdmin();
     }

@@ -71,13 +71,13 @@ export default function TimeSheetPage() {
     if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
     else if (dateVal instanceof Date) d = dateVal;
     else d = new Date(dateVal);
-    
-    // Consistent normalization to local YYYY-MM-DD
     return format(startOfDay(d), 'yyyy-MM-dd');
   };
 
   useEffect(() => {
-    if (!entriesLoading && !isNavigating) {
+    if (isNavigating) return;
+
+    if (!entriesLoading) {
       const newHours: Record<string, string> = {};
       if (entries) {
         entries.forEach(e => {
@@ -114,7 +114,6 @@ export default function TimeSheetPage() {
     if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
-    // Use a deterministic ID to avoid duplicates
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -162,14 +161,13 @@ export default function TimeSheetPage() {
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  const loading = authLoading || projectsLoading || entriesLoading || isNavigating;
+  const loading = authLoading || projectsLoading || (entriesLoading && !isNavigating) || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Clean state immediately to show skeletons
+    setGridHours({}); 
     setCurrentWeekStart(newDate);
-    // Transitory state to allow the new Firestore query to trigger its own loading state
-    setTimeout(() => setIsNavigating(false), 50);
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
@@ -234,7 +232,7 @@ export default function TimeSheetPage() {
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold uppercase">
                         <span className="text-slate-500 truncate pr-2">{pd.name}</span>
-                        <span className="text-slate-700">{pd.total.toFixed(1)}h</span>
+                        <span className="text-slate-700 font-black">{pd.total.toFixed(1)}h</span>
                       </div>
                       <Progress value={pd.percentage} className="h-1 rounded-full bg-slate-100" />
                     </div>
@@ -249,7 +247,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes are saved automatically when leaving the cell.
+                  Los cambios se guardan automáticamente al perder el foco de la celda.
                 </p>
               </div>
             </div>
@@ -262,7 +260,7 @@ export default function TimeSheetPage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project / Reference</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Proyecto / Referencia</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
@@ -325,7 +323,7 @@ export default function TimeSheetPage() {
                 </TableBody>
                 <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
                   <TableRow className="h-14">
-                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
+                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Totales Diarios</TableCell>
                     {weekDays.map(day => {
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;

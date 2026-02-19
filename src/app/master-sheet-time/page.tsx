@@ -116,13 +116,12 @@ export default function MasterSheetTimePage() {
     return { name: `${u.firstName} ${u.lastName}`, total, percentage: totalTeamHours > 0 ? (total / totalTeamHours) * 100 : 0 };
   }).sort((a, b) => b.total - a.total);
 
-  const loading = authLoading || usersLoading || entriesLoading || isNavigating;
+  const loading = authLoading || usersLoading || (entriesLoading && !isNavigating) || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
     setCurrentWeekStart(newDate);
-    // Transitory state to show skeletons while query resets
-    setTimeout(() => setIsNavigating(false), 50);
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
@@ -183,7 +182,7 @@ export default function MasterSheetTimePage() {
                     <div key={i} className="space-y-1">
                       <div className="flex items-center justify-between text-[9px] font-bold">
                         <span className="text-slate-500 truncate pr-2">{ts.name}</span>
-                        <span className="text-slate-700">{ts.total.toFixed(1)}h</span>
+                        <span className="text-slate-700 font-black">{ts.total.toFixed(1)}h</span>
                       </div>
                       <Progress value={ts.percentage} className="h-1 rounded-full" />
                     </div>
