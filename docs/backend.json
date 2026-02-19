@@ -1,108 +1,238 @@
-
 {
   "entities": {
-    "UserProfile": {
+    "TimeSheetEntry": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserProfile",
+      "title": "TimeSheetEntry",
       "type": "object",
-      "description": "Represents a user within the application, storing their profile information and assigned roles.",
+      "description": "Represents a single entry of time logged by a user for a specific date and task. This entity allows users to track, view, modify, and delete their logged work hours.",
       "properties": {
-        "id": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "firstName": { "type": "string" },
-        "lastName": { "type": "string" },
-        "role": { "type": "string", "enum": ["admin", "project_manager", "viewer"] },
-        "status": { "type": "string", "enum": ["pending", "active", "invited", "rejected"] },
-        "assignedModules": { "type": "array", "items": { "type": "string" } },
-        "pinnedShortcuts": { "type": "array", "items": { "type": "string" }, "description": "Pinned shortcut IDs for the sidebar." }
-      },
-      "required": ["id", "email", "firstName", "lastName", "role"]
-    },
-    "Role": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Role",
-      "type": "object",
-      "description": "Defines a security role and its granular permissions.",
-      "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "permissions": {
-          "type": "object",
-          "properties": {
-            "create": { "type": "boolean" },
-            "read": { "type": "boolean" },
-            "update": { "type": "boolean" },
-            "delete": { "type": "boolean" }
-          }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the TimeSheetEntry entity."
+        },
+        "userId": {
+          "type": "string",
+          "description": "Reference to the User who logged this time entry. This links the time entry to a specific user's activity. (Relationship: User 1:N TimeSheetEntry)"
+        },
+        "entryDate": {
+          "type": "string",
+          "description": "The specific date for which the time was logged.",
+          "format": "date"
+        },
+        "hoursWorked": {
+          "type": "number",
+          "description": "The total number of hours worked for this specific entry. Can include decimal values for partial hours."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed description of the work performed during this time entry, providing context for the logged hours."
+        },
+        "taskId": {
+          "type": "string",
+          "description": "Reference to the Task this time entry is associated with. This specifies the particular piece of work the time was spent on. (Relationship: Task 1:N TimeSheetEntry)"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current status of the time sheet entry (e.g., 'Draft', 'Submitted', 'Approved', 'Rejected'). This helps in tracking the lifecycle of a time entry."
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this time sheet entry was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this time sheet entry was last updated.",
+          "format": "date-time"
         }
       },
-      "required": ["id", "name"]
+      "required": [
+        "id",
+        "userId",
+        "entryDate",
+        "hoursWorked",
+        "description",
+        "taskId",
+        "status"
+      ]
     },
     "Project": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Project",
       "type": "object",
-      "description": "Represents a construction project with comprehensive location and management details.",
+      "description": "Represents a project within the Excellere Revive application, serving as a container for tasks and against which time can be logged. Projects help organize work and track progress.",
       "properties": {
-        "id": { "type": "string" },
-        "name": { "type": "string" },
-        "companyName": { "type": "string" },
-        "status": { "type": "string", "enum": ["Not Started", "In Progress", "Completed", "On Hold"] },
-        "country": { "type": "string" },
-        "state": { "type": "string" },
-        "city": { "type": "string" },
-        "startDate": { "type": "object", "description": "Firestore Timestamp object" },
-        "deliveryDate": { "type": "object", "description": "Firestore Timestamp object" },
-        "address": { "type": "string" },
-        "phone": { "type": "string" },
-        "cell": { "type": "string" },
-        "projectManagerId": { "type": "string" },
-        "generalContractorId": { "type": "string" },
-        "workAreas": { "type": "array", "items": { "type": "string" } },
-        "workPermits": { "type": "array", "items": { "type": "string" } }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Project entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The official name of the project."
+        },
+        "description": {
+          "type": "string",
+          "description": "A brief, descriptive overview of the project's purpose and scope."
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The official start date of the project.",
+          "format": "date"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The anticipated or actual end date of the project. This field may be null if the project is ongoing.",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current operational status of the project (e.g., 'Active', 'Completed', 'On Hold', 'Archived')."
+        },
+        "assignedUserIds": {
+          "type": "array",
+          "description": "References to the Users officially assigned to work on this project. (Relationship: User N:N Project)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this project was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this project was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["name", "companyName", "country", "state", "city", "startDate", "status"]
+      "required": [
+        "id",
+        "name",
+        "description",
+        "startDate",
+        "status"
+      ]
     },
-    "TimeEntry": {
+    "Task": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "TimeEntry",
+      "title": "Task",
       "type": "object",
-      "description": "Records the daily hours worked by a user on a specific project.",
+      "description": "Represents a specific, actionable item or piece of work that is part of a larger project. Time can be logged against these individual tasks.",
       "properties": {
-        "id": { "type": "string" },
-        "userId": { "type": "string" },
-        "projectId": { "type": "string" },
-        "date": { "type": "object", "description": "Firestore Timestamp" },
-        "hours": { "type": "number" },
-        "description": { "type": "string" },
-        "createdAt": { "type": "object", "description": "Server Timestamp" }
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Task entity."
+        },
+        "projectId": {
+          "type": "string",
+          "description": "Reference to the Project this task belongs to, establishing its organizational context. (Relationship: Project 1:N Task)"
+        },
+        "name": {
+          "type": "string",
+          "description": "The concise name or title of the task."
+        },
+        "description": {
+          "type": "string",
+          "description": "A detailed explanation of what the task involves and its objectives."
+        },
+        "dueDate": {
+          "type": "string",
+          "description": "The target date by which the task is expected to be completed. This field may be null if no specific due date is set.",
+          "format": "date"
+        },
+        "status": {
+          "type": "string",
+          "description": "The current progress status of the task (e.g., 'Not Started', 'In Progress', 'Completed', 'Blocked')."
+        },
+        "assignedUserIds": {
+          "type": "array",
+          "description": "References to the Users responsible for completing this specific task. (Relationship: User N:N Task)",
+          "items": {
+            "type": "string"
+          }
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this task was first created.",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "Timestamp indicating when this task was last updated.",
+          "format": "date-time"
+        }
       },
-      "required": ["userId", "projectId", "date", "hours"]
+      "required": [
+        "id",
+        "projectId",
+        "name",
+        "description",
+        "status"
+      ]
     }
   },
   "auth": {
-    "providers": ["password", "google.com", "microsoft.com"]
+    "providers": [
+      "password",
+      "anonymous"
+    ]
   },
   "firestore": {
-    "/users/{userId}": {
-      "schema": { "$ref": "#/backend/entities/UserProfile" },
-      "description": "User profiles with role-based access control."
-    },
-    "/roles/{roleId}": {
-      "schema": { "$ref": "#/backend/entities/Role" },
-      "description": "Dynamic role definitions managed by administrators."
-    },
-    "/projects/{projectId}": {
-      "schema": { "$ref": "#/backend/entities/Project" },
-      "description": "Construction projects managed by the system."
-    },
-    "/time_entries/{entryId}": {
-      "schema": { "$ref": "#/backend/entities/TimeEntry" },
-      "description": "Daily time logs for users."
-    },
-    "/system_roles_admin/{adminUid}": {
-      "schema": { "type": "object" },
-      "description": "Security marker for high-performance admin checks."
-    }
+    "structure": [
+      {
+        "path": "/users/{userId}/timeSheetEntries/{timeSheetEntryId}",
+        "definition": {
+          "entityName": "TimeSheetEntry",
+          "schema": {
+            "$ref": "#/backend/entities/TimeSheetEntry"
+          },
+          "description": "User-specific collection for individual time entries. Access is strictly controlled by the 'userId' in the path, ensuring only the authenticated user can manage their own entries. This design adheres to path-based ownership for private data and supports secure listing of personal time entries. The 'userId', 'taskId', and 'projectId' fields within the document link the entry to its owner and associated work context.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier of the user who owns this time sheet entry. Corresponds to `request.auth.uid` for authorization."
+            },
+            {
+              "name": "timeSheetEntryId",
+              "description": "The unique identifier for a specific time sheet entry document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/projects/{projectId}",
+        "definition": {
+          "entityName": "Project",
+          "schema": {
+            "$ref": "#/backend/entities/Project"
+          },
+          "description": "Top-level collection for projects. Each project document includes an 'assignedUserIds' array (or a 'members' map if roles were more complex) to define which users have access. This field serves as the denormalized authorization context, enabling secure 'list' operations and eliminating hierarchical rule dependencies. It allows project members to view and potentially manage project details.",
+          "params": [
+            {
+              "name": "projectId",
+              "description": "The unique identifier for a specific project document."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/tasks/{taskId}",
+        "definition": {
+          "entityName": "Task",
+          "schema": {
+            "$ref": "#/backend/entities/Task"
+          },
+          "description": "Top-level collection for tasks. Each task document includes its own 'assignedUserIds' (for direct task assignment) and a denormalized 'projectAssignedUserIds' array (copied from its parent project's 'assignedUserIds'). This ensures complete authorization independence, allowing task access based on either direct assignment or project membership without requiring 'get()' calls to the parent project. This enables secure and efficient listing of tasks for assigned users or project members.",
+          "params": [
+            {
+              "name": "taskId",
+              "description": "The unique identifier for a specific task document."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The recommended Firestore structure prioritizes Authorization Independence, Structural Segregation, and clear Access Modeling to ensure security, scalability, and debuggability. \n\n**Authorization Independence:**\n*   **TimeSheetEntry:** Each `TimeSheetEntry` is placed in a subcollection under the specific user's document (`/users/{userId}/timeSheetEntries/{timeSheetEntryId}`). This establishes path-based ownership, meaning authorization rules can directly check `request.auth.uid == userId` without needing any `get()` operations. This makes atomic creation, update, and deletion of individual time entries straightforward and highly secure for the owner.\n*   **Project:** `Project` documents are stored in a top-level collection (`/projects/{projectId}`). Crucially, each `Project` document includes an `assignedUserIds` array. This field acts as the denormalized authorization context, containing all UIDs of users who have access to that project. This eliminates the need for `get()` operations in rules to determine project access.\n*   **Task:** `Task` documents are also stored in a top-level collection (`/tasks/{taskId}`). For complete authorization independence, each `Task` document denormalizes not only its own `assignedUserIds` but also the `projectAssignedUserIds` (copied from its parent `Project`'s `assignedUserIds` field). This ensures that access to a task can be determined solely from the `Task` document itself, either by direct task assignment or by project membership, again avoiding any `get()` calls to the parent `Project` document.\n\n**QAPs (Secure List Operations):**\n*   **TimeSheetEntry:** By placing `TimeSheetEntry` under `/users/{userId}/timeSheetEntries`, a user can securely list *only their own* time entries using a query like `db.collection('users').doc(request.auth.uid).collection('timeSheetEntries').get()`. This directly supports the user's explicit requirement to view their logged information.\n*   **Project:** Users can securely list all projects they are assigned to by querying `db.collection('projects').where('assignedUserIds', 'array-contains', request.auth.uid)`. The `assignedUserIds` field allows for efficient and secure query filtering.\n*   **Task:** Similarly, users can list tasks they are assigned to, or tasks within projects they are assigned to, using queries like `db.collection('tasks').where('assignedUserIds', 'array-contains', request.auth.uid)` or `db.collection('tasks').where('projectAssignedUserIds', 'array-contains', request.auth.uid)`. The denormalized `projectAssignedUserIds` field is key here for supporting project-wide task visibility via QAPs.\n\n**Structural Segregation & Access Modeling:**\n*   The structure maintains clear separation based on data ownership and access patterns. User-owned data (`TimeSheetEntry`) is isolated under the user's path, while collaborative data (`Project`, `Task`) is managed in top-level collections with explicit membership maps/arrays. This ensures that each collection has a uniform security posture, simplifying rule definitions. The use of descriptive wildcards (`userId`, `projectId`, `taskId`, `timeSheetEntryId`) enhances clarity and debuggability. The `status` fields in entities like `TimeSheetEntry`, `Project`, and `Task` provide explicit state modeling, further improving data predictability and maintainability."
   }
 }

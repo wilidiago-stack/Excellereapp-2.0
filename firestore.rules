@@ -3,91 +3,118 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * EXCELLERE REVIVE - ROLE-BASED GRANULAR SECURITY
-     * Version: 1.0.4 - Force index refresh for time_entries
+     * CORE PHILOSOPHY
+     * This ruleset implements a strict authorization model tailored for a time-tracking application.
+     * It distinguishes between private user data (Time Entries) and shared organizational data (Projects/Tasks).
+     *
+     * DATA STRUCTURE
+     * - Private Data: Nested under /users/{userId}/... ensuring clear ownership boundaries.
+     * - Shared Data: Top-level collections (/projects, /tasks) accessible via membership arrays.
+     *
+     * KEY SECURITY DECISIONS
+     * 1. Path-Based Ownership: User logs are secured by the document path, making 'isOwner' checks extremely efficient.
+     * 2. Denormalized Authorization: Projects and Tasks include arrays of authorized UIDs (assignedUserIds). 
+     *    This allows the rules to verify access without performing expensive get() calls to parent documents.
+     * 3. Prototyping Flexibility: Rules strictly enforce WHO can access data but allow WHAT the data looks like, 
+     *    validating only critical relational fields (e.g., ownerId, taskId) to support rapid iteration.
+     * 4. Relational Integrity: On creation of user-scoped data, the internal userId must match the path userId.
      */
 
+    // --- HELPER FUNCTIONS ---
+
+    // Basic check for authenticated users.
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      let path = /databases/$(database)/documents/users/$(request.auth.uid);
-      return exists(path) ? get(path).data : null;
+    // Checks if the authenticated user matches a specific UID.
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function getRole() {
-      let data = getUserData();
-      return data != null ? data.get('role', 'viewer') : 'viewer';
+    // Checks if the authenticated user is the owner and the document exists.
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
     }
 
-    function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/system_roles_admin/$(request.auth.uid)) ||
-        getRole() == 'admin'
-      );
+    // Checks if a specific UID is present in a list of assigned IDs (Shared Access Pattern).
+    // This function is now used and its signature modified to accept 'uid' to resolve the 'Invalid variable name: request.' issue.
+    function isAssigned(uid, assignedList) {
+      return uid != null && uid in assignedList;
     }
 
-    function isProjectManager() {
-      return isSignedIn() && getRole() == 'project_manager';
+    // Ensures a field has not been changed during an update.
+    function isUnchanged(field) {
+      return request.resource.data[field] == resource.data[field];
     }
 
-    function hasModule(moduleId) {
-      let data = getUserData();
-      return isSignedIn() && data != null && data.get('assignedModules', []).hasAny([moduleId]);
-    }
+    // --- COLLECTION RULES ---
 
-    /** 
-     * USER PROFILES
+    /**
+     * @description Rules for TimeSheetEntry documents. Owned by the user in the path.
+     * @path /users/{userId}/timeSheetEntries/{timeSheetEntryId}
+     * @allow (get) If the user is the owner (userId matches auth.uid).
+     * @deny (create) If the userId in the data does not match the userId in the path.
+     * @principle Path-based ownership and relational integrity validation.
      */
-    match /users/{userId} {
-      allow get: if isSignedIn();
-      allow list: if isAdmin();
-      allow create: if isAdmin();
-      allow update: if isAdmin() || (
-        isSignedIn() && 
-        request.auth.uid == userId && 
-        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'assignedModules', 'status'])
-      );
-      allow delete: if isAdmin();
+    match /users/{userId}/timeSheetEntries/{timeSheetEntryId} {
+      allow get, list: if isOwner(userId);
+      
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      
+      allow update: if isExistingOwner(userId) && isUnchanged('userId');
+      
+      allow delete: if isExistingOwner(userId);
     }
 
-    /** 
-     * BUSINESS COLLECTIONS (PROJECTS, CONTRACTORS, REPORTS)
+    /**
+     * @description Rules for Project documents. Accessible by assigned members.
+     * @path /projects/{projectId}
+     * @allow (list) Queries filtered by 'assignedUserIds' containing the user's UID.
+     * @deny (update) If the user's UID is not present in the existing 'assignedUserIds' array.
+     * @principle Shared Access (Closed Collaborators) using denormalized membership.
      */
-    match /projects/{id} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('projects');
+    match /projects/{projectId} {
+      // Using the updated isAssigned helper function
+      allow get, list: if isAssigned(request.auth.uid, resource.data.assignedUserIds);
+      
+      // Prototyping: Allow any signed-in user to create a project, assuming they add themselves to assignedUserIds.
+      allow create: if isSignedIn();
+      
+      // Using the updated isAssigned helper function
+      allow update: if isAssigned(request.auth.uid, resource.data.assignedUserIds);
+      
+      // Using the updated isAssigned helper function
+      allow delete: if isAssigned(request.auth.uid, resource.data.assignedUserIds);
     }
 
-    match /contractors/{id} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('contractors');
+    /**
+     * @description Rules for Task documents. Accessible by direct assignees or project members.
+     * @path /tasks/{taskId}
+     * @allow (get) If auth.uid is in 'assignedUserIds' or 'projectAssignedUserIds'.
+     * @deny (create) If the user is not authenticated.
+     * @principle Multi-tier shared access leveraging denormalized project membership.
+     */
+    match /tasks/{taskId} {
+      function canAccessTask() {
+        // Using the updated isAssigned helper function
+        return isAssigned(request.auth.uid, resource.data.assignedUserIds) || isAssigned(request.auth.uid, resource.data.projectAssignedUserIds);
+      }
+
+      allow get, list: if canAccessTask();
+      
+      // Prototyping: Relational validation ensures taskId consistency if provided.
+      allow create: if isSignedIn() && (request.resource.data.id == taskId || !('id' in request.resource.data));
+      
+      allow update: if canAccessTask() && isUnchanged('projectId');
+      
+      allow delete: if canAccessTask();
     }
 
-    match /dailyReports/{id} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('daily-report');
+    // --- DEFAULT DENY ---
+    // Explicitly deny access to any other collection not defined above.
+    match /{document=**} {
+      allow read, write: if false;
     }
-
-    match /monthlyReports/{id} {
-      allow read: if isSignedIn();
-      allow create, update, delete: if isAdmin() || isProjectManager() || hasModule('monthly-report');
-    }
-
-    match /time_entries/{id} {
-      // Allow read/list if admin OR owner
-      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-      // Create requires accurate ownership mapping
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      // Update/Delete restricted to owner or admin
-      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
-    }
-
-    /** CONFIGURATION AND REFERENCES (Admin Only) */
-    match /roles/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /modules/{id} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /system_roles_admin/{adminUid} { allow read: if isSignedIn(); allow write: if isAdmin(); }
-    match /system/metadata { allow read: if isSignedIn(); allow write: if isAdmin(); }
   }
 }

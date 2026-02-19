@@ -1,84 +1,43 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, FirebaseApp, getApp } from 'firebase/app';
-import { getAuth, Auth } from 'firebase/auth';
-import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from 'firebase/app-check';
-import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
+import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { getAuth } from 'firebase/auth';
+import { getFirestore } from 'firebase/firestore'
 
-// Global singletons to ensure one-time initialization on the client
-let firebaseApp: FirebaseApp | null = null;
-let auth: Auth | null = null;
-let firestore: Firestore | null = null;
-let appCheck: AppCheck | null = null;
-
-/**
- * Initializes Firebase robustly using a singleton pattern.
- * This prevents "internal assertion failed" errors during hot-reloads.
- */
+// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
-  // SSR Guard
-  if (typeof window === 'undefined') {
-    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
-    return {
-      firebaseApp: app,
-      auth: getAuth(app),
-      firestore: getFirestore(app)
-    };
-  }
-
-  // Client-side singleton initialization
-  if (!firebaseApp) {
+  if (!getApps().length) {
+    // Important! initializeApp() is called without any arguments because Firebase App Hosting
+    // integrates with the initializeApp() function to provide the environment variables needed to
+    // populate the FirebaseOptions in production. It is critical that we attempt to call initializeApp()
+    // without arguments.
+    let firebaseApp;
     try {
-      firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+      // Attempt to initialize via Firebase App Hosting environment variables
+      firebaseApp = initializeApp();
     } catch (e) {
-      firebaseApp = getApp();
-    }
-  }
-
-  if (!firestore) {
-    try {
-      /**
-       * CRITICAL: Use long polling for stability in workstation/proxy environments.
-       * This must be called via initializeFirestore, and only ONCE per app instance.
-       * Assertion failures (Unexpected state ID: ca9) are often solved by forcing Long Polling.
-       */
-      firestore = initializeFirestore(firebaseApp, {
-        experimentalForceLongPolling: true,
-      });
-      console.log('[Firebase] Firestore initialized with experimentalForceLongPolling.');
-    } catch (e) {
-      // If already initialized, get the existing instance
-      firestore = getFirestore(firebaseApp);
-    }
-  }
-
-  if (!auth) {
-    auth = getAuth(firebaseApp);
-  }
-
-  // App Check Initialization - Singleton check
-  if (!appCheck && typeof window !== 'undefined') {
-    try {
-      const isLocalhost = 
-        window.location.hostname === 'localhost' || 
-        window.location.hostname.includes('cloudworkstations.dev');
-      
-      if (isLocalhost) {
-        (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = '23477EE3-783C-4752-9AAA-3FB79B28CE7C';
+      // Only warn in production because it's normal to use the firebaseConfig to initialize
+      // during development
+      if (process.env.NODE_ENV === "production") {
+        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
       }
-      
-      appCheck = initializeAppCheck(firebaseApp, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
-        isTokenAutoRefreshEnabled: true,
-      });
-    } catch (err) {
-      // Silently fail if already initialized
+      firebaseApp = initializeApp(firebaseConfig);
     }
+
+    return getSdks(firebaseApp);
   }
 
-  return { firebaseApp, auth, firestore };
+  // If already initialized, return the SDKs with the already initialized App
+  return getSdks(getApp());
+}
+
+export function getSdks(firebaseApp: FirebaseApp) {
+  return {
+    firebaseApp,
+    auth: getAuth(firebaseApp),
+    firestore: getFirestore(firebaseApp)
+  };
 }
 
 export * from './provider';
