@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -29,9 +30,7 @@ service cloud.firestore {
      */
     match /time_entries/{entryId} {
       allow read: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
-      
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
       allow update, delete: if isSignedIn() && (request.auth.uid == resource.data.userId || isAdmin());
     }
 
@@ -43,6 +42,23 @@ service cloud.firestore {
     match /users/{userId} {
       allow read: if isSignedIn();
       allow write: if isAdmin() || isOwner(userId);
+    }
+
+    match /contractors/{contractorId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /dailyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.authorId);
+    }
+
+    match /monthlyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (isSignedIn() && request.auth.uid == resource.data.authorId);
     }
 
     match /system/metadata {

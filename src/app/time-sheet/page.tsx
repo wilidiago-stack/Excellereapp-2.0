@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -71,12 +72,12 @@ export default function TimeSheetPage() {
     if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
     else if (dateVal instanceof Date) d = dateVal;
     else d = new Date(dateVal);
-    // Important: Use startOfDay to normalize keys
-    return format(startOfDay(d), 'yyyy-MM-dd');
+    
+    // We use a fixed string format to avoid timezone shifts between browser and Firestore
+    return format(d, 'yyyy-MM-dd');
   };
 
   useEffect(() => {
-    // Only synchronize once loading is finished
     if (!entriesLoading && !isNavigating) {
       const newHours: Record<string, string> = {};
       if (entries) {
@@ -92,7 +93,7 @@ export default function TimeSheetPage() {
   }, [entries, entriesLoading, isNavigating]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
-    const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
+    const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     setGridHours(prev => ({ ...prev, [key]: value }));
   };
@@ -103,27 +104,24 @@ export default function TimeSheetPage() {
     const hours = value === '' || value === '0' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
-    const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
+    const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
-    // Find if there's an existing entry in the data from Firestore
     const existingEntry = (entries || []).find(e => {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
-    // Skip if value hasn't changed
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
     if (!existingEntry && hours === 0) return;
 
     setIsSaving(key);
-    // Use a composite ID to ensure uniqueness per user/project/date
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
     const data = {
       userId: user.uid,
       projectId,
-      date: startOfDay(date),
+      date: startOfDay(date), // Stores the local midnight
       hours: hours,
       description: 'Weekly Entry',
       updatedAt: serverTimestamp(),
@@ -141,7 +139,7 @@ export default function TimeSheetPage() {
   };
 
   const calculateDayTotal = (day: Date) => {
-    const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
+    const dateKey = format(day, 'yyyy-MM-dd');
     return (projects || []).reduce((acc, proj) => {
       const key = `${proj.id}_${dateKey}`;
       return acc + (parseFloat(gridHours[key]) || 0);
@@ -150,7 +148,7 @@ export default function TimeSheetPage() {
 
   const calculateProjectTotal = (projectId: string) => {
     return weekDays.reduce((acc, day) => {
-      const key = `${projectId}_${format(startOfDay(day), 'yyyy-MM-dd')}`;
+      const key = `${projectId}_${format(day, 'yyyy-MM-dd')}`;
       return acc + (parseFloat(gridHours[key]) || 0);
     }, 0);
   };
@@ -168,10 +166,9 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // Clear immediately to avoid "jump"
+    setGridHours({});
     setCurrentWeekStart(newDate);
-    // Entries loading will trigger the restoration of data
-    setTimeout(() => setIsNavigating(false), 500); 
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
@@ -297,7 +294,7 @@ export default function TimeSheetPage() {
                           </div>
                         </TableCell>
                         {weekDays.map(day => {
-                          const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
+                          const dateKey = format(day, 'yyyy-MM-dd');
                           const lookupKey = `${project.id}_${dateKey}`;
                           const currentVal = gridHours[lookupKey] || '';
                           const saving = isSaving === lookupKey;
@@ -368,7 +365,9 @@ export default function TimeSheetPage() {
                   }).map((day, i) => (
                     <div 
                       key={i} 
-                      className="h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all bg-[#46a395] text-white font-bold shadow-sm"
+                      className={cn(
+                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all bg-[#46a395] text-white font-bold shadow-sm"
+                      )}
                     >
                       {format(day, 'd')}
                     </div>
