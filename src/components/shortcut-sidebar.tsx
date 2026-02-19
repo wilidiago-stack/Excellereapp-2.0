@@ -1,4 +1,3 @@
-
 'use client';
 
 import { 
@@ -38,7 +37,7 @@ import {
 } from "@/components/ui/dialog";
 import Link from 'next/link';
 import { useState } from 'react';
-import { useAuth, useFirestore } from '@/firebase';
+import { useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -68,12 +67,19 @@ const ACTION_REGISTRY = [
 ];
 
 export function ShortcutSidebar() {
-  const { user, userData, role, assignedModules } = useAuth();
+  const { user, role, assignedModules } = useAuth();
   const firestore = useFirestore();
   const [isOpen, setIsOpen] = useState(false);
 
+  // Fetch the actual user document from Firestore to get pinned shortcuts
+  const userDocRef = useMemoFirebase(
+    () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
+    [firestore, user?.uid]
+  );
+  const { data: userProfile } = useDoc(userDocRef);
+
   // Get pinned shortcut IDs from user profile or provide defaults
-  const pinnedIds = (userData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
+  const pinnedIds = (userProfile?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
   const isAdmin = role === 'admin';
 
   // Filter available actions by user's assigned modules
@@ -117,7 +123,6 @@ export function ShortcutSidebar() {
       style={{ backgroundColor: 'rgb(70, 163, 149)' }}
     >
       <TooltipProvider delayDuration={0}>
-        {/* "+" Button to manage shortcuts */}
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -198,7 +203,6 @@ export function ShortcutSidebar() {
           </DialogContent>
         </Dialog>
 
-        {/* Dynamic Pinned Shortcuts - No visible scrollbar, takes full height */}
         <div className="flex-1 flex flex-col items-center gap-6 w-full overflow-y-auto no-scrollbar">
           {shortcuts.map((shortcut) => (
             <Tooltip key={shortcut.id}>
@@ -222,7 +226,6 @@ export function ShortcutSidebar() {
           ))}
         </div>
 
-        {/* Help icon fixed at the bottom */}
         <div className="mt-auto flex flex-col items-center">
            <Tooltip>
               <TooltipTrigger asChild>

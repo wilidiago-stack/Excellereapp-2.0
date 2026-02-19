@@ -64,14 +64,14 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL: We wait for auth and role to be fully resolved to avoid race-condition permission errors.
-    // If user is Admin, we still query by UID for the personal sheet view.
+    // CRITICAL: Prevent early queries that trigger permission loops
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
+    // We only filter by UID. Admin logic is handled in the UI/Rules.
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -83,7 +83,7 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Synchronize Firestore data into the local grid state
+  // Synchronize state without flickering
   useEffect(() => {
     if (entriesLoading || !entries) return;
 
@@ -163,7 +163,7 @@ export default function TimeSheetPage() {
     }, 0);
   };
 
-  // BUSINESS LOGIC: 40 hours regular per week (total sum), the rest is overtime.
+  // Rule: 40h regular per week total, rest is overtime
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
@@ -177,15 +177,7 @@ export default function TimeSheetPage() {
     };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // We only show full skeleton on initial load. 
-  // Week changes are handled gracefully without clearing the UI to avoid flickers.
   const initialLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
-
-  const handleWeekChange = (newDate: Date) => {
-    setCurrentWeekStart(newDate);
-    // Note: We don't clear gridHours here to avoid flicker. 
-    // Firestore snapshot will update the state naturally.
-  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -195,7 +187,7 @@ export default function TimeSheetPage() {
           <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">My Activity Log</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2 px-4 py-1 bg-slate-100 rounded-sm border border-slate-200">
@@ -204,10 +196,10 @@ export default function TimeSheetPage() {
               {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
             </span>
           </div>
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(addWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
             Today
           </Button>
         </div>
@@ -344,18 +336,15 @@ export default function TimeSheetPage() {
                 <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
                   <TableRow className="h-14">
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
-                    {weekDays.map(day => {
-                      const dailyTotal = calculateDayTotal(day);
-                      return (
-                        <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
-                          <div className="flex flex-col items-center justify-center">
-                            <span className="text-sm font-black text-slate-700">
-                              {initialLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
-                            </span>
-                          </div>
-                        </TableCell>
-                      );
-                    })}
+                    {weekDays.map(day => (
+                      <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
+                        <div className="flex flex-col items-center justify-center">
+                          <span className="text-sm font-black text-slate-700">
+                            {initialLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : calculateDayTotal(day).toFixed(1)}
+                          </span>
+                        </div>
+                      </TableCell>
+                    ))}
                     <TableCell className="text-center text-sm font-black text-[#46a395] bg-white">
                       {initialLoading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
                     </TableCell>

@@ -8,8 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Explicitly targeting the system owner for absolute access.
-    // Enhanced with lowercase check and explicit UID validation to bypass race conditions.
+    // Direct Administrator check for andres.diago@outlook.com
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -25,12 +24,10 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Admin has full access to list and manage all entries. 
-      // Added explicit 'list' permission to satisfy collection queries.
+      // Admin has absolute access to everything including list operations
       allow read, write, list: if isAdmin();
       
-      // Regular users can only see and manage their own entries
-      // Note: 'list' operations REQUIRE a filter where('userId', '==', request.auth.uid)
+      // Regular users: must filter by their own UID to 'list'
       allow read, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
