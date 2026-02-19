@@ -9,11 +9,7 @@ import {
   addWeeks, 
   subWeeks, 
   startOfDay,
-  startOfMonth,
-  endOfMonth,
-  isSameMonth,
-  isSameDay,
-  isWithinInterval
+  isSameDay
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -31,7 +27,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
@@ -64,7 +60,7 @@ export default function TimeSheetPage() {
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
-      where('date', '>=', currentWeekStart),
+      where('date', '>=', startOfDay(currentWeekStart)),
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
@@ -72,11 +68,13 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  const normalizeDate = (dateVal: any): Date => {
-    if (!dateVal) return new Date();
-    if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate();
-    if (dateVal instanceof Date) return dateVal;
-    return new Date(dateVal);
+  const normalizeDateKey = (dateVal: any): string => {
+    if (!dateVal) return '';
+    let d: Date;
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
+    else if (dateVal instanceof Date) d = dateVal;
+    else d = new Date(dateVal);
+    return format(startOfDay(d), 'yyyy-MM-dd');
   };
 
   useEffect(() => {
@@ -84,9 +82,10 @@ export default function TimeSheetPage() {
       const newHours: Record<string, string> = {};
       if (entries && entries.length > 0) {
         entries.forEach(e => {
-          const dateVal = normalizeDate(e.date);
-          const dateKey = format(dateVal, 'yyyy-MM-dd');
-          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+          const dateKey = normalizeDateKey(e.date);
+          if (dateKey) {
+            newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+          }
         });
       }
       setGridHours(newHours);
@@ -95,7 +94,7 @@ export default function TimeSheetPage() {
   }, [entries, entriesLoading]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
+    const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     setGridHours(prev => ({ ...prev, [key]: value }));
   };
@@ -106,15 +105,14 @@ export default function TimeSheetPage() {
     const hours = value === '' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
-    const dateKey = format(date, 'yyyy-MM-dd');
+    const dateKey = format(startOfDay(date), 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
     const existingEntry = (entries || []).find(e => {
-      const d = normalizeDate(e.date);
-      return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
+      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
-    if (existingEntry && existingEntry.hours === hours) return;
+    if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
 
     setIsSaving(key);
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
@@ -141,7 +139,7 @@ export default function TimeSheetPage() {
   };
 
   const calculateDayTotal = (day: Date) => {
-    const dateKey = format(day, 'yyyy-MM-dd');
+    const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
     return (projects || []).reduce((acc, proj) => {
       const key = `${proj.id}_${dateKey}`;
       return acc + (parseFloat(gridHours[key]) || 0);
@@ -150,7 +148,7 @@ export default function TimeSheetPage() {
 
   const calculateProjectTotal = (projectId: string) => {
     return weekDays.reduce((acc, day) => {
-      const key = `${projectId}_${format(day, 'yyyy-MM-dd')}`;
+      const key = `${projectId}_${format(startOfDay(day), 'yyyy-MM-dd')}`;
       return acc + (parseFloat(gridHours[key]) || 0);
     }, 0);
   };
@@ -168,50 +166,8 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    // Don't clear gridHours here to avoid flash, the useEffect will sync it
+    setGridHours({});
     setCurrentWeekStart(newDate);
-  };
-
-  const renderMiniCalendar = () => {
-    const monthStart = startOfMonth(currentWeekStart);
-    const monthEnd = endOfMonth(monthStart);
-    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-    const weekInterval = { start: currentWeekStart, end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) };
-    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-    const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
-          <span className="text-xs font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {weekLabels.map((label, i) => (
-            <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
-          ))}
-          {days.map((day, i) => {
-            const isSelectedWeek = isWithinInterval(day, weekInterval);
-            const isToday = isSameDay(day, new Date());
-            const isCurrentMonth = isSameMonth(day, monthStart);
-            return (
-              <div 
-                key={i} 
-                className={cn(
-                  "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent",
-                  !isCurrentMonth && "opacity-20",
-                  isSelectedWeek ? "bg-[#46a395] text-white font-bold shadow-sm" : "text-slate-500",
-                  isToday && !isSelectedWeek && "border-[#46a395] text-[#46a395]"
-                )}
-              >
-                {format(day, 'd')}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
   };
 
   return (
@@ -365,13 +321,23 @@ export default function TimeSheetPage() {
                           </div>
                         </TableCell>
                         {weekDays.map(day => {
-                          const dateKey = format(day, 'yyyy-MM-dd');
+                          const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
                           const lookupKey = `${project.id}_${dateKey}`;
                           const currentVal = gridHours[lookupKey] || '';
                           const saving = isSaving === lookupKey;
                           return (
                             <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
-                              <input type="number" step="0.5" min="0" max="24" value={currentVal} onChange={(e) => handleInputChange(project.id, day, e.target.value)} onBlur={(e) => handleCellBlur(project.id, day, e.target.value)} className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} placeholder="0.0" />
+                              <input 
+                                type="number" 
+                                step="0.5" 
+                                min="0" 
+                                max="24" 
+                                value={currentVal} 
+                                onChange={(e) => handleInputChange(project.id, day, e.target.value)} 
+                                onBlur={(e) => handleCellBlur(project.id, day, e.target.value)} 
+                                className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} 
+                                placeholder="0.0" 
+                              />
                               {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary opacity-50" /></div>}
                             </TableCell>
                           );
@@ -406,7 +372,30 @@ export default function TimeSheetPage() {
 
           <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
             <div className="max-w-xl mx-auto">
-              {renderMiniCalendar()}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
+                  <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+                    <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
+                  ))}
+                  {eachDayOfInterval({ 
+                    start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
+                    end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
+                  }).map((day, i) => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent bg-[#46a395] text-white font-bold shadow-sm"
+                      )}
+                    >
+                      {format(day, 'd')}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
         </div>

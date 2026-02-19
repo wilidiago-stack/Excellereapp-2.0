@@ -9,11 +9,7 @@ import {
   addWeeks, 
   subWeeks, 
   startOfDay,
-  isSameDay,
-  isWithinInterval,
-  startOfMonth,
-  endOfMonth,
-  isSameMonth
+  isSameDay
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -24,21 +20,19 @@ import {
   TrendingUp,
   Users,
   LayoutDashboard,
-  Info,
-  UserCheck
+  Info
 } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 
 export default function MasterSheetTimePage() {
-  const { user: currentUser, role, loading: authLoading } = useAuth();
+  const { user: currentUser, loading: authLoading } = useAuth();
   const firestore = useFirestore();
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
@@ -49,16 +43,14 @@ export default function MasterSheetTimePage() {
     return eachDayOfInterval({ start: currentWeekStart, end });
   }, [currentWeekStart]);
 
-  // Fetch ALL users to map IDs to names
   const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
-  // Fetch ALL time entries for the selected week
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !currentUser) return null;
     return query(
       collection(firestore, 'time_entries'),
-      where('date', '>=', currentWeekStart),
+      where('date', '>=', startOfDay(currentWeekStart)),
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
@@ -66,11 +58,13 @@ export default function MasterSheetTimePage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  const normalizeDate = (dateVal: any): Date => {
-    if (!dateVal) return new Date();
-    if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate();
-    if (dateVal instanceof Date) return dateVal;
-    return new Date(dateVal);
+  const normalizeDateKey = (dateVal: any): string => {
+    if (!dateVal) return '';
+    let d: Date;
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
+    else if (dateVal instanceof Date) d = dateVal;
+    else d = new Date(dateVal);
+    return format(startOfDay(d), 'yyyy-MM-dd');
   };
 
   const processedData = useMemo(() => {
@@ -81,12 +75,14 @@ export default function MasterSheetTimePage() {
 
     entries.forEach(e => {
       const uId = e.userId;
-      const dateVal = normalizeDate(e.date);
-      const dateKey = format(dateVal, 'yyyy-MM-dd');
+      const dateKey = normalizeDateKey(e.date);
+      const hours = parseFloat(e.hours.toString()) || 0;
       
-      if (!userHours[uId]) userHours[uId] = {};
-      userHours[uId][dateKey] = (userHours[uId][dateKey] || 0) + (e.hours || 0);
-      userSet.add(uId);
+      if (hours > 0 && dateKey) {
+        if (!userHours[uId]) userHours[uId] = {};
+        userHours[uId][dateKey] = (userHours[uId][dateKey] || 0) + hours;
+        userSet.add(uId);
+      }
     });
 
     return { 
@@ -101,7 +97,7 @@ export default function MasterSheetTimePage() {
   }, [allUsers, processedData.activeUserIds]);
 
   const calculateDayTotal = (day: Date) => {
-    const dateKey = format(day, 'yyyy-MM-dd');
+    const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
     return processedData.activeUserIds.reduce((acc, uId) => {
       return acc + (processedData.userHours[uId]?.[dateKey] || 0);
     }, 0);
@@ -109,7 +105,7 @@ export default function MasterSheetTimePage() {
 
   const calculateUserWeekTotal = (uId: string) => {
     return weekDays.reduce((acc, day) => {
-      const dateKey = format(day, 'yyyy-MM-dd');
+      const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
       return acc + (processedData.userHours[uId]?.[dateKey] || 0);
     }, 0);
   };
@@ -131,48 +127,6 @@ export default function MasterSheetTimePage() {
   useEffect(() => {
     if (!entriesLoading) setIsNavigating(false);
   }, [entriesLoading]);
-
-  const renderMiniCalendar = () => {
-    const monthStart = startOfMonth(currentWeekStart);
-    const monthEnd = endOfMonth(monthStart);
-    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-    const weekInterval = { start: currentWeekStart, end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) };
-    const days = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-    const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
-
-    return (
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Contexto Semanal</h4>
-          <span className="text-xs font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
-        </div>
-        <div className="grid grid-cols-7 gap-1">
-          {weekLabels.map((label, i) => (
-            <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1">{label}</div>
-          ))}
-          {days.map((day, i) => {
-            const isSelectedWeek = isWithinInterval(day, weekInterval);
-            const isToday = isSameDay(day, new Date());
-            const isCurrentMonth = isSameMonth(day, monthStart);
-            return (
-              <div 
-                key={i} 
-                className={cn(
-                  "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent", 
-                  !isCurrentMonth && "opacity-20", 
-                  isSelectedWeek ? "bg-[#46a395] text-white font-bold shadow-sm" : "text-slate-500", 
-                  isToday && !isSelectedWeek && "border-[#46a395] text-[#46a395]"
-                )}
-              >
-                {format(day, 'd')}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    );
-  };
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -297,7 +251,7 @@ export default function MasterSheetTimePage() {
                           </div>
                         </TableCell>
                         {weekDays.map(day => {
-                          const dateKey = format(day, 'yyyy-MM-dd');
+                          const dateKey = format(startOfDay(day), 'yyyy-MM-dd');
                           const hours = processedData.userHours[u.id]?.[dateKey] || 0;
                           return (
                             <TableCell key={day.toString()} className={cn("text-center text-xs font-bold border-r", hours > 8 ? "text-orange-600 bg-orange-50/30" : hours > 0 ? "text-slate-600" : "text-slate-200")}>
@@ -329,7 +283,30 @@ export default function MasterSheetTimePage() {
 
           <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
             <div className="max-w-xl mx-auto">
-              {renderMiniCalendar()}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between px-1">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
+                  <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
+                </div>
+                <div className="grid grid-cols-7 gap-1">
+                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+                    <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
+                  ))}
+                  {eachDayOfInterval({ 
+                    start: startOfWeek(currentWeekStart, { weekStartsOn: 1 }), 
+                    end: endOfWeek(currentWeekStart, { weekStartsOn: 1 }) 
+                  }).map((day, i) => (
+                    <div 
+                      key={i} 
+                      className={cn(
+                        "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent bg-[#46a395] text-white font-bold shadow-sm"
+                      )}
+                    >
+                      {format(day, 'd')}
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </Card>
         </div>
