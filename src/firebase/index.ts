@@ -3,7 +3,7 @@
 import { firebaseConfig } from '@/firebase/config';
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { getFirestore } from 'firebase/firestore';
+import { getFirestore, initializeFirestore } from 'firebase/firestore';
 import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
 import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
@@ -52,10 +52,16 @@ export function initializeFirebase() {
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
+  // Use initializeFirestore with settings to improve stability in workstation environments.
+  // experimentalForceLongPolling helps avoid stream issues through proxies.
+  const firestore = initializeFirestore(firebaseApp, {
+    experimentalForceLongPolling: true,
+  });
+
   return {
     firebaseApp,
     auth: getAuth(firebaseApp),
-    firestore: getFirestore(firebaseApp)
+    firestore
   };
 }
 

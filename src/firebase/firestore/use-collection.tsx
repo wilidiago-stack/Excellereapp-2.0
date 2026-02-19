@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -20,6 +19,18 @@ export interface UseCollectionResult<T> {
   data: WithId<T>[] | null;
   isLoading: boolean;
   error: FirestoreError | Error | null;
+}
+
+/**
+ * Robustly extracts the collection path from a Reference or Query.
+ */
+function getPath(target: any): string {
+  if (!target) return 'unknown';
+  if (target.path) return target.path;
+  if (target._query && target._query.path) {
+    return target._query.path.segments.join('/');
+  }
+  return 'collection';
 }
 
 export function useCollection<T = any>(
@@ -57,10 +68,7 @@ export function useCollection<T = any>(
         setIsLoading(false);
       },
       (err: FirestoreError) => {
-        // Attempt to extract path from CollectionReference or Query
-        const path = (memoizedTargetRefOrQuery as any).path || 
-                     (memoizedTargetRefOrQuery as any)._query?.path?.relativeName || 
-                     'collection';
+        const path = getPath(memoizedTargetRefOrQuery);
                      
         const contextualError = new FirestorePermissionError({
           operation: 'list',
