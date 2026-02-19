@@ -44,7 +44,7 @@ export default function TimeSheetPage() {
   const [isSaving, setIsSaving] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Stabilize dates for query dependencies
+  // Stabilize dates for query dependencies to avoid infinite loops
   const startOfPeriod = useMemo(() => startOfDay(currentWeekStart), [currentWeekStart]);
   const endOfPeriod = useMemo(() => endOfWeek(currentWeekStart, { weekStartsOn: 1 }), [currentWeekStart]);
 
@@ -119,10 +119,13 @@ export default function TimeSheetPage() {
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     const existingEntry = (entries || []).find(e => e.projectId === projectId && normalizeDateKey(e.date) === dateKey);
+    
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
     if (!existingEntry && hours === 0) return;
+
     setIsSaving(key);
-    const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
+    // Use a deterministic ID to avoid duplicates
+    const entryId = `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
     const data = {
       userId: user.uid,
@@ -133,6 +136,7 @@ export default function TimeSheetPage() {
       updatedAt: serverTimestamp(),
       status: weekStatus
     };
+    
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
@@ -181,6 +185,7 @@ export default function TimeSheetPage() {
   };
 
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
+  // Business Rule: First 40 hours are regular, the rest is overtime
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
 

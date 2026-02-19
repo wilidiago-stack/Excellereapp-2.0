@@ -41,7 +41,7 @@ export default function MasterSheetTimePage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
-  // Stabilize dates for query dependencies
+  // Stabilize dates for query dependencies to prevent infinite calculation loops
   const startOfPeriod = useMemo(() => startOfDay(currentWeekStart), [currentWeekStart]);
   const endOfPeriod = useMemo(() => endOfWeek(currentWeekStart, { weekStartsOn: 1 }), [currentWeekStart]);
 
