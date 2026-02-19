@@ -64,14 +64,15 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL: Prevent early queries that trigger permission loops
+    // Lazy query: wait until session is confirmed to avoid early permission errors
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // We only filter by UID. Admin logic is handled in the UI/Rules.
+    // Admins can see all user entries, but for this view we usually want personal hours
+    // To comply with the rule requirements and the logic of the page, we filter by UID.
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -83,7 +84,7 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Synchronize state without flickering
+  // Synchronize internal state with Firestore data
   useEffect(() => {
     if (entriesLoading || !entries) return;
 
@@ -129,14 +130,14 @@ export default function TimeSheetPage() {
       projectId,
       date: startOfDay(date), 
       hours: hours,
-      description: 'Weekly Entry',
+      description: 'Logged via Weekly Sheet',
       updatedAt: serverTimestamp(),
     };
 
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Saved", description: `${hours}h logged`, duration: 1500 });
+        toast({ title: "Saved", description: `${hours}h registered successfully.`, duration: 1500 });
       })
       .catch((err) => {
         setIsSaving(null);
@@ -163,7 +164,7 @@ export default function TimeSheetPage() {
     }, 0);
   };
 
-  // Rule: 40h regular per week total, rest is overtime
+  // BUSINESS LOGIC: 40 hours regular per week total, the rest is overtime
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
@@ -177,14 +178,16 @@ export default function TimeSheetPage() {
     };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  const initialLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
+  // Optimized loading states to avoid skeleton parpadeo on week change
+  const initialLoading = authLoading || projectsLoading || !projects;
+  const isSyncing = entriesLoading;
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Time Sheet</h1>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">My Activity Log</p>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">Personal Activity Log</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
@@ -232,7 +235,7 @@ export default function TimeSheetPage() {
 
             <div className="space-y-4 pt-4 border-t">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <PieChart className="h-3 w-3" /> By Project
+                <PieChart className="h-3 w-3" /> Hours by Project
               </h4>
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
@@ -246,7 +249,7 @@ export default function TimeSheetPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">No records found</p>
+                  <p className="text-[9px] text-slate-400 italic text-center">No activity registered this week.</p>
                 )}
               </div>
             </div>
@@ -255,7 +258,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Hours are saved automatically. Regular hours are capped at 40 per week total.
+                  Changes are saved automatically upon exiting each cell. The first 40 hours of the week are considered regular time.
                 </p>
               </div>
             </div>
@@ -268,7 +271,7 @@ export default function TimeSheetPage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project / Reference</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project Reference</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
@@ -280,7 +283,7 @@ export default function TimeSheetPage() {
                     <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
+                <TableBody className={cn(isSyncing && "opacity-60 grayscale-[0.5] transition-opacity")}>
                   {initialLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>
@@ -294,7 +297,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No projects found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No assigned projects found.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">

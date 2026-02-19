@@ -67,8 +67,8 @@
     "typescript": "^5"
   },
   "overrides": {
-    "minimatch": "^10.2.1",
-    "glob": "^11.0.0"
+    "minimatch": "10.2.1",
+    "glob": "11.0.0"
   },
   "engines": {
     "node": "20"

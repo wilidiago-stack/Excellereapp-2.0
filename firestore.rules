@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Direct Administrator check for andres.diago@outlook.com
+    // Comprehensive Admin check including explicit email and UID
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -24,13 +24,10 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Admin has absolute access to everything including list operations
-      allow read, write, list: if isAdmin();
-      
-      // Regular users: must filter by their own UID to 'list'
-      allow read, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid);
+      // Allow list and read if admin or if the data belongs to the user
+      allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid));
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /projects/{projectId} {
@@ -71,4 +68,4 @@ service cloud.firestore {
     }
   }
 }
-// Force Rule Update: 2024-05-24 Security Patch for andres.diago@outlook.com
+// Force Deployment: 2024-05-24 Security & Access Optimization for andres.diago@outlook.com

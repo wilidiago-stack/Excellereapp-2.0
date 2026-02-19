@@ -38,7 +38,7 @@ import {
 import Link from 'next/link';
 import { useState } from 'react';
 import { useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
@@ -71,24 +71,21 @@ export function ShortcutSidebar() {
   const firestore = useFirestore();
   const [isOpen, setIsOpen] = useState(false);
 
-  // Fetch the actual user document from Firestore to get pinned shortcuts
+  // Robust data fetching for pinned shortcuts
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user?.uid]
   );
   const { data: userProfile } = useDoc(userDocRef);
 
-  // Get pinned shortcut IDs from user profile or provide defaults
   const pinnedIds = (userProfile?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
   const isAdmin = role === 'admin';
 
-  // Filter available actions by user's assigned modules
   const availableActions = ACTION_REGISTRY.filter(action => {
     if (isAdmin) return true;
-    return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || action.moduleId === 'weather' || action.moduleId === 'calendar' || action.moduleId === 'map' || action.moduleId === 'time-sheet' || action.moduleId === 'master-sheet-time';
+    return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map', 'time-sheet', 'master-sheet-time'].includes(action.moduleId);
   });
 
-  // Limit to max 10 shortcuts
   const shortcuts = ACTION_REGISTRY.filter(a => pinnedIds.includes(a.id)).slice(0, 10);
 
   const handleTogglePin = async (actionId: string) => {
@@ -98,15 +95,15 @@ export function ShortcutSidebar() {
     if (newPinned.includes(actionId)) {
       newPinned = newPinned.filter(id => id !== actionId);
     } else {
-      if (newPinned.length >= 10) return; // Enforce max 10 limit
+      if (newPinned.length >= 10) return;
       newPinned.push(actionId);
     }
 
+    // Use setDoc with merge to ensure the record exists
     const userRef = doc(firestore, 'users', user.uid);
-    updateDoc(userRef, { pinnedShortcuts: newPinned });
+    setDoc(userRef, { pinnedShortcuts: newPinned }, { merge: true });
   };
 
-  // Group actions by module for better organization in the Dialog
   const groupedActions = availableActions.reduce((acc, action) => {
     const group = acc.find(g => g.name === action.moduleName);
     if (group) {
@@ -138,15 +135,15 @@ export function ShortcutSidebar() {
               </DialogTrigger>
             </TooltipTrigger>
             <TooltipContent side="right" className="bg-slate-900 text-white border-none text-xs">
-              <p>Quick Actions</p>
+              <p>Customize Shortcuts</p>
             </TooltipContent>
           </Tooltip>
 
           <DialogContent className="sm:max-w-[500px] h-[80vh] flex flex-col p-0 rounded-sm">
             <DialogHeader className="p-6 pb-2">
-              <DialogTitle className="text-xl">Customize Shortcuts</DialogTitle>
+              <DialogTitle className="text-xl">Pin Shortcuts</DialogTitle>
               <DialogDescription>
-                Pin up to 10 actions to your sidebar for quick access.
+                Select up to 10 frequently used actions for your sidebar.
               </DialogDescription>
             </DialogHeader>
             
@@ -198,7 +195,7 @@ export function ShortcutSidebar() {
               <span className="text-xs font-medium text-slate-500">
                 {pinnedIds.length} / 10 Shortcuts pinned
               </span>
-              <Button size="sm" onClick={() => setIsOpen(false)}>Done</Button>
+              <Button size="sm" onClick={() => setIsOpen(false)}>Apply Changes</Button>
             </div>
           </DialogContent>
         </Dialog>
