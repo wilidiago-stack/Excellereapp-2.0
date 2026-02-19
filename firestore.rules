@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * EXCELLERE REVIVE - ROLE-BASED GRANULAR SECURITY
-     * Force refresh for index update.
+     * Version: 1.0.4 - Force index refresh for time_entries
      */
 
     function isSignedIn() {

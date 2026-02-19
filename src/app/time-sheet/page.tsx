@@ -49,7 +49,7 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    // Explicitly adding orderBy to match the required composite index exactly
+    // CRITICAL: Explicit orderBy to match composite index exactly
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
