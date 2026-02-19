@@ -27,6 +27,7 @@ export default function TimeSheetPage() {
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Principal Query: Required composite index [userId: ASC, date: DESC]
   const timeEntriesQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -46,10 +47,13 @@ export default function TimeSheetPage() {
     return acc;
   }, {});
 
-  const filteredEntries = entries?.filter(e => 
-    projectMap[e.projectId]?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    e.description?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  // Robust filtering with safe access to project names
+  const filteredEntries = entries?.filter(e => {
+    const projectName = projectMap[e.projectId] || '';
+    const desc = e.description || '';
+    return projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+           desc.toLowerCase().includes(searchQuery.toLowerCase());
+  }) || [];
 
   const totalHours = entries?.reduce((acc, curr) => acc + (curr.hours || 0), 0) || 0;
   
@@ -59,6 +63,17 @@ export default function TimeSheetPage() {
     const d = e.date?.toDate();
     return d && d >= weekStart && d <= weekEnd;
   }).reduce((acc, curr) => acc + (curr.hours || 0), 0) || 0;
+
+  // Calculate dynamic project progress based on actual logged hours
+  const projectStats = entries?.reduce((acc: any, curr) => {
+    const name = projectMap[curr.projectId] || 'Unknown Project';
+    acc[name] = (acc[name] || 0) + (curr.hours || 0);
+    return acc;
+  }, {});
+
+  const sortedProjects = Object.entries(projectStats || {})
+    .sort(([, a], [, b]) => (b as number) - (a as number))
+    .slice(0, 3);
 
   const handleDelete = () => {
     if (!firestore || !selectedEntry) return;
@@ -99,12 +114,13 @@ export default function TimeSheetPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
+        {/* Sidebar: Weekly Totals & Project Insights */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <div className="relative">
               <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
               <Input 
-                placeholder="Search entries..." 
+                placeholder="Filter logs..." 
                 className="pl-8 h-9 bg-white border-slate-200 text-xs" 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -115,17 +131,17 @@ export default function TimeSheetPage() {
             <div className="space-y-3">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Weekly Summary</h4>
               <div className="grid grid-cols-1 gap-2">
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2">
                     <Clock className="h-3.5 w-3.5 text-[#46a395]" />
-                    <span className="text-xs font-medium">Week Total</span>
+                    <span className="text-xs font-medium">This Week</span>
                   </div>
                   <span className="text-xs font-bold text-[#46a395]">{weeklyHours}h</span>
                 </div>
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2">
                     <History className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-medium">Total Balance</span>
+                    <span className="text-xs font-medium">Total Lifetime</span>
                   </div>
                   <span className="text-xs font-bold">{totalHours}h</span>
                 </div>
@@ -133,33 +149,43 @@ export default function TimeSheetPage() {
             </div>
 
             <div className="pt-4 border-t space-y-3">
-              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Progress</h4>
-              <div className="space-y-2">
-                {Object.keys(projectMap).slice(0, 3).map(id => (
-                  <div key={id} className="space-y-1">
-                    <div className="flex justify-between text-[10px]">
-                      <span className="truncate pr-2 font-medium">{projectMap[id]}</span>
-                      <span className="text-slate-400">Active</span>
+              <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Focus</h4>
+              <div className="space-y-3">
+                {loading ? (
+                  [1, 2].map(i => <Skeleton key={i} className="h-8 w-full rounded-sm" />)
+                ) : sortedProjects.length === 0 ? (
+                  <p className="text-[10px] text-slate-400 italic">No project data available.</p>
+                ) : (
+                  sortedProjects.map(([name, hours]) => (
+                    <div key={name} className="space-y-1">
+                      <div className="flex justify-between text-[10px]">
+                        <span className="truncate pr-2 font-bold text-slate-600">{name}</span>
+                        <span className="text-slate-400">{hours}h</span>
+                      </div>
+                      <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-[#46a395] transition-all duration-500" 
+                          style={{ width: `${Math.min(100, (hours as number / totalHours) * 100)}%` }} 
+                        />
+                      </div>
                     </div>
-                    <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
-                      <div className="h-full bg-[#46a395] w-2/3" />
-                    </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </div>
           </CardContent>
         </Card>
 
+        {/* Main Content: Time Logs Table */}
         <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
           <div className="flex-1 overflow-y-auto no-scrollbar">
             <Table>
               <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
                 <TableRow className="hover:bg-transparent border-b-slate-200">
                   <TableHead className="text-[11px] font-bold h-10 w-32"><div className="flex items-center gap-1"><CalendarIcon className="h-3 w-3"/> Date</div></TableHead>
-                  <TableHead className="text-[11px] font-bold h-10">Project</TableHead>
+                  <TableHead className="text-[11px] font-bold h-10">Project Reference</TableHead>
                   <TableHead className="text-[11px] font-bold h-10 w-24 text-center">Hours</TableHead>
-                  <TableHead className="text-[11px] font-bold h-10">Activity Description</TableHead>
+                  <TableHead className="text-[11px] font-bold h-10">Work Description</TableHead>
                   <TableHead className="h-10 w-10"></TableHead>
                 </TableRow>
               </TableHeader>
@@ -173,7 +199,7 @@ export default function TimeSheetPage() {
                 ) : filteredEntries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-32 text-center text-xs text-slate-500 italic">
-                      No hours registered yet.
+                      No matching records found in your time sheet.
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -183,7 +209,7 @@ export default function TimeSheetPage() {
                         {entry.date ? format(entry.date.toDate(), 'PPP') : 'N/A'}
                       </TableCell>
                       <TableCell className="py-2.5 text-xs font-medium text-slate-700">
-                        {projectMap[entry.projectId] || entry.projectId}
+                        {projectMap[entry.projectId] || <span className="text-slate-400 italic">Deleted Project</span>}
                       </TableCell>
                       <TableCell className="py-2.5 text-center">
                         <Badge variant="outline" className="text-[10px] font-bold bg-[#46a395]/5 text-[#46a395] border-[#46a395]/20 rounded-sm">
@@ -205,7 +231,7 @@ export default function TimeSheetPage() {
                               onClick={() => { setSelectedEntry(entry); setShowDeleteDialog(true); }}
                               className="text-xs text-destructive cursor-pointer"
                             >
-                              Remove entry
+                              Remove record
                             </DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
@@ -222,15 +248,15 @@ export default function TimeSheetPage() {
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent className="rounded-sm">
           <AlertDialogHeader>
-            <AlertDialogTitle>Remove time entry?</AlertDialogTitle>
+            <AlertDialogTitle>Delete time entry?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs">
-              Are you sure you want to delete this entry? This action is irreversible and will update your total hours balance.
+              Are you sure you want to permanently remove this log? This will update your total hours balance immediately.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="rounded-sm text-xs h-8">Cancel</AlertDialogCancel>
             <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-sm text-xs h-8">
-              Remove
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
