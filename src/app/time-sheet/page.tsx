@@ -64,15 +64,14 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL FIX: To avoid "Missing Permissions", we MUST wait for the auth and role to resolve.
-    // Firestore security rules reject queries before the token claims (admin) are fully propagated.
+    // CRITICAL: We wait for auth and role to be fully resolved to avoid race-condition permission errors.
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // Admin or not, we query personal entries for this view to satisfy standard index/rule logic
+    // We always filter by userId to ensure the user (even if admin) follows the standard query pattern.
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -84,6 +83,7 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
+  // Synchronize Firestore data into the local grid state
   useEffect(() => {
     if (entriesLoading || !entries) return;
 
@@ -163,7 +163,7 @@ export default function TimeSheetPage() {
     }, 0);
   };
 
-  // LOGIC: 40 hours regular per week (total sum), rest is overtime
+  // BUSINESS LOGIC: 40 hours regular per week (total sum), the rest is overtime.
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
@@ -177,14 +177,14 @@ export default function TimeSheetPage() {
     };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // We only show full skeleton if we have NO data and we are loading the first time.
-  // During week changes, we keep the table structure to prevent annoying "flashing".
+  // We only show full skeleton on initial load. 
+  // Week changes are handled gracefully without clearing the UI to avoid flickers.
   const initialLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   const handleWeekChange = (newDate: Date) => {
     setCurrentWeekStart(newDate);
     // Note: We don't clear gridHours here to avoid flicker. 
-    // New data will override the grid when the Firestore snapshot arrives.
+    // Firestore snapshot will update the state naturally.
   };
 
   return (
