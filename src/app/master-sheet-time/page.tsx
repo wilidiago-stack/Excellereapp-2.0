@@ -19,7 +19,8 @@ import {
   Calendar as CalendarIcon,
   RefreshCw,
   Info,
-  TrendingUp
+  TrendingUp,
+  Loader2
 } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 'firebase/firestore';
@@ -32,6 +33,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
 
 export default function MasterSheetTimePage() {
   const { user, loading: authLoading } = useAuth();
@@ -40,6 +42,7 @@ export default function MasterSheetTimePage() {
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState<string | null>(null);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -65,6 +68,7 @@ export default function MasterSheetTimePage() {
 
   // Sync local state with Firestore data
   useEffect(() => {
+    // Only update if entries is populated to avoid wiping user input
     if (entries) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
@@ -73,8 +77,6 @@ export default function MasterSheetTimePage() {
         newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       });
       setGridHours(newHours);
-    } else {
-      setGridHours({});
     }
   }, [entries]);
 
@@ -86,14 +88,20 @@ export default function MasterSheetTimePage() {
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
-    const hours = parseFloat(value);
+    const hours = value === '' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
+    const lookupKey = `${projectId}_${dateKey}`;
+    
     const existingEntry = (entries || []).find(e => {
       const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
       return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
     });
+
+    if (existingEntry && existingEntry.hours === hours) return;
+
+    setIsSaving(lookupKey);
     
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
@@ -103,20 +111,28 @@ export default function MasterSheetTimePage() {
       projectId,
       date: startOfDay(date),
       hours: hours || 0,
-      description: 'Weekly Sheet Entry',
+      description: 'Master Sheet Entry',
       updatedAt: serverTimestamp(),
     };
 
-    try {
-      await setDoc(entryRef, data, { merge: true });
-    } catch (err) {
-      const permissionError = new FirestorePermissionError({
-        path: entryRef.path,
-        operation: 'write',
-        requestResourceData: data,
+    setDoc(entryRef, data, { merge: true })
+      .then(() => {
+        setIsSaving(null);
+        toast({
+          title: "Changes Saved",
+          description: "Timesheet updated successfully.",
+          duration: 2000,
+        });
+      })
+      .catch((err) => {
+        setIsSaving(null);
+        const permissionError = new FirestorePermissionError({
+          path: entryRef.path,
+          operation: 'write',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      errorEmitter.emit('permission-error', permissionError);
-    }
   };
 
   const calculateDayTotal = (day: Date) => {
@@ -146,7 +162,10 @@ export default function MasterSheetTimePage() {
           <p className="text-xs text-muted-foreground">Vista semanal de carga horaria por proyecto.</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
+            setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+            setGridHours({});
+          }}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-sm border border-slate-200">
@@ -155,10 +174,16 @@ export default function MasterSheetTimePage() {
               {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
             </span>
           </div>
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
+            setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+            setGridHours({});
+          }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="secondary" size="sm" className="h-8 text-xs rounded-sm ml-2" onClick={() => {
+            setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+            setGridHours({});
+          }}>
             Hoy
           </Button>
         </div>
@@ -264,9 +289,10 @@ export default function MasterSheetTimePage() {
                         const dateKey = format(day, 'yyyy-MM-dd');
                         const lookupKey = `${project.id}_${dateKey}`;
                         const currentVal = gridHours[lookupKey] || '';
+                        const saving = isSaving === lookupKey;
                         
                         return (
-                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#46a395]">
+                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#46a395] relative">
                             <input
                               type="number"
                               step="0.5"
@@ -275,9 +301,15 @@ export default function MasterSheetTimePage() {
                               value={currentVal}
                               onChange={(e) => handleInputChange(project.id, day, e.target.value)}
                               onBlur={(e) => handleCellBlur(project.id, day, e.target.value)}
-                              className="w-full h-12 bg-transparent text-center text-xs font-bold border-none outline-none focus:bg-white transition-colors"
+                              className={cn(
+                                "w-full h-12 bg-transparent text-center text-xs font-bold border-none outline-none focus:bg-white transition-colors",
+                                saving && "opacity-50"
+                              )}
                               placeholder="0"
                             />
+                            {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <Loader2 className="h-3 w-3 animate-spin text-[#46a395] opacity-50" />
+                            </div>}
                           </TableCell>
                         );
                       })}

@@ -18,7 +18,8 @@ import {
   Calendar as CalendarIcon,
   Info,
   TrendingUp,
-  AlertCircle
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
@@ -28,18 +29,21 @@ import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
   const { user, loading: authLoading } = useAuth();
   const firestore = useFirestore();
+  const { toast } = useToast();
   
   // State for week navigation (Starts on Monday)
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   
   // Local state for hours to allow live calculations while typing
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState<string | null>(null);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -65,6 +69,8 @@ export default function TimeSheetPage() {
 
   // Sync gridHours when entries arrive from Firestore
   useEffect(() => {
+    // CRITICAL: Only update local state if we have entries. 
+    // This prevents wiping out current user input while data is loading.
     if (entries) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
@@ -73,8 +79,6 @@ export default function TimeSheetPage() {
         newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       });
       setGridHours(newHours);
-    } else {
-      setGridHours({});
     }
   }, [entries]);
 
@@ -87,14 +91,22 @@ export default function TimeSheetPage() {
   const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
-    const hours = parseFloat(value);
+    // Allow empty string as 0
+    const hours = value === '' ? 0 : parseFloat(value);
     if (isNaN(hours)) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
+    const key = `${projectId}_${dateKey}`;
+    
+    // Check if value actually changed to avoid unnecessary writes
     const existingEntry = (entries || []).find(e => {
       const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
       return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
     });
+
+    if (existingEntry && existingEntry.hours === hours) return;
+
+    setIsSaving(key);
     
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
@@ -103,21 +115,29 @@ export default function TimeSheetPage() {
       userId: user.uid,
       projectId,
       date: startOfDay(date),
-      hours: hours || 0,
+      hours: hours,
       description: 'Weekly Entry',
       updatedAt: serverTimestamp(),
     };
 
-    try {
-      await setDoc(entryRef, data, { merge: true });
-    } catch (err) {
-      const permissionError = new FirestorePermissionError({
-        path: entryRef.path,
-        operation: 'write',
-        requestResourceData: data,
+    setDoc(entryRef, data, { merge: true })
+      .then(() => {
+        setIsSaving(null);
+        toast({
+          title: "Entry Saved",
+          description: `Logged ${hours}h for ${format(date, 'MMM dd')}`,
+          duration: 2000,
+        });
+      })
+      .catch((err) => {
+        setIsSaving(null);
+        const permissionError = new FirestorePermissionError({
+          path: entryRef.path,
+          operation: 'write',
+          requestResourceData: data,
+        });
+        errorEmitter.emit('permission-error', permissionError);
       });
-      errorEmitter.emit('permission-error', permissionError);
-    }
   };
 
   // Calculations based on gridHours (live feedback)
@@ -155,7 +175,10 @@ export default function TimeSheetPage() {
           <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Weekly Performance Tracking</p>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(subWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
+            setCurrentWeekStart(subWeeks(currentWeekStart, 1));
+            setGridHours({}); // Clear for navigation
+          }}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <div className="flex items-center gap-2 px-4 py-1 bg-slate-100 rounded-sm border border-slate-200">
@@ -164,10 +187,16 @@ export default function TimeSheetPage() {
               {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
             </span>
           </div>
-          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>
+          <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => {
+            setCurrentWeekStart(addWeeks(currentWeekStart, 1));
+            setGridHours({}); // Clear for navigation
+          }}>
             <ChevronRight className="h-4 w-4" />
           </Button>
-          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
+          <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => {
+            setCurrentWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }));
+            setGridHours({});
+          }}>
             Current Week
           </Button>
         </div>
@@ -293,9 +322,10 @@ export default function TimeSheetPage() {
                         const dateKey = format(day, 'yyyy-MM-dd');
                         const lookupKey = `${project.id}_${dateKey}`;
                         const currentVal = gridHours[lookupKey] || '';
+                        const saving = isSaving === lookupKey;
                         
                         return (
-                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30">
+                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
                             <input
                               type="number"
                               step="0.5"
@@ -304,9 +334,15 @@ export default function TimeSheetPage() {
                               value={currentVal}
                               onChange={(e) => handleInputChange(project.id, day, e.target.value)}
                               onBlur={(e) => handleCellBlur(project.id, day, e.target.value)}
-                              className="w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200"
+                              className={cn(
+                                "w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200",
+                                saving && "opacity-50"
+                              )}
                               placeholder="0.0"
                             />
+                            {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                              <Loader2 className="h-3 w-3 animate-spin text-primary opacity-50" />
+                            </div>}
                           </TableCell>
                         );
                       })}
