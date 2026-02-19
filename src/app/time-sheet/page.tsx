@@ -65,13 +65,13 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     // CRITICAL: We wait for auth and role to be fully resolved to avoid race-condition permission errors.
+    // If user is Admin, we still query by UID for the personal sheet view.
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // We always filter by userId to ensure the user (even if admin) follows the standard query pattern.
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -136,7 +136,7 @@ export default function TimeSheetPage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Saved", description: `${hours}h registered`, duration: 1500 });
+        toast({ title: "Saved", description: `${hours}h logged`, duration: 1500 });
       })
       .catch((err) => {
         setIsSaving(null);
