@@ -73,11 +73,19 @@ export default function MasterSheetTimePage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
+  // Helper to normalize dates
+  const normalizeDate = (dateVal: any): Date => {
+    if (!dateVal) return new Date();
+    if (dateVal.toDate && typeof dateVal.toDate === 'function') return dateVal.toDate();
+    if (dateVal instanceof Date) return dateVal;
+    return new Date(dateVal);
+  };
+
   useEffect(() => {
     if (entries) {
       const newHours: Record<string, string> = {};
       entries.forEach(e => {
-        const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+        const dateVal = normalizeDate(e.date);
         const dateKey = format(dateVal, 'yyyy-MM-dd');
         newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       });
@@ -100,7 +108,7 @@ export default function MasterSheetTimePage() {
     const lookupKey = `${projectId}_${dateKey}`;
     
     const existingEntry = (entries || []).find(e => {
-      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      const d = normalizeDate(e.date);
       return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
     });
 
@@ -122,7 +130,7 @@ export default function MasterSheetTimePage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Changes Saved", description: "Timesheet updated successfully.", duration: 2000 });
+        toast({ title: "Cambios guardados", description: "La hoja de horas se ha actualizado correctamente.", duration: 2000 });
       })
       .catch((err) => {
         setIsSaving(null);
@@ -147,10 +155,10 @@ export default function MasterSheetTimePage() {
 
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
 
-  const projectStats = projects?.map(p => {
+  const projectStats = (projects || []).map(p => {
     const total = calculateProjectTotal(p.id);
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
-  }).filter(p => p.total > 0).sort((a, b) => b.total - a.total) || [];
+  }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
   const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
@@ -164,19 +172,29 @@ export default function MasterSheetTimePage() {
     const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
     return (
-      <div className="space-y-3">
+      <div className="space-y-4">
         <div className="flex items-center justify-between px-1">
-          <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Week Context</h4>
-          <span className="text-[10px] font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Contexto Semanal</h4>
+          <span className="text-xs font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
         </div>
         <div className="grid grid-cols-7 gap-1">
-          {weekLabels.map((label, i) => <div key={i} className="text-[8px] font-bold text-slate-300 text-center py-1">{label}</div>)}
+          {weekLabels.map((label, i) => (
+            <div key={i} className="text-[10px] font-bold text-slate-300 text-center py-1">{label}</div>
+          ))}
           {days.map((day, i) => {
             const isSelectedWeek = isWithinInterval(day, weekInterval);
             const isToday = isSameDay(day, new Date());
             const isCurrentMonth = isSameMonth(day, monthStart);
             return (
-              <div key={i} className={cn("h-6 w-full flex items-center justify-center text-[9px] rounded-sm transition-all relative", !isCurrentMonth && "opacity-20", isSelectedWeek ? "bg-[#46a395] text-white font-bold" : "text-slate-500", isToday && !isSelectedWeek && "border border-[#46a395] text-[#46a395]")}>
+              <div 
+                key={i} 
+                className={cn(
+                  "h-10 w-full flex items-center justify-center text-[11px] rounded-sm transition-all relative border border-transparent", 
+                  !isCurrentMonth && "opacity-20", 
+                  isSelectedWeek ? "bg-[#46a395] text-white font-bold shadow-sm" : "text-slate-500", 
+                  isToday && !isSelectedWeek && "border-[#46a395] text-[#46a395]"
+                )}
+              >
                 {format(day, 'd')}
               </div>
             );
@@ -333,9 +351,8 @@ export default function MasterSheetTimePage() {
             </div>
           </Card>
 
-          {/* Calendar moved below the sheet */}
-          <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-slate-50/10">
-            <div className="max-w-md mx-auto">
+          <Card className="rounded-sm border-slate-200 shadow-sm p-6 bg-slate-50/10">
+            <div className="max-w-xl mx-auto">
               {renderMiniCalendar()}
             </div>
           </Card>
