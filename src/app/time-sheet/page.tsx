@@ -8,7 +8,8 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  startOfDay
+  startOfDay,
+  parseISO
 } from 'date-fns';
 import { 
   ChevronLeft, 
@@ -32,7 +33,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -51,23 +52,42 @@ export default function TimeSheetPage() {
 
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
-    let d: Date;
-    if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
-    else if (dateVal instanceof Date) d = dateVal;
-    else d = new Date(dateVal);
-    return format(d, 'yyyy-MM-dd');
+    try {
+      let d: Date;
+      if (dateVal.toDate && typeof dateVal.toDate === 'function') d = dateVal.toDate();
+      else if (dateVal instanceof Date) d = dateVal;
+      else if (typeof dateVal === 'string') d = parseISO(dateVal);
+      else d = new Date(dateVal);
+      return format(d, 'yyyy-MM-dd');
+    } catch (e) {
+      return '';
+    }
   };
 
+  // CRITICAL FIX: The query remains NULL until auth is fully resolved to avoid permission race conditions
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid || authLoading) return null;
+    
+    // If admin, we fetch all for the week, if viewer only their own
+    const baseRef = collection(firestore, 'time_entries');
+    
+    if (role === 'admin') {
+      return query(
+        baseRef,
+        where('date', '>=', startOfDay(currentWeekStart)),
+        where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+        orderBy('date', 'asc')
+      );
+    }
+
     return query(
-      collection(firestore, 'time_entries'),
+      baseRef,
       where('userId', '==', user.uid),
       where('date', '>=', startOfDay(currentWeekStart)),
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
-  }, [firestore, user?.uid, currentWeekStart, authLoading]);
+  }, [firestore, user?.uid, currentWeekStart, authLoading, role]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -76,13 +96,16 @@ export default function TimeSheetPage() {
 
     const newHours: Record<string, string> = {};
     entries.forEach(e => {
-      const dateKey = normalizeDateKey(e.date);
-      if (dateKey) {
-        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+      // For Admins in this view, we only show their own entries to avoid cluttering the personal sheet
+      if (role !== 'admin' || e.userId === user?.uid) {
+        const dateKey = normalizeDateKey(e.date);
+        if (dateKey) {
+          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+        }
       }
     });
     setGridHours(newHours);
-  }, [entries, entriesLoading, isNavigating]);
+  }, [entries, entriesLoading, isNavigating, role, user?.uid]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
@@ -100,7 +123,7 @@ export default function TimeSheetPage() {
     const key = `${projectId}_${dateKey}`;
     
     const existingEntry = (entries || []).find(e => {
-      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
+      return e.projectId === projectId && normalizeDateKey(e.date) === dateKey && e.userId === user.uid;
     });
 
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
@@ -123,7 +146,7 @@ export default function TimeSheetPage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Cambios guardados", description: `${hours}h para el ${format(date, 'dd/MM')}`, duration: 2000 });
+        toast({ title: "Guardado", description: `${hours}h registradas`, duration: 1500 });
       })
       .catch((err) => {
         setIsSaving(null);
@@ -165,15 +188,15 @@ export default function TimeSheetPage() {
     setIsNavigating(true);
     setGridHours({}); 
     setCurrentWeekStart(newDate);
-    setTimeout(() => setIsNavigating(false), 400);
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">Mi Hoja de Horas</h1>
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Registro de Desempeño</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Hoja de Horas</h1>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">Mi Registro de Actividad</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -189,7 +212,7 @@ export default function TimeSheetPage() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-            Semana Actual
+            Hoy
           </Button>
         </div>
       </div>
@@ -197,8 +220,8 @@ export default function TimeSheetPage() {
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
-            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-primary" /> Resumen Semanal
+            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2 text-slate-600">
+              <Clock className="h-3.5 w-3.5 text-primary" /> Resumen de Semana
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
@@ -207,13 +230,12 @@ export default function TimeSheetPage() {
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Horas Totales</p>
                 <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
               </div>
-              
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
                   <span className="text-[10px] font-bold uppercase text-slate-500">Regulares</span>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
                 </div>
-                <div className={cn("p-3 rounded-sm border flex items-center justify-between transition-colors", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
+                <div className={cn("p-3 rounded-sm border flex items-center justify-between", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
                   <span className="text-[10px] font-bold uppercase">Sobretiempo</span>
                   <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
                 </div>
@@ -222,7 +244,7 @@ export default function TimeSheetPage() {
 
             <div className="space-y-4 pt-4 border-t">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <PieChart className="h-3 w-3" /> Distribución
+                <PieChart className="h-3 w-3" /> Por Proyecto
               </h4>
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
@@ -236,7 +258,7 @@ export default function TimeSheetPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">Sin datos en este periodo</p>
+                  <p className="text-[9px] text-slate-400 italic text-center">Sin registros</p>
                 )}
               </div>
             </div>
@@ -245,7 +267,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Los cambios se guardan automáticamente al salir de la celda.
+                  Los cambios se guardan al salir de la celda.
                 </p>
               </div>
             </div>
@@ -260,7 +282,7 @@ export default function TimeSheetPage() {
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
                     <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Proyecto / Referencia</TableHead>
                     {weekDays.map(day => (
-                      <TableHead key={`head-${day.toString()}`} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
+                      <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
                           <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEE')}</span>
                           <span className="text-[11px] text-slate-400">{format(day, 'dd')}</span>
@@ -273,10 +295,10 @@ export default function TimeSheetPage() {
                 <TableBody>
                   {loading ? (
                     [1, 2, 3, 4, 5].map(i => (
-                      <TableRow key={`loading-row-${i}`}>
+                      <TableRow key={`load-row-${i}`}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
                         {weekDays.map((d, j) => (
-                          <TableCell key={`loading-cell-${i}-${j}`} className="border-r p-2">
+                          <TableCell key={`load-cell-${i}-${j}`} className="border-r p-2">
                             <Skeleton className="h-10 w-full rounded-sm" />
                           </TableCell>
                         ))}
@@ -284,7 +306,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No se encontraron proyectos activos.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No tienes proyectos asignados.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
@@ -330,7 +352,7 @@ export default function TimeSheetPage() {
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
                       return (
-                        <TableCell key={`footer-${day.toString()}`} className="text-center border-r px-2">
+                        <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
                           <div className="flex flex-col items-center justify-center">
                             <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
                               {loading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
@@ -340,7 +362,7 @@ export default function TimeSheetPage() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-center text-sm font-black text-primary bg-white">
+                    <TableCell className="text-center text-sm font-black text-[#46a395] bg-white">
                       {loading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
                     </TableCell>
                   </TableRow>

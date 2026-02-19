@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Validación de Administrador reforzada
+    // Validación de Administrador robusta
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -23,7 +23,8 @@ service cloud.firestore {
     // --- REGLAS DE COLECCIONES ---
 
     match /time_entries/{entryId} {
-      // Se permite list y get si es Admin o si son sus propios datos
+      // Permitir leer (list/get) si es Admin o si son sus propios datos
+      // La regla de listado es crítica para el Master Sheet
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       
       // Permitir creación/escritura si el usuario es el dueño o Admin
