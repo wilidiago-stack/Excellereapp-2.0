@@ -49,6 +49,7 @@ export default function TimeSheetPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -89,6 +90,7 @@ export default function TimeSheetPage() {
         newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       });
       setGridHours(newHours);
+      setIsNavigating(false); // Navigation finished
     }
   }, [entries, entriesLoading]);
 
@@ -163,9 +165,10 @@ export default function TimeSheetPage() {
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
   // Improved loading logic to prevent stale data display during week switches
-  const loading = authLoading || projectsLoading || entriesLoading;
+  const loading = authLoading || projectsLoading || entriesLoading || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
+    setIsNavigating(true); // Trigger loading state immediately
     setGridHours({}); // Proactive clearing of grid to avoid "jumps"
     setCurrentWeekStart(newDate);
   };
@@ -383,6 +386,7 @@ export default function TimeSheetPage() {
                   <TableRow className="h-14">
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
                     {weekDays.map(day => {
+                      if (loading) return <TableCell key={day.toString()} className="text-center border-r px-2"><Skeleton className="h-6 w-12 mx-auto" /></TableCell>;
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
                       return (
@@ -394,7 +398,7 @@ export default function TimeSheetPage() {
                         </TableCell>
                       );
                     })}
-                    <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">{totalWeekHours.toFixed(1)}</TableCell>
+                    <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">{loading ? <Skeleton className="h-6 w-12 mx-auto" /> : totalWeekHours.toFixed(1)}</TableCell>
                   </TableRow>
                 </tfoot>
               </Table>

@@ -51,6 +51,7 @@ export default function MasterSheetTimePage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
+  const [isNavigating, setIsNavigating] = useState(false);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -91,6 +92,7 @@ export default function MasterSheetTimePage() {
         newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
       });
       setGridHours(newHours);
+      setIsNavigating(false); // Finished loading/syncing
     }
   }, [entries, entriesLoading]);
 
@@ -162,9 +164,10 @@ export default function MasterSheetTimePage() {
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
   // Improved loading logic to prevent jumpy navigation
-  const loading = authLoading || projectsLoading || entriesLoading;
+  const loading = authLoading || projectsLoading || entriesLoading || isNavigating;
 
   const handleWeekChange = (newDate: Date) => {
+    setIsNavigating(true); // Trigger transition state
     setGridHours({}); // Proactive clearing of grid to avoid stale data
     setCurrentWeekStart(newDate);
   };
@@ -349,9 +352,13 @@ export default function MasterSheetTimePage() {
                   <TableRow>
                     <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-4">Totales Diarios</TableCell>
                     {weekDays.map(day => (
-                      <TableCell key={day.toString()} className="text-center text-xs text-slate-600 border-r">{calculateDayTotal(day).toFixed(1)}</TableCell>
+                      <TableCell key={day.toString()} className="text-center text-xs text-slate-600 border-r">
+                        {loading ? <Skeleton className="h-6 w-12 mx-auto" /> : calculateDayTotal(day).toFixed(1)}
+                      </TableCell>
                     ))}
-                    <TableCell className="text-center text-sm font-black text-[#46a395] bg-slate-100/50">{totalWeekHours.toFixed(1)}</TableCell>
+                    <TableCell className="text-center text-sm font-black text-[#46a395] bg-slate-100/50">
+                      {loading ? <Skeleton className="h-6 w-12 mx-auto" /> : totalWeekHours.toFixed(1)}
+                    </TableCell>
                   </TableRow>
                 </tfoot>
               </Table>
