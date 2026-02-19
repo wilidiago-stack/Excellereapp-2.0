@@ -32,7 +32,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, role } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   
@@ -49,7 +49,7 @@ export default function TimeSheetPage() {
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
-  // Normalization logic: Stable keys for dates to prevent timezone shifts
+  // Normalización estricta para evitar desfases de zona horaria
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
     let d: Date;
@@ -60,7 +60,7 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    if (!firestore || !user?.uid) return null;
+    if (!firestore || !user?.uid || authLoading) return null;
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
@@ -68,23 +68,21 @@ export default function TimeSheetPage() {
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
-  }, [firestore, user?.uid, currentWeekStart]);
+  }, [firestore, user?.uid, currentWeekStart, authLoading]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Sync entries to local grid
+  // Sincronización de datos guardados hacia la cuadrícula visual
   useEffect(() => {
-    if (isNavigating || entriesLoading) return;
+    if (isNavigating || entriesLoading || !entries) return;
 
     const newHours: Record<string, string> = {};
-    if (entries) {
-      entries.forEach(e => {
-        const dateKey = normalizeDateKey(e.date);
-        if (dateKey) {
-          newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
-        }
-      });
-    }
+    entries.forEach(e => {
+      const dateKey = normalizeDateKey(e.date);
+      if (dateKey) {
+        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+      }
+    });
     setGridHours(newHours);
   }, [entries, entriesLoading, isNavigating]);
 
@@ -107,6 +105,7 @@ export default function TimeSheetPage() {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
 
+    // Evitar guardados innecesarios si el valor es igual
     if (existingEntry && parseFloat(existingEntry.hours.toString()) === hours) return;
     if (!existingEntry && hours === 0) return;
 
@@ -126,11 +125,15 @@ export default function TimeSheetPage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Hours saved", description: `Registered ${hours}h for ${format(date, 'MMM dd')}`, duration: 2000 });
+        toast({ title: "Cambios guardados", description: `${hours}h para el ${format(date, 'dd/MM')}`, duration: 2000 });
       })
       .catch((err) => {
         setIsSaving(null);
-        errorEmitter.emit('permission-error', new FirestorePermissionError({ path: entryRef.path, operation: 'write', requestResourceData: data }));
+        errorEmitter.emit('permission-error', new FirestorePermissionError({ 
+          path: entryRef.path, 
+          operation: 'write', 
+          requestResourceData: data 
+        }));
       });
   };
 
@@ -162,7 +165,7 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({});
+    setGridHours({}); // Limpieza inmediata para evitar saltos de datos
     setCurrentWeekStart(newDate);
     setTimeout(() => setIsNavigating(false), 400);
   };
@@ -171,8 +174,8 @@ export default function TimeSheetPage() {
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">My Time Sheet</h1>
-          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Performance Tracking</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Mi Hoja de Horas</h1>
+          <p className="text-xs text-muted-foreground font-medium uppercase tracking-wider text-primary/70">Registro de Desempeño</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -188,7 +191,7 @@ export default function TimeSheetPage() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-            Current Week
+            Semana Actual
           </Button>
         </div>
       </div>
@@ -197,23 +200,23 @@ export default function TimeSheetPage() {
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <Clock className="h-3.5 w-3.5 text-primary" /> Weekly Summary
+              <Clock className="h-3.5 w-3.5 text-primary" /> Resumen Semanal
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
               <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Hours</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Horas Totales</p>
                 <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
               </div>
               
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Regulares</span>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
                 </div>
                 <div className={cn("p-3 rounded-sm border flex items-center justify-between transition-colors", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
-                  <span className="text-[10px] font-bold uppercase">Overtime</span>
+                  <span className="text-[10px] font-bold uppercase">Sobretiempo</span>
                   <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
                 </div>
               </div>
@@ -221,7 +224,7 @@ export default function TimeSheetPage() {
 
             <div className="space-y-4 pt-4 border-t">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <PieChart className="h-3 w-3" /> Distribution
+                <PieChart className="h-3 w-3" /> Distribución
               </h4>
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
@@ -235,7 +238,7 @@ export default function TimeSheetPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">No data for this period</p>
+                  <p className="text-[9px] text-slate-400 italic text-center">Sin datos en este periodo</p>
                 )}
               </div>
             </div>
@@ -244,7 +247,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes save automatically on cell blur.
+                  Los cambios se guardan automáticamente al salir de la celda.
                 </p>
               </div>
             </div>
@@ -283,7 +286,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No se encontraron proyectos activos.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
@@ -352,11 +355,11 @@ export default function TimeSheetPage() {
             <div className="max-w-xl mx-auto">
               <div className="space-y-4">
                 <div className="flex items-center justify-between px-1">
-                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400">Vista de Navegación</h4>
                   <span className="text-xs font-bold text-slate-600">{format(currentWeekStart, 'MMMM yyyy')}</span>
                 </div>
                 <div className="grid grid-cols-7 gap-1">
-                  {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((label, i) => (
+                  {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map((label, i) => (
                     <div key={`nav-label-${i}`} className="text-[10px] font-bold text-slate-300 text-center py-1 uppercase">{label}</div>
                   ))}
                   {eachDayOfInterval({ 
