@@ -80,6 +80,7 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
+    // CRITICAL: Ensure user is authenticated and role is determined before querying
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');

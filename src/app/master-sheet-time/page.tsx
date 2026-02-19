@@ -53,10 +53,11 @@ export default function MasterSheetTimePage() {
 
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
 
-  const usersCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'users') : null), [firestore]);
+  const usersCollection = useMemoFirebase(() => (firestore && role === 'admin' ? collection(firestore, 'users') : null), [firestore, role]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
   const entriesQuery = useMemoFirebase(() => {
+    // CRITICAL: Only execute query if role is confirmed as admin to avoid permission errors
     if (!firestore || !currentUser || role !== 'admin') return null;
     return query(
       collection(firestore, 'time_entries'),

@@ -9,12 +9,12 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // REDUNDANT ADMIN VALIDATION: Priority access for developer and admin roles
+    // Robust Admin Validation: Direct check for developer email and UID
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() == "andres.diago@outlook.com" || 
+        (request.auth.token.email != null && request.auth.token.email.lower() == "andres.diago@outlook.com") || 
         request.auth.uid == "aPu3ZeoGaCY6MDxPk9wFFqwDZU33" ||
-        (request.auth.token.role != null && request.auth.token.role == "admin")
+        request.auth.token.role == "admin"
       );
     }
 
@@ -22,21 +22,17 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // Check if a weekly period is locked (submitted or approved)
-    function isPeriodLocked(userId, weekId) {
-      let submission = get(/databases/$(database)/documents/weekly_submissions/$(userId + "_" + weekId));
-      return submission != null && submission.data.status != "draft";
-    }
-
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      allow read, list: if isAdmin() || (isSignedIn() && (resource == null || resource.data.userId == request.auth.uid));
+      // Allow read/list if admin OR if document belongs to the user
+      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
       
-      // Prevention: Users can't create or edit entries if the week is already submitted/approved
-      // Extracting YYYY-WW from date is complex in rules, so we rely on client-side lock + admin review.
+      // Allow creation only for own entries
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin() || (isSignedIn() && resource.data.userId == request.auth.uid);
+      
+      // Allow update/delete if admin or owner
+      allow update, delete: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
     }
 
     match /weekly_submissions/{submissionId} {
@@ -64,9 +60,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // Global fallback for Admin supreme access
     match /{document=**} {
       allow read, write: if isAdmin();
     }
   }
 }
-// Force Deployment: 2024-05-24 Security & Access Optimization - Admin ID redundant check enabled
+// Force Deployment: 2024-05-24 Security Rules Refined for Admin Access
