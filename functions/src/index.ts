@@ -16,7 +16,7 @@ setGlobalOptions({maxInstances: 10});
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] Triggered for user UID: ${uid}`);
+  logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
   const userDocRef = db.doc(`users/${uid}`);
 
@@ -51,7 +51,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       }
     });
 
-    logger.info(`[setupInitialUserRole] Setup complete for user ${uid}.`);
+    logger.info(`[setupInitialUserRole] Setup complete for ${uid}.`);
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
   }
@@ -62,7 +62,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
  */
 export const cleanupUser = onAuthUserDelete(async (event) => {
   const {uid} = event.data;
-  logger.info(`[cleanupUser] Triggered for UID: ${uid}`);
+  logger.info(`[cleanupUser] UID: ${uid}`);
 
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
@@ -80,7 +80,7 @@ export const cleanupUser = onAuthUserDelete(async (event) => {
     }
 
     await batch.commit();
-    logger.info(`[cleanupUser] Cleanup complete for user ${uid}.`);
+    logger.info(`[cleanupUser] Cleanup complete for ${uid}.`);
   } catch (error) {
     logger.error(`[cleanupUser] Error for ${uid}:`, error);
   }

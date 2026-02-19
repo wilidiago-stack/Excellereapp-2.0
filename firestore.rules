@@ -2,13 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- BULLETPROOF ADMIN VALIDATION ---
-    // Single source of truth for admin access with priority check.
+    // --- ULTRA-ROBUST ADMIN VALIDATION ---
+    // Priority check for the project owner to prevent locking due to loading claims.
     function isAdmin() {
       return request.auth != null && (
         request.auth.token.email.lower() == "andres.diago@outlook.com" || 
         request.auth.uid == "aPu3ZeoGaCY6MDxPk9wFFqwDZU33" ||
-        request.auth.token.role == "admin"
+        (request.auth.token.role != null && request.auth.token.role == "admin")
       );
     }
 
@@ -53,7 +53,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Global fallback
+    // Global fallback for Admin
     match /{document=**} {
       allow read, write: if isAdmin();
     }
