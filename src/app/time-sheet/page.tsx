@@ -64,15 +64,12 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // Lazy query: wait until session is confirmed to avoid early permission errors
     if (!firestore || !user?.uid || authLoading || !role) return null;
     
     const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // Admins can see all user entries, but for this view we usually want personal hours
-    // To comply with the rule requirements and the logic of the page, we filter by UID.
     return query(
       baseRef,
       where('userId', '==', user.uid),
@@ -84,7 +81,6 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Synchronize internal state with Firestore data
   useEffect(() => {
     if (entriesLoading || !entries) return;
 
@@ -164,7 +160,6 @@ export default function TimeSheetPage() {
     }, 0);
   };
 
-  // BUSINESS LOGIC: 40 hours regular per week total, the rest is overtime
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
@@ -178,7 +173,6 @@ export default function TimeSheetPage() {
     };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  // Optimized loading states to avoid skeleton parpadeo on week change
   const initialLoading = authLoading || projectsLoading || !projects;
   const isSyncing = entriesLoading;
 
@@ -258,7 +252,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes are saved automatically upon exiting each cell. The first 40 hours of the week are considered regular time.
+                  Changes are saved automatically. The first 40 hours of the week are considered regular time.
                 </p>
               </div>
             </div>
@@ -283,7 +277,7 @@ export default function TimeSheetPage() {
                     <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className={cn(isSyncing && "opacity-60 grayscale-[0.5] transition-opacity")}>
+                <TableBody className={cn(isSyncing && "opacity-60 transition-opacity")}>
                   {initialLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>

@@ -64,6 +64,8 @@
     "@types/node": "^20",
     "@types/react": "^19.2.1",
     "@types/react-dom": "^19.2.1",
+    "eslint": "^4.1.1",
+    "eslint-config-next": "^0.2.4",
     "genkit-cli": "^0.0.2",
     "postcss": "^8",
     "tailwindcss": "^3.4.1",
@@ -71,16 +73,11 @@
   },
   "overrides": {
     "minimatch": "10.2.1",
-    "glob": "11.0.0"
+    "glob": "10.4.5",
+    "ajv": "8.18.0",
+    "tmp": "0.2.1"
   },
   "engines": {
     "node": "20"
-  },
-  "description": "This is a NextJS starter in Firebase Studio.",
-  "main": "index.js",
-  "directories": {
-    "doc": "docs"
-  },
-  "author": "",
-  "license": "ISC"
+  }
 }

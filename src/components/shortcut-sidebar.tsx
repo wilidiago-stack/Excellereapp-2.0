@@ -45,9 +45,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-/**
- * Registry of all possible actions that can be pinned as shortcuts.
- */
 const ACTION_REGISTRY = [
   { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, moduleId: 'dashboard', moduleName: 'System' },
   { id: 'project-new', label: 'New Project', href: '/projects/new', icon: PlusCircle, moduleId: 'projects', moduleName: 'Projects' },
@@ -75,16 +72,13 @@ export function ShortcutSidebar() {
   const [isOpen, setIsOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
-  // Robust data fetching for pinned shortcuts
   const userDocRef = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'users', user.uid) : null),
     [firestore, user?.uid]
   );
   
-  // Destructure data correctly from the useDoc hook
   const { data: userProfileData, isLoading: profileLoading } = useDoc(userDocRef);
 
-  // Bind to userProfileData (which is the actual data object returned by the hook)
   const pinnedIds = (userProfileData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
   const isAdmin = role === 'admin';
 
