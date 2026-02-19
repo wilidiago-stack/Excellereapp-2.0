@@ -14,16 +14,14 @@ setGlobalOptions({maxInstances: 10});
 
 /**
  * Initial setup for new users.
- * Automatically makes the first user an administrator.
  */
 export const setupInitialUserRole = onAuthUserCreated(async (event) => {
-  const user = event.data;
-  if (!user) {
+  if (!event.data) {
     logger.error("No user data in event");
     return;
   }
 
-  const {uid, email, displayName} = user;
+  const {uid, email, displayName} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -61,7 +59,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
 });
 
 /**
- * DEFINITIVE sync of roles between Firestore and Auth.
+ * Sync role to Auth claims on Firestore update.
  */
 export const onUserRoleChange = onDocumentUpdated(
   "users/{userId}",
@@ -88,10 +86,8 @@ export const onUserRoleChange = onDocumentUpdated(
  * Cleanup when a user is deleted.
  */
 export const cleanupUser = onAuthUserDeleted(async (event) => {
-  const user = event.data;
-  if (!user) return;
-
-  const {uid} = user;
+  if (!event.data) return;
+  const {uid} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
