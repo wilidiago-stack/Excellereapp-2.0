@@ -1,68 +1,84 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
-import { getFirestore, initializeFirestore } from 'firebase/firestore';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { initializeApp, getApps, FirebaseApp, getApp } from 'firebase/app';
+import { getAuth, Auth } from 'firebase/auth';
+import { getFirestore, initializeFirestore, Firestore } from 'firebase/firestore';
+import { initializeAppCheck, ReCaptchaV3Provider, AppCheck } from 'firebase/app-check';
 import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
+// Global singletons to ensure one-time initialization on the client
+let firebaseApp: FirebaseApp | null = null;
+let auth: Auth | null = null;
+let firestore: Firestore | null = null;
+let appCheck: AppCheck | null = null;
+
 /**
- * Initializes Firebase robustly and silently.
- * Includes App Check activation to protect Authentication and Firestore.
+ * Initializes Firebase robustly using a singleton pattern.
+ * This prevents "internal assertion failed" errors during hot-reloads.
  */
 export function initializeFirebase() {
-  // On server (SSR), if there's already an app, use it.
-  const apps = getApps();
-  if (apps.length > 0) {
-    return getSdks(apps[0]);
+  // SSR Guard
+  if (typeof window === 'undefined') {
+    const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    return {
+      firebaseApp: app,
+      auth: getAuth(app),
+      firestore: getFirestore(app)
+    };
   }
 
-  let firebaseApp: FirebaseApp;
-  
-  try {
-    firebaseApp = initializeApp(firebaseConfig);
-  } catch (e) {
-    firebaseApp = getApps()[0];
+  // Client-side singleton initialization
+  if (!firebaseApp) {
+    try {
+      firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
+    } catch (e) {
+      firebaseApp = getApp();
+    }
   }
 
-  // App Check Initialization (Client-side only)
-  if (typeof window !== 'undefined') {
+  if (!firestore) {
     try {
       /**
-       * DEBUG MODE CONFIGURATION:
-       * Using the specific token provided for the local environment.
+       * CRITICAL: Use long polling for stability in workstation/proxy environments.
+       * This must be called via initializeFirestore, and only ONCE per app instance.
        */
-      const isLocalhost = window.location.hostname === 'localhost' || window.location.hostname.includes('cloudworkstations.dev');
+      firestore = initializeFirestore(firebaseApp, {
+        experimentalForceLongPolling: true,
+      });
+      console.log('Firestore initialized with Long Polling enabled.');
+    } catch (e) {
+      // If already initialized, get the existing instance
+      firestore = getFirestore(firebaseApp);
+    }
+  }
+
+  if (!auth) {
+    auth = getAuth(firebaseApp);
+  }
+
+  // App Check Initialization
+  if (!appCheck) {
+    try {
+      const isLocalhost = 
+        window.location.hostname === 'localhost' || 
+        window.location.hostname.includes('cloudworkstations.dev');
+      
       if (isLocalhost) {
         (window as any).FIREBASE_APPCHECK_DEBUG_TOKEN = '23477EE3-783C-4752-9AAA-3FB79B28CE7C';
       }
       
-      initializeAppCheck(firebaseApp, {
+      appCheck = initializeAppCheck(firebaseApp, {
         provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
       });
-      console.log('Firebase App Check initialized with specific Debug Token.');
+      console.log('Firebase App Check initialized.');
     } catch (err) {
-      console.warn('App Check failed to initialize:', err);
+      // Silently fail if already initialized or other error
     }
   }
 
-  return getSdks(firebaseApp);
-}
-
-export function getSdks(firebaseApp: FirebaseApp) {
-  // Use initializeFirestore with settings to improve stability in workstation environments.
-  // experimentalForceLongPolling helps avoid stream issues through proxies.
-  const firestore = initializeFirestore(firebaseApp, {
-    experimentalForceLongPolling: true,
-  });
-
-  return {
-    firebaseApp,
-    auth: getAuth(firebaseApp),
-    firestore
-  };
+  return { firebaseApp, auth, firestore };
 }
 
 export * from './provider';

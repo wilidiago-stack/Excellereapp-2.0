@@ -22,14 +22,18 @@ export interface UseCollectionResult<T> {
 }
 
 /**
- * Robustly extracts the collection path from a Reference or Query.
+ * Robustly extracts the collection path from a Reference or Query for debugging.
  */
 function getPath(target: any): string {
   if (!target) return 'unknown';
-  if (target.path) return target.path;
-  if (target._query && target._query.path) {
-    return target._query.path.segments.join('/');
+  if (typeof target.path === 'string') return target.path;
+  
+  // Extract path from internal query representation if available
+  const queryPath = target._query?.path || target.query?.path;
+  if (queryPath && Array.isArray(queryPath.segments)) {
+    return queryPath.segments.join('/');
   }
+  
   return 'collection';
 }
 
@@ -78,7 +82,13 @@ export function useCollection<T = any>(
         setError(contextualError);
         setData(null);
         setIsLoading(false);
-        errorEmitter.emit('permission-error', contextualError);
+        
+        // Only emit if it's likely a rules issue
+        if (err.code === 'permission-denied') {
+          errorEmitter.emit('permission-error', contextualError);
+        } else {
+          console.error('[useCollection] Firestore error:', err);
+        }
       }
     );
 
