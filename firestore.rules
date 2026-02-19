@@ -11,9 +11,9 @@ service cloud.firestore {
     // Comprehensive Admin check with redundant validation for session stability
     function isAdmin() {
       return isSignedIn() && (
-        request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
-        request.auth.uid == 'aPu3ZeoGaCY6MDxPk9wFFqwDZU33' ||
-        (request.auth.token.role != null && request.auth.token.role == 'admin')
+        request.auth.token.email.lower() == "andres.diago@outlook.com" || 
+        request.auth.uid == "aPu3ZeoGaCY6MDxPk9wFFqwDZU33" ||
+        (request.auth.token.role != null && request.auth.token.role == "admin")
       );
     }
 
