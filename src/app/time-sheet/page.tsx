@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -17,6 +16,8 @@ import { useToast } from '@/hooks/use-toast';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function TimeSheetPage() {
   const { user } = useAuth();
@@ -33,7 +34,7 @@ export default function TimeSheetPage() {
       where('userId', '==', user.uid),
       orderBy('date', 'desc')
     );
-  }, [firestore, user]);
+  }, [firestore, user?.uid]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(timeEntriesQuery);
 
@@ -61,11 +62,23 @@ export default function TimeSheetPage() {
 
   const handleDelete = () => {
     if (!firestore || !selectedEntry) return;
-    deleteDoc(doc(firestore, 'time_entries', selectedEntry.id)).then(() => {
-      toast({ title: 'Entry Removed', description: 'Your time entry has been deleted.' });
-      setShowDeleteDialog(false);
-      setSelectedEntry(null);
-    });
+    
+    const entryRef = doc(firestore, 'time_entries', selectedEntry.id);
+    
+    deleteDoc(entryRef)
+      .then(() => {
+        toast({ title: 'Entry Removed', description: 'Your time entry has been deleted.' });
+        setShowDeleteDialog(false);
+        setSelectedEntry(null);
+      })
+      .catch((err) => {
+        const permissionError = new FirestorePermissionError({
+          path: entryRef.path,
+          operation: 'delete',
+        });
+        errorEmitter.emit('permission-error', permissionError);
+        setShowDeleteDialog(false);
+      });
   };
 
   const loading = entriesLoading || projectsLoading;

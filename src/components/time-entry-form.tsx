@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useForm } from 'react-hook-form';
@@ -6,7 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
-import { CalendarIcon, Timer, FileText, ClipboardList } from 'lucide-react';
+import { CalendarIcon, Timer, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
@@ -56,10 +55,10 @@ export function TimeEntryForm() {
   const router = useRouter();
 
   const projectsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'projects') : null),
-    [firestore]
+    () => (firestore && user ? collection(firestore, 'projects') : null),
+    [firestore, user?.uid]
   );
-  const { data: projects } = useCollection(projectsCollection);
+  const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
   const form = useForm<TimeEntryFormValues>({
     resolver: zodResolver(timeEntrySchema),
@@ -72,7 +71,10 @@ export function TimeEntryForm() {
   });
 
   const onSubmit = (data: TimeEntryFormValues) => {
-    if (!firestore || !user) return;
+    if (!firestore || !user) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Session not available.' });
+      return;
+    }
 
     const timeEntriesCollection = collection(firestore, 'time_entries');
     const entryData = {
@@ -99,6 +101,8 @@ export function TimeEntryForm() {
       });
   };
 
+  if (!user) return <div className="p-8 text-center text-slate-500">Please sign in to log hours.</div>;
+
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -108,17 +112,25 @@ export function TimeEntryForm() {
             name="projectId"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Project</FormLabel>
-                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Project Reference</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
                   <FormControl>
                     <SelectTrigger className="h-10 rounded-sm border-slate-200">
-                      <SelectValue placeholder="Select project" />
+                      <SelectValue placeholder={projectsLoading ? "Loading projects..." : "Select project"} />
                     </SelectTrigger>
                   </FormControl>
                   <SelectContent className="rounded-sm">
-                    {projects?.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                    ))}
+                    {projectsLoading ? (
+                      <div className="flex items-center justify-center p-4">
+                        <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
+                      </div>
+                    ) : projects?.length === 0 ? (
+                      <div className="p-2 text-xs text-center text-slate-500 italic">No projects available</div>
+                    ) : (
+                      projects?.map((p: any) => (
+                        <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
+                      ))
+                    )}
                   </SelectContent>
                 </Select>
                 <FormMessage />
@@ -152,6 +164,7 @@ export function TimeEntryForm() {
                       mode="single"
                       selected={field.value}
                       onSelect={field.onChange}
+                      disabled={(date) => date > new Date()}
                       initialFocus
                     />
                   </PopoverContent>
@@ -171,7 +184,14 @@ export function TimeEntryForm() {
               <FormControl>
                 <div className="relative">
                   <Timer className="absolute left-3 top-3 h-4 w-4 text-slate-400" />
-                  <Input type="number" step="0.5" className="pl-10 h-10 rounded-sm border-slate-200" {...field} />
+                  <Input 
+                    type="number" 
+                    step="0.5" 
+                    min="0.5" 
+                    max="24"
+                    className="pl-10 h-10 rounded-sm border-slate-200" 
+                    {...field} 
+                  />
                 </div>
               </FormControl>
               <FormMessage />
@@ -187,8 +207,8 @@ export function TimeEntryForm() {
               <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Description of Work</FormLabel>
               <FormControl>
                 <Textarea 
-                  placeholder="What did you work on today?" 
-                  className="min-h-[120px] rounded-sm border-slate-200 resize-none" 
+                  placeholder="Summarize your activities for the day..." 
+                  className="min-h-[120px] rounded-sm border-slate-200 resize-none text-sm" 
                   {...field} 
                 />
               </FormControl>
@@ -201,7 +221,11 @@ export function TimeEntryForm() {
           <Button variant="outline" type="button" asChild className="h-10 px-8 rounded-sm text-xs font-bold uppercase">
             <Link href="/time-sheet">Cancel</Link>
           </Button>
-          <Button type="submit" disabled={form.formState.isSubmitting} className="h-10 px-10 rounded-sm text-xs font-bold uppercase shadow-sm">
+          <Button 
+            type="submit" 
+            disabled={form.formState.isSubmitting} 
+            className="h-10 px-10 rounded-sm text-xs font-bold uppercase shadow-sm"
+          >
             {form.formState.isSubmitting ? 'Registering...' : 'Register Hours'}
           </Button>
         </div>
