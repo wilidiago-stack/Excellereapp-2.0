@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   format, 
   startOfWeek, 
@@ -8,7 +8,6 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  isSameDay, 
   startOfDay 
 } from 'date-fns';
 import { 
@@ -40,6 +39,7 @@ export default function MasterSheetTimePage() {
   const { toast } = useToast();
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  const [gridHours, setGridHours] = useState<Record<string, string>>({});
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -52,7 +52,6 @@ export default function MasterSheetTimePage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    // CRITICAL: Explicit orderBy to match composite index exactly
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
@@ -64,29 +63,38 @@ export default function MasterSheetTimePage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Data mapping
-  const entriesMap = useMemo(() => {
-    const map: Record<string, any> = {};
-    (entries || []).forEach(e => {
-      const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-      const dateKey = format(dateVal, 'yyyy-MM-dd');
-      const key = `${e.projectId}_${dateKey}`;
-      map[key] = e;
-    });
-    return map;
+  // Sync local state with Firestore data
+  useEffect(() => {
+    if (entries) {
+      const newHours: Record<string, string> = {};
+      entries.forEach(e => {
+        const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+        const dateKey = format(dateVal, 'yyyy-MM-dd');
+        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+      });
+      setGridHours(newHours);
+    } else {
+      setGridHours({});
+    }
   }, [entries]);
 
-  const handleCellChange = async (projectId: string, date: Date, value: string) => {
+  const handleInputChange = (projectId: string, date: Date, value: string) => {
+    const key = `${projectId}_${format(date, 'yyyy-MM-dd')}`;
+    setGridHours(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
     const hours = parseFloat(value);
-    if (isNaN(hours) && value !== '') return;
+    if (isNaN(hours)) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
-    const lookupKey = `${projectId}_${dateKey}`;
-    const existingEntry = entriesMap[lookupKey];
+    const existingEntry = (entries || []).find(e => {
+      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
+    });
     
-    // Generate a consistent ID: uid_projId_dateKey
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -111,24 +119,24 @@ export default function MasterSheetTimePage() {
     }
   };
 
-  const calculateProjectTotal = (projectId: string) => {
-    return weekDays.reduce((acc, day) => {
-      const key = `${projectId}_${format(day, 'yyyy-MM-dd')}`;
-      return acc + (entriesMap[key]?.hours || 0);
-    }, 0);
-  };
-
   const calculateDayTotal = (day: Date) => {
     const dateKey = format(day, 'yyyy-MM-dd');
     return (projects || []).reduce((acc, proj) => {
       const key = `${proj.id}_${dateKey}`;
-      return acc + (entriesMap[key]?.hours || 0);
+      return acc + (parseFloat(gridHours[key]) || 0);
+    }, 0);
+  };
+
+  const calculateProjectTotal = (projectId: string) => {
+    return weekDays.reduce((acc, day) => {
+      const key = `${projectId}_${format(day, 'yyyy-MM-dd')}`;
+      return acc + (parseFloat(gridHours[key]) || 0);
     }, 0);
   };
 
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
 
-  const loading = authLoading || projectsLoading || entriesLoading;
+  const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -157,7 +165,6 @@ export default function MasterSheetTimePage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: Totales y Análisis */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
@@ -192,7 +199,7 @@ export default function MasterSheetTimePage() {
                     <div key={p.id} className="space-y-1">
                       <div className="flex justify-between text-[10px]">
                         <span className="truncate font-bold text-slate-600">{p.name}</span>
-                        <span className="font-mono text-slate-400">{pTotal}h</span>
+                        <span className="font-mono text-slate-400">{pTotal.toFixed(1)}h</span>
                       </div>
                       <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div className="h-full bg-[#46a395]" style={{ width: `${percent}%` }} />
@@ -214,13 +221,12 @@ export default function MasterSheetTimePage() {
           </CardContent>
         </Card>
 
-        {/* Main Content: Weekly Grid */}
         <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
           <div className="flex-1 overflow-x-auto no-scrollbar">
             <Table className="border-collapse">
               <TableHeader className="bg-slate-50/80 sticky top-0 z-20">
                 <TableRow className="hover:bg-transparent border-b-slate-200">
-                  <TableHead className="text-[10px] font-black uppercase h-12 w-64 min-w-[200px] border-r">Proyecto / Referencia</TableHead>
+                  <TableHead className="text-[10px] font-black uppercase h-12 w-64 min-w-[200px] border-r px-4">Proyecto / Referencia</TableHead>
                   {weekDays.map(day => (
                     <TableHead key={day.toString()} className="text-[10px] font-black uppercase h-12 text-center border-r min-w-[80px]">
                       <div className="flex flex-col">
@@ -236,9 +242,9 @@ export default function MasterSheetTimePage() {
                 {loading ? (
                   [1, 2, 3, 4, 5].map(i => (
                     <TableRow key={i}>
-                      <TableCell className="border-r"><Skeleton className="h-8 w-full" /></TableCell>
-                      {weekDays.map(d => <TableCell key={d.toString()} className="border-r"><Skeleton className="h-8 w-12 mx-auto" /></TableCell>)}
-                      <TableCell><Skeleton className="h-8 w-12 mx-auto" /></TableCell>
+                      <TableCell className="border-r px-4"><Skeleton className="h-8 w-full" /></TableCell>
+                      {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full" /></TableCell>)}
+                      <TableCell className="p-2"><Skeleton className="h-10 w-full" /></TableCell>
                     </TableRow>
                   ))
                 ) : projects?.length === 0 ? (
@@ -257,7 +263,7 @@ export default function MasterSheetTimePage() {
                       {weekDays.map(day => {
                         const dateKey = format(day, 'yyyy-MM-dd');
                         const lookupKey = `${project.id}_${dateKey}`;
-                        const currentVal = entriesMap[lookupKey]?.hours || '';
+                        const currentVal = gridHours[lookupKey] || '';
                         
                         return (
                           <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-[#46a395]">
@@ -266,8 +272,9 @@ export default function MasterSheetTimePage() {
                               step="0.5"
                               min="0"
                               max="24"
-                              defaultValue={currentVal}
-                              onBlur={(e) => handleCellChange(project.id, day, e.target.value)}
+                              value={currentVal}
+                              onChange={(e) => handleInputChange(project.id, day, e.target.value)}
+                              onBlur={(e) => handleCellBlur(project.id, day, e.target.value)}
                               className="w-full h-12 bg-transparent text-center text-xs font-bold border-none outline-none focus:bg-white transition-colors"
                               placeholder="0"
                             />
@@ -283,7 +290,7 @@ export default function MasterSheetTimePage() {
               </TableBody>
               <tfoot className="bg-slate-50/50 font-bold border-t-2 border-slate-200">
                 <TableRow>
-                  <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r">Totales Diarios</TableCell>
+                  <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-4">Totales Diarios</TableCell>
                   {weekDays.map(day => (
                     <TableCell key={day.toString()} className="text-center text-xs text-slate-600 border-r">
                       {calculateDayTotal(day).toFixed(1)}

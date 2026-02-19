@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { 
   format, 
   startOfWeek, 
@@ -37,6 +37,9 @@ export default function TimeSheetPage() {
   
   // State for week navigation (Starts on Monday)
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
+  
+  // Local state for hours to allow live calculations while typing
+  const [gridHours, setGridHours] = useState<Record<string, string>>({});
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -49,7 +52,6 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
-    // CRITICAL: Explicit orderBy to match composite index exactly
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
@@ -61,30 +63,39 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Data mapping: key = projectId_dateKey
-  const entriesMap = useMemo(() => {
-    const map: Record<string, any> = {};
-    (entries || []).forEach(e => {
-      // Robust date parsing to handle both Timestamps and Dates
-      const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
-      const dateKey = format(dateVal, 'yyyy-MM-dd');
-      const key = `${e.projectId}_${dateKey}`;
-      map[key] = e;
-    });
-    return map;
+  // Sync gridHours when entries arrive from Firestore
+  useEffect(() => {
+    if (entries) {
+      const newHours: Record<string, string> = {};
+      entries.forEach(e => {
+        const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+        const dateKey = format(dateVal, 'yyyy-MM-dd');
+        newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
+      });
+      setGridHours(newHours);
+    } else {
+      setGridHours({});
+    }
   }, [entries]);
 
-  const handleCellChange = async (projectId: string, date: Date, value: string) => {
+  const handleInputChange = (projectId: string, date: Date, value: string) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
+    const key = `${projectId}_${dateKey}`;
+    setGridHours(prev => ({ ...prev, [key]: value }));
+  };
+
+  const handleCellBlur = async (projectId: string, date: Date, value: string) => {
     if (!firestore || !user?.uid) return;
     
     const hours = parseFloat(value);
-    if (isNaN(hours) && value !== '') return;
+    if (isNaN(hours)) return;
 
     const dateKey = format(date, 'yyyy-MM-dd');
-    const lookupKey = `${projectId}_${dateKey}`;
-    const existingEntry = entriesMap[lookupKey];
+    const existingEntry = (entries || []).find(e => {
+      const d = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      return e.projectId === projectId && format(d, 'yyyy-MM-dd') === dateKey;
+    });
     
-    // Consistent ID: uid_projId_dateKey
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -109,18 +120,24 @@ export default function TimeSheetPage() {
     }
   };
 
-  // Calculations
+  // Calculations based on gridHours (live feedback)
   const calculateDayTotal = (day: Date) => {
     const dateKey = format(day, 'yyyy-MM-dd');
     return (projects || []).reduce((acc, proj) => {
       const key = `${proj.id}_${dateKey}`;
-      return acc + (entriesMap[key]?.hours || 0);
+      return acc + (parseFloat(gridHours[key]) || 0);
+    }, 0);
+  };
+
+  const calculateProjectTotal = (projectId: string) => {
+    return weekDays.reduce((acc, day) => {
+      const key = `${projectId}_${format(day, 'yyyy-MM-dd')}`;
+      return acc + (parseFloat(gridHours[key]) || 0);
     }, 0);
   };
 
   const totalWeekHours = weekDays.reduce((acc, day) => acc + calculateDayTotal(day), 0);
   
-  // OT Logic: Sum of daily OT (daily > 8)
   const totalOvertime = weekDays.reduce((acc, day) => {
     const dailyTotal = calculateDayTotal(day);
     return acc + Math.max(0, dailyTotal - 8);
@@ -128,7 +145,7 @@ export default function TimeSheetPage() {
 
   const totalRegular = Math.max(0, totalWeekHours - totalOvertime);
 
-  const loading = authLoading || projectsLoading || entriesLoading;
+  const loading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -157,7 +174,7 @@ export default function TimeSheetPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: Totales & Overtime Analytics */}
+        {/* Sidebar: Totals & Overtime Analytics */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
@@ -177,7 +194,7 @@ export default function TimeSheetPage() {
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className="h-2 w-2 rounded-full bg-[#46a395]" />
+                    <div className="h-2.5 w-2.5 rounded-full bg-[#46a395]" />
                     <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
                   </div>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
@@ -187,7 +204,7 @@ export default function TimeSheetPage() {
                   totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400"
                 )}>
                   <div className="flex items-center gap-2">
-                    <div className={cn("h-2 w-2 rounded-full", totalOvertime > 0 ? "bg-orange-500 animate-pulse" : "bg-slate-200")} />
+                    <div className={cn("h-2.5 w-2.5 rounded-full", totalOvertime > 0 ? "bg-orange-500 animate-pulse" : "bg-slate-200")} />
                     <span className="text-[10px] font-bold uppercase">Overtime</span>
                   </div>
                   <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
@@ -201,10 +218,7 @@ export default function TimeSheetPage() {
               </h4>
               <div className="space-y-3">
                 {projects?.slice(0, 4).map(p => {
-                  const pTotal = weekDays.reduce((acc, day) => {
-                    const key = `${p.id}_${format(day, 'yyyy-MM-dd')}`;
-                    return acc + (entriesMap[key]?.hours || 0);
-                  }, 0);
+                  const pTotal = calculateProjectTotal(p.id);
                   const percent = totalWeekHours > 0 ? (pTotal / totalWeekHours) * 100 : 0;
                   if (pTotal === 0) return null;
                   return (
@@ -267,46 +281,40 @@ export default function TimeSheetPage() {
                     <TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found. Please create a project to log time.</TableCell>
                   </TableRow>
                 ) : (
-                  projects?.map(project => {
-                    const pWeeklyTotal = weekDays.reduce((acc, day) => {
-                      const key = `${project.id}_${format(day, 'yyyy-MM-dd')}`;
-                      return acc + (entriesMap[key]?.hours || 0);
-                    }, 0);
-
-                    return (
-                      <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
-                        <TableCell className="py-4 px-6 border-r">
-                          <div className="flex flex-col">
-                            <span className="text-xs font-bold text-slate-700 tracking-tight">{project.name}</span>
-                            <span className="text-[9px] text-slate-400 font-bold uppercase truncate mt-0.5">{project.companyName}</span>
-                          </div>
-                        </TableCell>
-                        {weekDays.map(day => {
-                          const dateKey = format(day, 'yyyy-MM-dd');
-                          const lookupKey = `${project.id}_${dateKey}`;
-                          const currentVal = entriesMap[lookupKey]?.hours || '';
-                          
-                          return (
-                            <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30">
-                              <input
-                                type="number"
-                                step="0.5"
-                                min="0"
-                                max="24"
-                                defaultValue={currentVal}
-                                onBlur={(e) => handleCellChange(project.id, day, e.target.value)}
-                                className="w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200"
-                                placeholder="0.0"
-                              />
-                            </TableCell>
-                          );
-                        })}
-                        <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">
-                          {pWeeklyTotal > 0 ? pWeeklyTotal.toFixed(1) : '-'}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  projects?.map(project => (
+                    <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
+                      <TableCell className="py-4 px-6 border-r">
+                        <div className="flex flex-col">
+                          <span className="text-xs font-bold text-slate-700 tracking-tight">{project.name}</span>
+                          <span className="text-[9px] text-slate-400 font-bold uppercase truncate mt-0.5">{project.companyName}</span>
+                        </div>
+                      </TableCell>
+                      {weekDays.map(day => {
+                        const dateKey = format(day, 'yyyy-MM-dd');
+                        const lookupKey = `${project.id}_${dateKey}`;
+                        const currentVal = gridHours[lookupKey] || '';
+                        
+                        return (
+                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30">
+                            <input
+                              type="number"
+                              step="0.5"
+                              min="0"
+                              max="24"
+                              value={currentVal}
+                              onChange={(e) => handleInputChange(project.id, day, e.target.value)}
+                              onBlur={(e) => handleCellBlur(project.id, day, e.target.value)}
+                              className="w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200"
+                              placeholder="0.0"
+                            />
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">
+                        {calculateProjectTotal(project.id) > 0 ? calculateProjectTotal(project.id).toFixed(1) : '-'}
+                      </TableCell>
+                    </TableRow>
+                  ))
                 )}
               </TableBody>
               <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
