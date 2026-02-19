@@ -16,10 +16,7 @@ import {
   ChevronLeft, 
   ChevronRight, 
   Sheet as SheetIcon, 
-  Clock, 
   Calendar as CalendarIcon,
-  Users,
-  LayoutDashboard,
   CheckCircle2,
   AlertCircle,
   Clock3,
@@ -31,7 +28,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -53,29 +49,31 @@ export default function MasterSheetTimePage() {
 
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
 
-  const usersCollection = useMemoFirebase(() => (firestore && role === 'admin' ? collection(firestore, 'users') : null), [firestore, role]);
+  // CRITICAL: Delay query until auth is fully resolved and role is confirmed as admin
+  const isReady = !authLoading && role === 'admin';
+
+  const usersCollection = useMemoFirebase(() => (firestore && isReady ? collection(firestore, 'users') : null), [firestore, isReady]);
   const { data: allUsers, isLoading: usersLoading } = useCollection(usersCollection);
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL: Only execute query if role is confirmed as admin to avoid permission errors
-    if (!firestore || !currentUser || role !== 'admin') return null;
+    if (!firestore || !isReady) return null;
     return query(
       collection(firestore, 'time_entries'),
       where('date', '>=', startOfDay(currentWeekStart)),
       where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
       orderBy('date', 'asc')
     );
-  }, [firestore, currentUser?.uid, currentWeekStart, role]);
+  }, [firestore, isReady, currentWeekStart]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
   const submissionsQuery = useMemoFirebase(() => {
-    if (!firestore || role !== 'admin') return null;
+    if (!firestore || !isReady) return null;
     return query(
       collection(firestore, 'weekly_submissions'),
       where('weekId', '==', weekId)
     );
-  }, [firestore, weekId, role]);
+  }, [firestore, weekId, isReady]);
 
   const { data: submissions } = useCollection(submissionsQuery);
 
@@ -147,7 +145,8 @@ export default function MasterSheetTimePage() {
       });
   };
 
-  const loading = authLoading || usersLoading || entriesLoading;
+  // Improved loading state to prevent flicker
+  const initialLoad = authLoading || (isReady && !allUsers && usersLoading);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -175,7 +174,7 @@ export default function MasterSheetTimePage() {
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
           <CardHeader className="p-4 border-b bg-slate-50/50">
-            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
+            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2 text-slate-600">
               <SheetIcon className="h-3.5 w-3.5 text-[#46a395]" /> Team Control
             </CardTitle>
           </CardHeader>
@@ -229,8 +228,8 @@ export default function MasterSheetTimePage() {
                     <TableHead className="text-[10px] font-black uppercase text-center w-32 bg-slate-100/50">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody>
-                  {loading ? (
+                <TableBody className={cn(entriesLoading && "opacity-50 transition-opacity")}>
+                  {initialLoad ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`row-loading-${i}`}>
                         <TableCell className="border-r px-4"><Skeleton className="h-8 w-full" /></TableCell>

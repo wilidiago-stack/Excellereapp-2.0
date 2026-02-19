@@ -18,7 +18,6 @@ import {
   ChevronRight, 
   Clock, 
   Calendar as CalendarIcon,
-  PieChart,
   AlertCircle,
   Loader2,
   Send,
@@ -32,11 +31,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
-import { Badge } from '@/components/ui/badge';
 
 export default function TimeSheetPage() {
   const { user, loading: authLoading, role } = useAuth();
@@ -56,10 +53,13 @@ export default function TimeSheetPage() {
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
   const submissionId = useMemo(() => (user ? `${user.uid}_${weekId}` : null), [user, weekId]);
 
-  const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
+  // CRITICAL: Delay queries until auth is fully resolved to prevent permission errors
+  const isReady = !authLoading && !!user;
+
+  const projectsCollection = useMemoFirebase(() => (firestore && isReady ? collection(firestore, 'projects') : null), [firestore, isReady]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
-  const submissionRef = useMemoFirebase(() => (firestore && submissionId ? doc(firestore, 'weekly_submissions', submissionId) : null), [firestore, submissionId]);
+  const submissionRef = useMemoFirebase(() => (firestore && submissionId && isReady ? doc(firestore, 'weekly_submissions', submissionId) : null), [firestore, submissionId, isReady]);
   const { data: submissionData, isLoading: submissionLoading } = useDoc(submissionRef);
 
   const weekStatus = submissionData?.status || 'draft';
@@ -80,21 +80,19 @@ export default function TimeSheetPage() {
   };
 
   const entriesQuery = useMemoFirebase(() => {
-    // CRITICAL: Ensure user is authenticated and role is determined before querying
-    if (!firestore || !user?.uid || authLoading || !role) return null;
+    if (!firestore || !user?.uid || !isReady) return null;
     
-    const baseRef = collection(firestore, 'time_entries');
     const start = startOfDay(currentWeekStart);
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
     return query(
-      baseRef,
+      collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
       where('date', '>=', start),
       where('date', '<=', end),
       orderBy('date', 'asc')
     );
-  }, [firestore, user?.uid, currentWeekStart, authLoading, role]);
+  }, [firestore, user?.uid, currentWeekStart, isReady]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -210,8 +208,8 @@ export default function TimeSheetPage() {
   const totalRegular = Math.min(totalWeekHours, 40);
   const totalOvertime = Math.max(0, totalWeekHours - 40);
 
-  const initialLoading = authLoading || projectsLoading || !projects || submissionLoading;
-  const isSyncing = entriesLoading;
+  // Simplified loading to prevent flicker
+  const initialLoading = authLoading || (isReady && !projects && projectsLoading);
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
@@ -239,7 +237,6 @@ export default function TimeSheetPage() {
         </div>
       </div>
 
-      {/* Week Status Banner */}
       <div className={cn(
         "p-2 px-4 rounded-sm flex items-center justify-between border shadow-sm transition-all",
         weekStatus === 'draft' ? "bg-slate-50 border-slate-200" :
@@ -323,7 +320,7 @@ export default function TimeSheetPage() {
                     <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
                   </TableRow>
                 </TableHeader>
-                <TableBody className={cn((isSyncing || isLocked) && "opacity-60 transition-opacity")}>
+                <TableBody className={cn((entriesLoading || isLocked) && "opacity-60 transition-opacity")}>
                   {initialLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>

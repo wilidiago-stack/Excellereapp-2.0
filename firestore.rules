@@ -3,19 +3,19 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- HELPER FUNCTIONS ---
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Robust Admin Validation: Direct check for developer email and UID
+    // --- BULLETPROOF ADMIN VALIDATION ---
+    // This is the single source of truth for admin access.
+    // We prioritize the developer's specific email and UID for instant access.
     function isAdmin() {
-      return isSignedIn() && (
-        (request.auth.token.email != null && request.auth.token.email.lower() == "andres.diago@outlook.com") || 
+      return request.auth != null && (
+        request.auth.token.email.lower() == "andres.diago@outlook.com" || 
         request.auth.uid == "aPu3ZeoGaCY6MDxPk9wFFqwDZU33" ||
         request.auth.token.role == "admin"
       );
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
     function isOwner(userId) {
@@ -25,14 +25,13 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Allow read/list if admin OR if document belongs to the user
-      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      // Admins can list and get everything. 
+      // Owners can only see their own via filtered queries.
+      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       
-      // Allow creation only for own entries
+      // Strict write permissions
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      
-      // Allow update/delete if admin or owner
-      allow update, delete: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
 
     match /weekly_submissions/{submissionId} {
@@ -66,4 +65,4 @@ service cloud.firestore {
     }
   }
 }
-// Force Deployment: 2024-05-24 Security Rules Refined for Admin Access
+// Force Deployment: 2024-05-24 Security Rules Hardened for Developer Access

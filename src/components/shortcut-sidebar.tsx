@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -37,7 +38,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAuth, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { doc, setDoc } from 'firebase/firestore';
 import { cn } from '@/lib/utils';
@@ -79,7 +80,10 @@ export function ShortcutSidebar() {
   
   const { data: userProfileData, isLoading: profileLoading } = useDoc(userDocRef);
 
-  const pinnedIds = (userProfileData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
+  const pinnedIds = useMemo(() => {
+    return (userProfileData?.pinnedShortcuts as string[]) || ['dashboard', 'project-new', 'master-sheet-time', 'daily-report-new'];
+  }, [userProfileData]);
+
   const isAdmin = role === 'admin';
 
   const availableActions = ACTION_REGISTRY.filter(action => {
