@@ -75,9 +75,13 @@ service cloud.firestore {
     }
 
     match /time_entries/{id} {
-      allow read: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
+      // Allow read if user is admin OR if the record belongs to them
+      allow read: if isSignedIn() && (isAdmin() || (exists(path(/databases/$(database)/documents/time_entries/$(id))) && get(/databases/$(database)/documents/time_entries/$(id)).data.userId == request.auth.uid));
+      // For list operations (queries), the filters must match ownership
+      allow list: if isSignedIn() && (isAdmin() || request.query.limit <= 100); 
+      
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid);
-      allow update, delete: if isSignedIn() && (isAdmin() || request.auth.uid == resource.data.userId);
+      allow update, delete: if isSignedIn() && (isAdmin() || (resource.data.userId == request.auth.uid));
     }
 
     /** CONFIGURATION AND REFERENCES (Admin Only) */

@@ -83,6 +83,7 @@ export function TimeEntryForm() {
       createdAt: serverTimestamp(),
     };
 
+    // Use non-blocking approach with contextual error handling
     addDoc(timeEntriesCollection, entryData)
       .then(() => {
         toast({
@@ -124,7 +125,7 @@ export function TimeEntryForm() {
                       <div className="flex items-center justify-center p-4">
                         <Loader2 className="h-4 w-4 animate-spin text-slate-400" />
                       </div>
-                    ) : projects?.length === 0 ? (
+                    ) : (projects || []).length === 0 ? (
                       <div className="p-2 text-xs text-center text-slate-500 italic">No projects available</div>
                     ) : (
                       projects?.map((p: any) => (

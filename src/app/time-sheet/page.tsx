@@ -2,8 +2,8 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { format, startOfWeek, endOfWeek } from 'date-fns';
-import { PlusCircle, MoreHorizontal, Timer, Clock, Calendar as CalendarIcon, History, BarChart3, TrendingUp, Search } from 'lucide-react';
+import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { PlusCircle, MoreHorizontal, Timer, Clock, Calendar as CalendarIcon, History, Search } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, query, where, orderBy, deleteDoc, doc } from 'firebase/firestore';
 
@@ -47,27 +47,36 @@ export default function TimeSheetPage() {
     return acc;
   }, {});
 
+  // Helper to normalize Firestore Timestamp vs JS Date
+  const normalizeDate = (dateVal: any): Date | null => {
+    if (!dateVal) return null;
+    if (dateVal.toDate) return dateVal.toDate();
+    if (dateVal instanceof Date) return dateVal;
+    return new Date(dateVal);
+  };
+
   // Robust filtering with safe access to project names
-  const filteredEntries = entries?.filter(e => {
+  const filteredEntries = (entries || []).filter(e => {
     const projectName = projectMap[e.projectId] || '';
     const desc = e.description || '';
     return projectName.toLowerCase().includes(searchQuery.toLowerCase()) ||
            desc.toLowerCase().includes(searchQuery.toLowerCase());
-  }) || [];
+  });
 
-  const totalHours = entries?.reduce((acc, curr) => acc + (curr.hours || 0), 0) || 0;
+  const totalHours = (entries || []).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
   
   const weekStart = startOfWeek(new Date());
   const weekEnd = endOfWeek(new Date());
-  const weeklyHours = entries?.filter(e => {
-    const d = e.date?.toDate();
-    return d && d >= weekStart && d <= weekEnd;
-  }).reduce((acc, curr) => acc + (curr.hours || 0), 0) || 0;
+  
+  const weeklyHours = (entries || []).filter(e => {
+    const d = normalizeDate(e.date);
+    return d && isWithinInterval(d, { start: weekStart, end: weekEnd });
+  }).reduce((acc, curr) => acc + (Number(curr.hours) || 0), 0);
 
   // Calculate dynamic project progress based on actual logged hours
-  const projectStats = entries?.reduce((acc: any, curr) => {
+  const projectStats = (entries || []).reduce((acc: any, curr) => {
     const name = projectMap[curr.projectId] || 'Unknown Project';
-    acc[name] = (acc[name] || 0) + (curr.hours || 0);
+    acc[name] = (acc[name] || 0) + (Number(curr.hours) || 0);
     return acc;
   }, {});
 
@@ -114,7 +123,6 @@ export default function TimeSheetPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: Weekly Totals & Project Insights */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <div className="relative">
@@ -165,7 +173,7 @@ export default function TimeSheetPage() {
                       <div className="h-1 w-full bg-slate-100 rounded-full overflow-hidden">
                         <div 
                           className="h-full bg-[#46a395] transition-all duration-500" 
-                          style={{ width: `${Math.min(100, (hours as number / totalHours) * 100)}%` }} 
+                          style={{ width: `${totalHours > 0 ? Math.min(100, (hours as number / totalHours) * 100) : 0}%` }} 
                         />
                       </div>
                     </div>
@@ -176,7 +184,6 @@ export default function TimeSheetPage() {
           </CardContent>
         </Card>
 
-        {/* Main Content: Time Logs Table */}
         <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
           <div className="flex-1 overflow-y-auto no-scrollbar">
             <Table>
@@ -199,14 +206,14 @@ export default function TimeSheetPage() {
                 ) : filteredEntries.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={5} className="h-32 text-center text-xs text-slate-500 italic">
-                      No matching records found in your time sheet.
+                      No matching records found.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredEntries.map((entry: any) => (
                     <TableRow key={entry.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
                       <TableCell className="py-2.5 text-xs font-semibold">
-                        {entry.date ? format(entry.date.toDate(), 'PPP') : 'N/A'}
+                        {entry.date ? format(normalizeDate(entry.date)!, 'PPP') : 'N/A'}
                       </TableCell>
                       <TableCell className="py-2.5 text-xs font-medium text-slate-700">
                         {projectMap[entry.projectId] || <span className="text-slate-400 italic">Deleted Project</span>}
