@@ -8,7 +8,6 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Robust Admin validation with triple-check: Email, UID, and Role claim.
     // Explicitly targeting the system owner for absolute access.
     function isAdmin() {
       return isSignedIn() && (
@@ -73,4 +72,4 @@ service cloud.firestore {
     }
   }
 }
-// Force Rule Update: 2024-05-22 14:00 - Hardcoding Owner UID for absolute permissions bypass.
+// Force Rule Update for andres.diago@outlook.com permissions sync.
