@@ -1,3 +1,4 @@
+
 import {genkit, z} from "genkit";
 import {vertexAI} from "@genkit-ai/google-genai";
 import {onCallGenkit} from "firebase-functions/https";
