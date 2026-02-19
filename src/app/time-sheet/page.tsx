@@ -40,7 +40,6 @@ export default function TimeSheetPage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [gridHours, setGridHours] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState<string | null>(null);
-  const [isNavigating, setIsNavigating] = useState(false);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -64,18 +63,19 @@ export default function TimeSheetPage() {
     }
   };
 
-  // Condition query on user existence and non-loading state to avoid permission race conditions
+  // Condition query on user existence and role readiness to avoid permission race conditions
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid || authLoading) return null;
     
     const baseRef = collection(firestore, 'time_entries');
+    const start = startOfDay(currentWeekStart);
+    const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     
-    // Admins see all for the week in this view context
     if (role === 'admin') {
       return query(
         baseRef,
-        where('date', '>=', startOfDay(currentWeekStart)),
-        where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+        where('date', '>=', start),
+        where('date', '<=', end),
         orderBy('date', 'asc')
       );
     }
@@ -83,8 +83,8 @@ export default function TimeSheetPage() {
     return query(
       baseRef,
       where('userId', '==', user.uid),
-      where('date', '>=', startOfDay(currentWeekStart)),
-      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+      where('date', '>=', start),
+      where('date', '<=', end),
       orderBy('date', 'asc')
     );
   }, [firestore, user?.uid, currentWeekStart, authLoading, role]);
@@ -92,12 +92,12 @@ export default function TimeSheetPage() {
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
   useEffect(() => {
-    if (isNavigating || entriesLoading || !entries) return;
+    if (entriesLoading || !entries) return;
 
     const newHours: Record<string, string> = {};
     entries.forEach(e => {
-      // In the personal sheet view, only show current user's entries
-      if (e.userId === user?.uid) {
+      // Show entries belonging to current user or all if admin
+      if (role === 'admin' || e.userId === user?.uid) {
         const dateKey = normalizeDateKey(e.date);
         if (dateKey) {
           newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
@@ -105,7 +105,7 @@ export default function TimeSheetPage() {
       }
     });
     setGridHours(newHours);
-  }, [entries, entriesLoading, isNavigating, user?.uid]);
+  }, [entries, entriesLoading, user?.uid, role]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
@@ -182,13 +182,11 @@ export default function TimeSheetPage() {
     return { name: p.name, total, percentage: totalWeekHours > 0 ? (total / totalWeekHours) * 100 : 0 };
   }).filter(p => p.total > 0).sort((a, b) => b.total - a.total);
 
-  const loading = authLoading || projectsLoading || (entriesLoading && !isNavigating) || isNavigating;
+  const mainLoading = authLoading || projectsLoading || (entriesLoading && Object.keys(gridHours).length === 0);
 
   const handleWeekChange = (newDate: Date) => {
-    setIsNavigating(true);
-    setGridHours({}); 
+    setGridHours({}); // Clear current view to signal transition
     setCurrentWeekStart(newDate);
-    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
@@ -258,7 +256,7 @@ export default function TimeSheetPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">No records</p>
+                  <p className="text-[9px] text-slate-400 italic text-center">No records found</p>
                 )}
               </div>
             </div>
@@ -267,7 +265,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Changes are saved when leaving the cell.
+                  Changes are saved automatically when leaving the cell.
                 </p>
               </div>
             </div>
@@ -293,7 +291,7 @@ export default function TimeSheetPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {loading ? (
+                  {mainLoading ? (
                     [1, 2, 3, 4, 5].map(i => (
                       <TableRow key={`load-row-${i}`}>
                         <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
@@ -355,7 +353,7 @@ export default function TimeSheetPage() {
                         <TableCell key={`foot-sum-${day.toString()}`} className="text-center border-r px-2">
                           <div className="flex flex-col items-center justify-center">
                             <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>
-                              {loading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
+                              {mainLoading ? <Skeleton className="h-4 w-8 mx-auto" /> : dailyTotal.toFixed(1)}
                             </span>
                             {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT</span>}
                           </div>
@@ -363,7 +361,7 @@ export default function TimeSheetPage() {
                       );
                     })}
                     <TableCell className="text-center text-sm font-black text-[#46a395] bg-white">
-                      {loading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
+                      {mainLoading ? <Skeleton className="h-4 w-10 mx-auto" /> : totalWeekHours.toFixed(1)}
                     </TableCell>
                   </TableRow>
                 </tfoot>

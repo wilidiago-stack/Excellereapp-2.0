@@ -145,7 +145,7 @@ export const useFirebaseApp = (): FirebaseApp => {
 export const useAuth = () => {
   const { user, isUserLoading, claims, userError } = useFirebase();
   
-  // Bypass de Administrador para el desarrollador
+  // Developer override
   const isAdminEmail = user?.email?.toLowerCase() === 'andres.diago@outlook.com';
   const role = isAdminEmail ? 'admin' : (claims?.role as string) || 'viewer';
   

@@ -23,10 +23,10 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Explicitly allow list operations for the Admin or the data owner
+      // Allow list and get for Admin or the data owner
       allow read, list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       
-      // Allow write if Admin or if the entry belongs to the authenticated user
+      // Allow creation and updates if Admin or if the entry belongs to the user
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
@@ -69,4 +69,4 @@ service cloud.firestore {
     }
   }
 }
-// Rule Force Update: 2024-05-20 - Ensure English consistency and Admin list access.
+// Force Rule Update: 2024-05-21 - Ensuring robust list permissions and Admin override.
