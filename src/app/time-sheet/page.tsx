@@ -165,7 +165,7 @@ export default function TimeSheetPage() {
     const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
     return (
-      <div className="space-y-3 pt-4 border-t mt-4">
+      <div className="space-y-3">
         <div className="flex items-center justify-between px-1">
           <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Navigation View</h4>
           <span className="text-[10px] font-bold text-slate-600">{format(monthStart, 'MMMM yyyy')}</span>
@@ -246,8 +246,6 @@ export default function TimeSheetPage() {
               </div>
             </div>
 
-            {renderMiniCalendar()}
-
             <div className="space-y-4 pt-4 border-t">
               <div className="flex items-center justify-between px-1">
                 <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
@@ -301,81 +299,90 @@ export default function TimeSheetPage() {
           </CardContent>
         </Card>
 
-        <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
-          <div className="flex-1 overflow-x-auto no-scrollbar">
-            <Table className="border-collapse">
-              <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
-                <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                  <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project Reference</TableHead>
-                  {weekDays.map(day => (
-                    <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
-                      <div className="flex flex-col gap-0.5">
-                        <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEEE')}</span>
-                        <span className="text-[11px] text-slate-400">{format(day, 'MMM dd')}</span>
-                      </div>
-                    </TableHead>
-                  ))}
-                  <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {loading ? (
-                  [1, 2, 3, 4, 5].map(i => (
-                    <TableRow key={i}>
-                      <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
-                      {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
-                      <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
-                    </TableRow>
-                  ))
-                ) : projects?.length === 0 ? (
-                  <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found.</TableCell></TableRow>
-                ) : (
-                  projects?.map(project => (
-                    <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
-                      <TableCell className="py-4 px-6 border-r">
-                        <div className="flex flex-col">
-                          <span className="text-xs font-bold text-slate-700 tracking-tight">{project.name}</span>
-                          <span className="text-[9px] text-slate-400 font-bold uppercase truncate mt-0.5">{project.companyName}</span>
+        <div className="flex-1 flex flex-col gap-2 min-w-0 overflow-hidden">
+          <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
+            <div className="flex-1 overflow-x-auto no-scrollbar">
+              <Table className="border-collapse">
+                <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
+                  <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project Reference</TableHead>
+                    {weekDays.map(day => (
+                      <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
+                        <div className="flex flex-col gap-0.5">
+                          <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEEE')}</span>
+                          <span className="text-[11px] text-slate-400">{format(day, 'MMM dd')}</span>
                         </div>
-                      </TableCell>
-                      {weekDays.map(day => {
-                        const dateKey = format(day, 'yyyy-MM-dd');
-                        const lookupKey = `${project.id}_${dateKey}`;
-                        const currentVal = gridHours[lookupKey] || '';
-                        const saving = isSaving === lookupKey;
-                        return (
-                          <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
-                            <input type="number" step="0.5" min="0" max="24" value={currentVal} onChange={(e) => handleInputChange(project.id, day, e.target.value)} onBlur={(e) => handleCellBlur(project.id, day, e.target.value)} className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} placeholder="0.0" />
-                            {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary opacity-50" /></div>}
-                          </TableCell>
-                        );
-                      })}
-                      <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">{calculateProjectTotal(project.id) > 0 ? calculateProjectTotal(project.id).toFixed(1) : '-'}</TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-              <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
-                <TableRow className="h-14">
-                  <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
-                  {weekDays.map(day => {
-                    const dailyTotal = calculateDayTotal(day);
-                    const isOT = dailyTotal > 8;
-                    return (
-                      <TableCell key={day.toString()} className="text-center border-r px-2">
-                        <div className="flex flex-col items-center justify-center gap-0.5">
-                          <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>{dailyTotal.toFixed(1)}</span>
-                          {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT: {(dailyTotal - 8).toFixed(1)}</span>}
-                        </div>
-                      </TableCell>
-                    );
-                  })}
-                  <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">{totalWeekHours.toFixed(1)}</TableCell>
-                </TableRow>
-              </tfoot>
-            </Table>
-          </div>
-        </Card>
+                      </TableHead>
+                    ))}
+                    <TableHead className="text-[10px] font-black uppercase text-center w-24 bg-slate-100/50">Total</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {loading ? (
+                    [1, 2, 3, 4, 5].map(i => (
+                      <TableRow key={i}>
+                        <TableCell className="border-r px-6"><Skeleton className="h-8 w-full rounded-sm" /></TableCell>
+                        {weekDays.map(d => <TableCell key={d.toString()} className="border-r p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>)}
+                        <TableCell className="p-2"><Skeleton className="h-10 w-full rounded-sm" /></TableCell>
+                      </TableRow>
+                    ))
+                  ) : projects?.length === 0 ? (
+                    <TableRow><TableCell colSpan={9} className="h-48 text-center text-xs text-slate-400 italic">No active projects found.</TableCell></TableRow>
+                  ) : (
+                    projects?.map(project => (
+                      <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
+                        <TableCell className="py-4 px-6 border-r">
+                          <div className="flex flex-col">
+                            <span className="text-xs font-bold text-slate-700 tracking-tight">{project.name}</span>
+                            <span className="text-[9px] text-slate-400 font-bold uppercase truncate mt-0.5">{project.companyName}</span>
+                          </div>
+                        </TableCell>
+                        {weekDays.map(day => {
+                          const dateKey = format(day, 'yyyy-MM-dd');
+                          const lookupKey = `${project.id}_${dateKey}`;
+                          const currentVal = gridHours[lookupKey] || '';
+                          const saving = isSaving === lookupKey;
+                          return (
+                            <TableCell key={day.toString()} className="p-0 border-r focus-within:ring-1 focus-within:ring-inset focus-within:ring-primary/30 relative">
+                              <input type="number" step="0.5" min="0" max="24" value={currentVal} onChange={(e) => handleInputChange(project.id, day, e.target.value)} onBlur={(e) => handleCellBlur(project.id, day, e.target.value)} className={cn("w-full h-14 bg-transparent text-center text-sm font-bold border-none outline-none focus:bg-white transition-all text-slate-600 placeholder:text-slate-200", saving && "opacity-50")} placeholder="0.0" />
+                              {saving && <div className="absolute inset-0 flex items-center justify-center pointer-events-none"><Loader2 className="h-3 w-3 animate-spin text-primary opacity-50" /></div>}
+                            </TableCell>
+                          );
+                        })}
+                        <TableCell className="text-center font-black text-xs text-slate-700 bg-slate-50/30">{calculateProjectTotal(project.id) > 0 ? calculateProjectTotal(project.id).toFixed(1) : '-'}</TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+                <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
+                  <TableRow className="h-14">
+                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
+                    {weekDays.map(day => {
+                      const dailyTotal = calculateDayTotal(day);
+                      const isOT = dailyTotal > 8;
+                      return (
+                        <TableCell key={day.toString()} className="text-center border-r px-2">
+                          <div className="flex flex-col items-center justify-center gap-0.5">
+                            <span className={cn("text-sm font-black", isOT ? "text-orange-600" : "text-slate-700")}>{dailyTotal.toFixed(1)}</span>
+                            {isOT && <span className="text-[8px] font-black uppercase text-orange-400">OT: {(dailyTotal - 8).toFixed(1)}</span>}
+                          </div>
+                        </TableCell>
+                      );
+                    })}
+                    <TableCell className="text-center text-sm font-black text-primary bg-white shadow-inner">{totalWeekHours.toFixed(1)}</TableCell>
+                  </TableRow>
+                </tfoot>
+              </Table>
+            </div>
+          </Card>
+
+          {/* Calendar moved below the sheet */}
+          <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-slate-50/10">
+            <div className="max-w-md mx-auto">
+              {renderMiniCalendar()}
+            </div>
+          </Card>
+        </div>
       </div>
     </div>
   );
