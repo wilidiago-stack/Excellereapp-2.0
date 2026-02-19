@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo } from 'react';
@@ -24,7 +23,7 @@ import {
   TrendingUp
 } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,7 +40,6 @@ export default function MasterSheetTimePage() {
   const { toast } = useToast();
   
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
-  const [isSaving, setIsSaving] = useState(false);
 
   const weekDays = useMemo(() => {
     const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
@@ -54,11 +52,13 @@ export default function MasterSheetTimePage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
+    // Explicitly adding orderBy to match the required composite index exactly
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
       where('date', '>=', currentWeekStart),
-      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 }))
+      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+      orderBy('date', 'asc')
     );
   }, [firestore, user?.uid, currentWeekStart]);
 
@@ -68,7 +68,8 @@ export default function MasterSheetTimePage() {
   const entriesMap = useMemo(() => {
     const map: Record<string, any> = {};
     (entries || []).forEach(e => {
-      const dateKey = format(e.date?.toDate ? e.date.toDate() : new Date(e.date), 'yyyy-MM-dd');
+      const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      const dateKey = format(dateVal, 'yyyy-MM-dd');
       const key = `${e.projectId}_${dateKey}`;
       map[key] = e;
     });

@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
@@ -49,11 +49,13 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid) return null;
+    // Explicitly adding orderBy to match the required composite index exactly
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
       where('date', '>=', currentWeekStart),
-      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 }))
+      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+      orderBy('date', 'asc')
     );
   }, [firestore, user?.uid, currentWeekStart]);
 
@@ -63,7 +65,9 @@ export default function TimeSheetPage() {
   const entriesMap = useMemo(() => {
     const map: Record<string, any> = {};
     (entries || []).forEach(e => {
-      const dateKey = format(e.date?.toDate ? e.date.toDate() : new Date(e.date), 'yyyy-MM-dd');
+      // Robust date parsing to handle both Timestamps and Dates
+      const dateVal = e.date?.toDate ? e.date.toDate() : new Date(e.date);
+      const dateKey = format(dateVal, 'yyyy-MM-dd');
       const key = `${e.projectId}_${dateKey}`;
       map[key] = e;
     });
@@ -153,7 +157,7 @@ export default function TimeSheetPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: Totals & Overtime Analytics */}
+        {/* Sidebar: Totales & Overtime Analytics */}
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
