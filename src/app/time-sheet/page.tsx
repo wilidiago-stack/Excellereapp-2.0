@@ -44,13 +44,16 @@ export default function TimeSheetPage() {
   const [isSaving, setIsSaving] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Stabilize dates for query dependencies
+  const startOfPeriod = useMemo(() => startOfDay(currentWeekStart), [currentWeekStart]);
+  const endOfPeriod = useMemo(() => endOfWeek(currentWeekStart, { weekStartsOn: 1 }), [currentWeekStart]);
+
   const weekDays = useMemo(() => {
-    const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: currentWeekStart, end });
-  }, [currentWeekStart]);
+    return eachDayOfInterval({ start: startOfPeriod, end: endOfPeriod });
+  }, [startOfPeriod, endOfPeriod]);
 
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
-  const submissionId = useMemo(() => (user ? `${user.uid}_${weekId}` : null), [user, weekId]);
+  const submissionId = useMemo(() => (user ? `${user.uid}_${weekId}` : null), [user?.uid, weekId]);
 
   const isReady = !authLoading && !!user;
 
@@ -79,16 +82,14 @@ export default function TimeSheetPage() {
 
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid || !isReady) return null;
-    const start = startOfDay(currentWeekStart);
-    const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
     return query(
       collection(firestore, 'time_entries'),
       where('userId', '==', user.uid),
-      where('date', '>=', start),
-      where('date', '<=', end),
+      where('date', '>=', startOfPeriod),
+      where('date', '<=', endOfPeriod),
       orderBy('date', 'asc')
     );
-  }, [firestore, user?.uid, currentWeekStart, isReady]);
+  }, [firestore, user?.uid, startOfPeriod, endOfPeriod, isReady]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -151,7 +152,7 @@ export default function TimeSheetPage() {
       weekId,
       status: 'submitted',
       submittedAt: serverTimestamp(),
-      weekStart: startOfDay(currentWeekStart)
+      weekStart: startOfPeriod
     };
     setDoc(submissionRef, data, { merge: true })
       .then(() => {
@@ -199,7 +200,7 @@ export default function TimeSheetPage() {
           <div className="flex items-center gap-2 px-4 py-1 bg-slate-100 rounded-sm border border-slate-200">
             <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
             <span className="text-xs font-black text-slate-700">
-              {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
+              {format(currentWeekStart, 'dd MMM')} - {format(endOfPeriod, 'dd MMM, yyyy')}
             </span>
           </div>
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>

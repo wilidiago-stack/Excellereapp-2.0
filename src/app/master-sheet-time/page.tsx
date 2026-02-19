@@ -41,10 +41,13 @@ export default function MasterSheetTimePage() {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }));
   const [approvingId, setApprovingId] = useState<string | null>(null);
 
+  // Stabilize dates for query dependencies
+  const startOfPeriod = useMemo(() => startOfDay(currentWeekStart), [currentWeekStart]);
+  const endOfPeriod = useMemo(() => endOfWeek(currentWeekStart, { weekStartsOn: 1 }), [currentWeekStart]);
+
   const weekDays = useMemo(() => {
-    const end = endOfWeek(currentWeekStart, { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: currentWeekStart, end });
-  }, [currentWeekStart]);
+    return eachDayOfInterval({ start: startOfPeriod, end: endOfPeriod });
+  }, [startOfPeriod, endOfPeriod]);
 
   const weekId = useMemo(() => `${format(currentWeekStart, 'yyyy')}-${getISOWeek(currentWeekStart)}`, [currentWeekStart]);
 
@@ -57,11 +60,11 @@ export default function MasterSheetTimePage() {
     if (!firestore || !isReady) return null;
     return query(
       collection(firestore, 'time_entries'),
-      where('date', '>=', startOfDay(currentWeekStart)),
-      where('date', '<=', endOfWeek(currentWeekStart, { weekStartsOn: 1 })),
+      where('date', '>=', startOfPeriod),
+      where('date', '<=', endOfPeriod),
       orderBy('date', 'asc')
     );
-  }, [firestore, isReady, currentWeekStart]);
+  }, [firestore, isReady, startOfPeriod, endOfPeriod]);
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
@@ -141,7 +144,7 @@ export default function MasterSheetTimePage() {
           <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-sm border border-slate-200">
             <CalendarIcon className="h-3.5 w-3.5 text-slate-500" />
             <span className="text-xs font-bold text-slate-700">
-              {format(currentWeekStart, 'dd MMM')} - {format(endOfWeek(currentWeekStart, { weekStartsOn: 1 }), 'dd MMM, yyyy')}
+              {format(currentWeekStart, 'dd MMM')} - {format(endOfPeriod, 'dd MMM, yyyy')}
             </span>
           </div>
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => setCurrentWeekStart(addWeeks(currentWeekStart, 1))}>

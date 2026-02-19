@@ -64,4 +64,3 @@ service cloud.firestore {
     }
   }
 }
-// Force Deployment: 2024-05-24 Security Rules Hardened for Developer Access
