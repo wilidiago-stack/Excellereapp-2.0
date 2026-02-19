@@ -1,10 +1,11 @@
+
 'use client';
 
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { CalendarIcon, Timer, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useAuth, useCollection, useMemoFirebase } from '@/firebase';
@@ -76,13 +77,17 @@ export function TimeEntryForm() {
       return;
     }
 
-    // Use deterministic ID: userId_projectId_date
+    // CRITICAL: Use deterministic ID: userId_projectId_date
+    // This prevents duplicate entries for the same day/project which causes "infinite summing"
     const dateKey = format(data.date, 'yyyy-MM-dd');
     const entryId = `${user.uid}_${data.projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
     const entryData = {
-      ...data,
+      projectId: data.projectId,
+      date: startOfDay(data.date),
+      hours: data.hours,
+      description: data.description,
       userId: user.uid,
       updatedAt: serverTimestamp(),
       status: 'draft'

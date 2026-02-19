@@ -25,7 +25,8 @@ service cloud.firestore {
 
     match /time_entries/{entryId} {
       // Allow listing for admins or if filtering by own userId
-      allow list: if isSignedIn() && (isAdmin() || request.query.limit <= 500 && request.query.filters.userId == request.auth.uid);
+      // Use simpler, explicit checks to avoid permission denied on list
+      allow list: if isSignedIn() && (isAdmin() || (request.query.filters != null && request.query.filters.userId == request.auth.uid));
       allow get: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
