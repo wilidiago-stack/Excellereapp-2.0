@@ -8,7 +8,6 @@ import {
   eachDayOfInterval, 
   addWeeks, 
   subWeeks, 
-  isSameDay, 
   startOfDay 
 } from 'date-fns';
 import { 
@@ -21,6 +20,7 @@ import {
   TrendingUp,
   AlertCircle
 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
