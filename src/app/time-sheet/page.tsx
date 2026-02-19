@@ -15,11 +15,9 @@ import {
   ChevronRight, 
   Clock, 
   Calendar as CalendarIcon,
-  TrendingUp,
-  AlertCircle,
-  Loader2,
   PieChart,
-  Target
+  AlertCircle,
+  Loader2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
@@ -27,7 +25,6 @@ import { collection, query, where, doc, setDoc, serverTimestamp, orderBy } from 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Progress } from '@/components/ui/progress';
 import { useToast } from '@/hooks/use-toast';
@@ -75,6 +72,7 @@ export default function TimeSheetPage() {
   };
 
   useEffect(() => {
+    // Si estamos navegando, no sincronizamos hasta que la consulta de entries se estabilice
     if (isNavigating) return;
 
     if (!entriesLoading) {
@@ -165,9 +163,10 @@ export default function TimeSheetPage() {
 
   const handleWeekChange = (newDate: Date) => {
     setIsNavigating(true);
-    setGridHours({}); // CLEAR IMMEDIATELY TO PREVENT JUMP
+    setGridHours({}); // Limpieza inmediata para evitar "flash" de datos antiguos
     setCurrentWeekStart(newDate);
-    setTimeout(() => setIsNavigating(false), 400);
+    // Un pequeño delay artificial asegura que el estado de carga se vea limpio
+    setTimeout(() => setIsNavigating(false), 300);
   };
 
   return (
@@ -205,7 +204,7 @@ export default function TimeSheetPage() {
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
-              <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center relative overflow-hidden group">
+              <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center">
                 <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Hours</p>
                 <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
               </div>

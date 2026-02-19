@@ -40,7 +40,18 @@ export function getSdks(firebaseApp: FirebaseApp) {
   };
 }
 
-export * from './provider';
+// Explicitly export all hooks and providers to prevent build errors
+export {
+  FirebaseProvider,
+  useFirebase,
+  useAuthInstance,
+  useFirestore,
+  useFirebaseApp,
+  useAuth,
+  useUser,
+  useMemoFirebase,
+} from './provider';
+
 export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
