@@ -49,7 +49,6 @@ export default function TimeSheetPage() {
   const projectsCollection = useMemoFirebase(() => (firestore ? collection(firestore, 'projects') : null), [firestore]);
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
-  // Función infalible para normalizar fechas y evitar problemas de zona horaria
   const normalizeDateKey = (dateVal: any): string => {
     if (!dateVal) return '';
     let d: Date;
@@ -72,7 +71,6 @@ export default function TimeSheetPage() {
 
   const { data: entries, isLoading: entriesLoading } = useCollection(entriesQuery);
 
-  // Sincronizar datos de Firestore a la cuadrícula visual
   useEffect(() => {
     if (isNavigating || entriesLoading || !entries) return;
 
@@ -101,7 +99,6 @@ export default function TimeSheetPage() {
     const dateKey = format(date, 'yyyy-MM-dd');
     const key = `${projectId}_${dateKey}`;
     
-    // Buscar registro existente para evitar duplicados
     const existingEntry = (entries || []).find(e => {
       return e.projectId === projectId && normalizeDateKey(e.date) === dateKey;
     });
@@ -111,7 +108,6 @@ export default function TimeSheetPage() {
 
     setIsSaving(key);
     
-    // ID determinístico para sobrescritura correcta
     const entryId = existingEntry?.id || `${user.uid}_${projectId}_${dateKey}`;
     const entryRef = doc(firestore, 'time_entries', entryId);
 
@@ -264,7 +260,7 @@ export default function TimeSheetPage() {
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
                     <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Proyecto / Referencia</TableHead>
                     {weekDays.map(day => (
-                      <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
+                      <TableHead key={`head-${day.toString()}`} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
                           <span className={cn(format(day, 'EEE') === 'Sun' || format(day, 'EEE') === 'Sat' ? "text-orange-400" : "text-slate-600")}>{format(day, 'EEE')}</span>
                           <span className="text-[11px] text-slate-400">{format(day, 'dd')}</span>

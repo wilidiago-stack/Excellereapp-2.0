@@ -8,7 +8,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // v5.1.0 - Validación de Administrador reforzada y robusta
+    // Validación de Administrador reforzada
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -23,8 +23,7 @@ service cloud.firestore {
     // --- REGLAS DE COLECCIONES ---
 
     match /time_entries/{entryId} {
-      // Permitir lectura (get y list) si es Admin o si los datos pertenecen al usuario
-      // Se separa 'list' para asegurar que las consultas filtradas por userId funcionen siempre
+      // Se permite list y get si es Admin o si son sus propios datos
       allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       
       // Permitir creación/escritura si el usuario es el dueño o Admin
