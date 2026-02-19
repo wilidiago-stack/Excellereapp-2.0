@@ -10,6 +10,8 @@ const db = admin.firestore();
 
 setGlobalOptions({ maxInstances: 10 });
 
+const ADMIN_EMAILS = ['andres.diago@outlook.com'];
+
 /**
  * Initial setup for new users.
  * Automatically makes the first user an administrator.
@@ -28,8 +30,9 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const metadataDoc = await transaction.get(metadataRef);
       const userCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
       
-      // Make the first registered user an admin automatically
-      const assignedRole = userCount === 0 ? "admin" : "viewer";
+      // Make the first registered user or specific dev emails admin automatically
+      const isInitialAdmin = userCount === 0 || (email && ADMIN_EMAILS.includes(email));
+      const assignedRole = isInitialAdmin ? "admin" : "viewer";
 
       const userData = {
         firstName,
@@ -93,30 +96,6 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
     logger.info(`[onUserRoleChange] Role synced for ${userId}: ${newRole}`);
   } catch (error) {
     logger.error(`[onUserRoleChange] Sync failed for ${userId}:`, error);
-  }
-});
-
-/**
- * ORPHAN ACCOUNT MANAGEMENT:
- * When deleting a role, reassigns all affected users to 'viewer' role.
- */
-export const onRoleDeleted = onDocumentDeleted("roles/{roleId}", async (event) => {
-  const roleId = event.params.roleId;
-  const usersRef = db.collection('users');
-  
-  try {
-    const snapshot = await usersRef.where('role', '==', roleId).get();
-    if (snapshot.empty) return;
-
-    const batch = db.batch();
-    snapshot.docs.forEach(doc => {
-      batch.update(doc.ref, { role: 'viewer' });
-    });
-    
-    await batch.commit();
-    logger.info(`[onRoleDeleted] Reassigned ${snapshot.size} users from deleted role ${roleId} to 'viewer'.`);
-  } catch (error) {
-    logger.error(`[onRoleDeleted] Error managing orphan accounts for role ${roleId}:`, error);
   }
 });
 

@@ -144,12 +144,17 @@ export const useFirebaseApp = (): FirebaseApp => {
 /** Session hook providing user info and permissions */
 export const useAuth = () => {
   const { user, isUserLoading, claims, userError } = useFirebase();
+  
+  // Hardcoded Admin bypass for the developer
+  const isAdminEmail = user?.email === 'andres.diago@outlook.com';
+  const role = isAdminEmail ? 'admin' : (claims?.role as string) || 'viewer';
+  
   return {
     user,
     claims,
     loading: isUserLoading,
     error: userError,
-    role: (claims?.role as string) || 'viewer',
+    role,
     assignedModules: (claims?.assignedModules as string[]) || [],
   };
 };

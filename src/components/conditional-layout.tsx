@@ -41,6 +41,12 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
     const isAdmin = role === 'admin';
     
+    // Admins have NO restrictions
+    if (isAdmin) {
+      setIsRestricted(false);
+      return;
+    }
+
     // 1. If user is a Viewer and has NO assigned modules, they are restricted.
     if (role === 'viewer' && (!assignedModules || assignedModules.length === 0)) {
       setIsRestricted(true);
@@ -48,14 +54,13 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     }
 
     // 2. Check if the current route belongs to a module the user DOES NOT have.
-    // Dashboard (/) is always allowed if they have at least one module, or if they are admin.
     if (pathname === '/') {
       setIsRestricted(false);
       return;
     }
 
     const currentModule = APP_MODULES.find(m => pathname.startsWith(m.href) && m.href !== '/');
-    if (currentModule && !isAdmin && !assignedModules?.includes(currentModule.id)) {
+    if (currentModule && !assignedModules?.includes(currentModule.id)) {
       setIsRestricted(true);
     } else {
       setIsRestricted(false);
