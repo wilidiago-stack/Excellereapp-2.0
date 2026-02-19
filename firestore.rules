@@ -2,13 +2,13 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- FUNCIONES HELPER ---
+    // --- HELPER FUNCTIONS ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Validación de Administrador robusta
+    // Robust Admin validation targeting the user's primary email
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email.lower() == 'andres.diago@outlook.com' || 
@@ -20,14 +20,13 @@ service cloud.firestore {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    // --- REGLAS DE COLECCIONES ---
+    // --- COLLECTION RULES ---
 
     match /time_entries/{entryId} {
-      // Permitir leer (list/get) si es Admin o si son sus propios datos
-      // La regla de listado es crítica para el Master Sheet
-      allow read: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
+      // Explicitly allow list operations for the Admin or the data owner
+      allow read, list: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
       
-      // Permitir creación/escritura si el usuario es el dueño o Admin
+      // Allow write if Admin or if the entry belongs to the authenticated user
       allow create: if isSignedIn() && (request.resource.data.userId == request.auth.uid || isAdmin());
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.userId == request.auth.uid);
     }
@@ -64,9 +63,10 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Acceso total para Administradores en cualquier otra ruta
+    // Catch-all for other collections: Full access for Admins only
     match /{document=**} {
       allow read, write: if isAdmin();
     }
   }
 }
+// Rule Force Update: 2024-05-20 - Ensure English consistency and Admin list access.

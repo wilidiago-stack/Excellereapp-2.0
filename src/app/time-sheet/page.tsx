@@ -64,13 +64,13 @@ export default function TimeSheetPage() {
     }
   };
 
-  // CRITICAL FIX: The query remains NULL until auth is fully resolved to avoid permission race conditions
+  // Condition query on user existence and non-loading state to avoid permission race conditions
   const entriesQuery = useMemoFirebase(() => {
     if (!firestore || !user?.uid || authLoading) return null;
     
-    // If admin, we fetch all for the week, if viewer only their own
     const baseRef = collection(firestore, 'time_entries');
     
+    // Admins see all for the week in this view context
     if (role === 'admin') {
       return query(
         baseRef,
@@ -96,8 +96,8 @@ export default function TimeSheetPage() {
 
     const newHours: Record<string, string> = {};
     entries.forEach(e => {
-      // For Admins in this view, we only show their own entries to avoid cluttering the personal sheet
-      if (role !== 'admin' || e.userId === user?.uid) {
+      // In the personal sheet view, only show current user's entries
+      if (e.userId === user?.uid) {
         const dateKey = normalizeDateKey(e.date);
         if (dateKey) {
           newHours[`${e.projectId}_${dateKey}`] = e.hours.toString();
@@ -105,7 +105,7 @@ export default function TimeSheetPage() {
       }
     });
     setGridHours(newHours);
-  }, [entries, entriesLoading, isNavigating, role, user?.uid]);
+  }, [entries, entriesLoading, isNavigating, user?.uid]);
 
   const handleInputChange = (projectId: string, date: Date, value: string) => {
     const dateKey = format(date, 'yyyy-MM-dd');
@@ -146,7 +146,7 @@ export default function TimeSheetPage() {
     setDoc(entryRef, data, { merge: true })
       .then(() => {
         setIsSaving(null);
-        toast({ title: "Guardado", description: `${hours}h registradas`, duration: 1500 });
+        toast({ title: "Saved", description: `${hours}h registered`, duration: 1500 });
       })
       .catch((err) => {
         setIsSaving(null);
@@ -195,8 +195,8 @@ export default function TimeSheetPage() {
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">Hoja de Horas</h1>
-          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">Mi Registro de Actividad</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Time Sheet</h1>
+          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest text-[#46a395]">My Activity Log</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" className="h-8 rounded-sm" onClick={() => handleWeekChange(subWeeks(currentWeekStart, 1))}>
@@ -212,7 +212,7 @@ export default function TimeSheetPage() {
             <ChevronRight className="h-4 w-4" />
           </Button>
           <Button variant="secondary" size="sm" className="h-8 text-xs font-bold rounded-sm ml-2" onClick={() => handleWeekChange(startOfWeek(new Date(), { weekStartsOn: 1 }))}>
-            Hoy
+            Today
           </Button>
         </div>
       </div>
@@ -221,22 +221,22 @@ export default function TimeSheetPage() {
         <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col bg-slate-50/20">
           <CardHeader className="p-4 border-b bg-white">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2 text-slate-600">
-              <Clock className="h-3.5 w-3.5 text-primary" /> Resumen de Semana
+              <Clock className="h-3.5 w-3.5 text-primary" /> Weekly Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
             <div className="space-y-3">
               <div className="p-4 bg-white rounded-sm border border-slate-100 shadow-sm text-center">
-                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Horas Totales</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase mb-1">Total Hours</p>
                 <p className="text-4xl font-black text-slate-800">{totalWeekHours.toFixed(1)}h</p>
               </div>
               <div className="grid grid-cols-1 gap-2">
                 <div className="p-3 rounded-sm border border-slate-100 bg-white flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase text-slate-500">Regulares</span>
+                  <span className="text-[10px] font-bold uppercase text-slate-500">Regular</span>
                   <span className="text-xs font-black">{totalRegular.toFixed(1)}h</span>
                 </div>
                 <div className={cn("p-3 rounded-sm border flex items-center justify-between", totalOvertime > 0 ? "bg-orange-50 border-orange-100 text-orange-700" : "bg-white border-slate-100 text-slate-400")}>
-                  <span className="text-[10px] font-bold uppercase">Sobretiempo</span>
+                  <span className="text-[10px] font-bold uppercase">Overtime</span>
                   <span className="text-xs font-black">{totalOvertime.toFixed(1)}h</span>
                 </div>
               </div>
@@ -244,7 +244,7 @@ export default function TimeSheetPage() {
 
             <div className="space-y-4 pt-4 border-t">
               <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 px-1">
-                <PieChart className="h-3 w-3" /> Por Proyecto
+                <PieChart className="h-3 w-3" /> By Project
               </h4>
               <div className="space-y-3">
                 {projectDistribution.length > 0 ? (
@@ -258,7 +258,7 @@ export default function TimeSheetPage() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-[9px] text-slate-400 italic text-center">Sin registros</p>
+                  <p className="text-[9px] text-slate-400 italic text-center">No records</p>
                 )}
               </div>
             </div>
@@ -267,7 +267,7 @@ export default function TimeSheetPage() {
               <div className="flex items-start gap-2 p-3 bg-blue-50 border border-blue-100 rounded-sm">
                 <AlertCircle className="h-3.5 w-3.5 text-blue-500 shrink-0 mt-0.5" />
                 <p className="text-[9px] text-blue-700 leading-relaxed font-medium">
-                  Los cambios se guardan al salir de la celda.
+                  Changes are saved when leaving the cell.
                 </p>
               </div>
             </div>
@@ -280,7 +280,7 @@ export default function TimeSheetPage() {
               <Table className="border-collapse">
                 <TableHeader className="bg-slate-50/80 sticky top-0 z-20 backdrop-blur-md">
                   <TableRow className="hover:bg-transparent border-b-slate-200 h-14">
-                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Proyecto / Referencia</TableHead>
+                    <TableHead className="text-[10px] font-black uppercase w-64 min-w-[200px] border-r px-6">Project / Reference</TableHead>
                     {weekDays.map(day => (
                       <TableHead key={day.toString()} className="text-[10px] font-black uppercase text-center border-r min-w-[90px]">
                         <div className="flex flex-col gap-0.5">
@@ -306,7 +306,7 @@ export default function TimeSheetPage() {
                       </TableRow>
                     ))
                   ) : (projects || []).length === 0 ? (
-                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No tienes proyectos asignados.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={weekDays.length + 2} className="h-48 text-center text-xs text-slate-400 italic">No assigned projects found.</TableCell></TableRow>
                   ) : (
                     projects?.map(project => (
                       <TableRow key={project.id} className="hover:bg-slate-50/30 border-b-slate-100 group transition-colors">
@@ -347,7 +347,7 @@ export default function TimeSheetPage() {
                 </TableBody>
                 <tfoot className="bg-slate-100/50 font-bold border-t-2 border-slate-200">
                   <TableRow className="h-14">
-                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Totales Diarios</TableCell>
+                    <TableCell className="text-[10px] font-black uppercase text-slate-500 border-r px-6">Daily Totals</TableCell>
                     {weekDays.map(day => {
                       const dailyTotal = calculateDayTotal(day);
                       const isOT = dailyTotal > 8;
