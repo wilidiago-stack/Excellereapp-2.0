@@ -11,18 +11,26 @@ const db = admin.firestore();
 // Set global options for the function
 setGlobalOptions({maxInstances: 10});
 
+interface AuthEvent {
+  data: {
+    uid: string;
+    email?: string;
+    displayName?: string;
+  };
+}
+
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onUserCreated(async (event: any) => {
+export const setupInitialUserRole = onUserCreated(async (event: AuthEvent) => {
   const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
   const userDocRef = db.doc(`users/${uid}`);
 
   try {
-    const nameParts = displayName?.split(" ")
-      .filter((p: string) => p.length > 0) || [];
+    const nameParts = (displayName || "").split(" ")
+      .filter((p: string) => p.length > 0);
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") :
       (email ? "(from email)" : "User");
@@ -61,7 +69,7 @@ export const setupInitialUserRole = onUserCreated(async (event: any) => {
 /**
  * Triggered on user deletion from Firebase Authentication.
  */
-export const cleanupUser = onUserDeleted(async (event: any) => {
+export const cleanupUser = onUserDeleted(async (event: AuthEvent) => {
   const {uid} = event.data;
   logger.info(`[cleanupUser] UID: ${uid}`);
 
