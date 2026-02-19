@@ -55,7 +55,7 @@ export default function ProjectsPage() {
     () => (firestore ? collection(firestore, 'projects') : null),
     [firestore]
   );
-  const { data: projects, loading } = useCollection(projectsCollection);
+  const { data: projects, isLoading: loading } = useCollection(projectsCollection);
 
   const handleDelete = () => {
     if (!firestore || !selectedProject) return;

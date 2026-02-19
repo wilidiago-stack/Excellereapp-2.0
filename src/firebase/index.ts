@@ -42,11 +42,12 @@ export function initializeFirebase() {
       /**
        * CRITICAL: Use long polling for stability in workstation/proxy environments.
        * This must be called via initializeFirestore, and only ONCE per app instance.
+       * Assertion failures (Unexpected state ID: ca9) are often solved by forcing Long Polling.
        */
       firestore = initializeFirestore(firebaseApp, {
         experimentalForceLongPolling: true,
       });
-      console.log('Firestore initialized with Long Polling enabled.');
+      console.log('[Firebase] Firestore initialized with experimentalForceLongPolling.');
     } catch (e) {
       // If already initialized, get the existing instance
       firestore = getFirestore(firebaseApp);
@@ -72,7 +73,6 @@ export function initializeFirebase() {
         provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
       });
-      console.log('Firebase App Check initialized.');
     } catch (err) {
       // Silently fail if already initialized
     }
