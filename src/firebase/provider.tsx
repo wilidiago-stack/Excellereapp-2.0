@@ -145,6 +145,10 @@ export const useAuth = () => {
     return (claims?.assignedModules as string[]) || EMPTY_ARRAY;
   }, [claims?.assignedModules]);
 
+  const assignedProjects = useMemo(() => {
+    return (claims?.assignedProjects as string[]) || EMPTY_ARRAY;
+  }, [claims?.assignedProjects]);
+
   return useMemo(() => ({
     user,
     claims,
@@ -152,7 +156,8 @@ export const useAuth = () => {
     error: userError,
     role,
     assignedModules,
-  }), [user, claims, isUserLoading, userError, role, assignedModules]);
+    assignedProjects,
+  }), [user, claims, isUserLoading, userError, role, assignedModules, assignedProjects]);
 };
 
 export const useUser = () => {

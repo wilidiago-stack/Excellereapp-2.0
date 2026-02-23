@@ -1,11 +1,10 @@
-
 {
   "entities": {
     "TimeSheetEntry": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "TimeSheetEntry",
       "type": "object",
-      "description": "Represents a single entry of time logged by a user. Stored at top-level for global reporting.",
+      "description": "Represents a single entry of time logged by a user.",
       "properties": {
         "userId": { "type": "string" },
         "projectId": { "type": "string" },
@@ -23,7 +22,7 @@
       "description": "Control document to manage the submission and approval status of a user's entire week.",
       "properties": {
         "userId": { "type": "string" },
-        "weekId": { "type": "string", "description": "Format: YYYY-WW" },
+        "weekId": { "type": "string" },
         "status": { "type": "string", "enum": ["draft", "submitted", "approved"] },
         "submittedAt": { "type": "string", "format": "date-time" },
         "approvedAt": { "type": "string", "format": "date-time" },
@@ -51,6 +50,7 @@
         "lastName": { "type": "string" },
         "role": { "type": "string" },
         "assignedModules": { "type": "array", "items": { "type": "string" } },
+        "assignedProjects": { "type": "array", "items": { "type": "string" } },
         "pinnedShortcuts": { "type": "array", "items": { "type": "string" } }
       }
     },
@@ -75,7 +75,7 @@
         "definition": {
           "entityName": "TimeSheetEntry",
           "schema": { "$ref": "#/backend/entities/TimeSheetEntry" },
-          "description": "Consolidated time entries for all users."
+          "description": "Consolidated time entries."
         }
       },
       {
@@ -83,7 +83,7 @@
         "definition": {
           "entityName": "WeeklySubmission",
           "schema": { "$ref": "#/backend/entities/WeeklySubmission" },
-          "description": "Locks and status for weekly periods."
+          "description": "Weekly status."
         }
       },
       {
@@ -99,7 +99,7 @@
         "definition": {
           "entityName": "UserProfile",
           "schema": { "$ref": "#/backend/entities/UserProfile" },
-          "description": "Extended user profile information."
+          "description": "User profile."
         }
       },
       {
@@ -107,7 +107,7 @@
         "definition": {
           "entityName": "Contractor",
           "schema": { "$ref": "#/backend/entities/Contractor" },
-          "description": "Registered contractors."
+          "description": "Contractors."
         }
       }
     ]

@@ -20,9 +20,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useMemo } from 'react';
 
 export default function Home() {
-  const { user } = useAuth();
+  const { user, role, assignedProjects } = useAuth();
   const firestore = useFirestore();
   const { selectedProjectId, setSelectedProjectId } = useProjectContext();
 
@@ -47,7 +48,14 @@ export default function Home() {
   const loading = metadataLoading || projectsLoading || contractorsLoading;
 
   const userCount = systemMetadata?.userCount ?? 0;
-  const projectCount = projects?.length ?? 0;
+  
+  const filteredProjects = useMemo(() => {
+    if (!projects) return [];
+    if (role === 'admin') return projects;
+    return projects.filter(p => assignedProjects?.includes(p.id));
+  }, [projects, role, assignedProjects]);
+
+  const projectCount = filteredProjects.length;
   const contractorCount = contractors?.length ?? 0;
 
   return (
@@ -66,12 +74,12 @@ export default function Home() {
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
+            <CardTitle className="text-sm font-medium">My Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{projectCount}</div>}
-            <p className="text-xs text-muted-foreground">Portfolio size</p>
+            <p className="text-xs text-muted-foreground">Accessible portfolio</p>
           </CardContent>
         </Card>
 
@@ -101,8 +109,8 @@ export default function Home() {
                 <SelectValue placeholder="Global Context" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all" className="text-xs font-bold">All Projects (Global View)</SelectItem>
-                {projects?.map((p) => (
+                <SelectItem value="all" className="text-xs font-bold">All Assigned Projects</SelectItem>
+                {filteredProjects?.map((p) => (
                   <SelectItem key={p.id} value={p.id} className="text-xs font-medium">
                     {p.name}
                   </SelectItem>

@@ -3,8 +3,8 @@
 import { useState, useMemo } from 'react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
-import { Cloud, Sun, CloudRain, CloudSun, Wind, Thermometer, Droplets, MapPin, Search, RefreshCw, Calendar } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Cloud, Sun, CloudRain, CloudSun, Wind, Thermometer, Droplets, MapPin, Search, RefreshCw } from 'lucide-react';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';

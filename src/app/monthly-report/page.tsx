@@ -6,7 +6,6 @@ import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
 } from '@/components/ui/card';
 import {
@@ -15,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle, Search, BarChart3, TrendingUp } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, Search, BarChart3 } from 'lucide-react';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc, query, where } from 'firebase/firestore';
 import {

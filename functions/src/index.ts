@@ -38,10 +38,16 @@ export const setupInitialUserRole = onAuthUserCreated(
         email: email || "",
         role: "viewer",
         status: "active",
+        assignedModules: [],
+        assignedProjects: []
       };
 
       await userDocRef.set(newUserDocument);
-      await admin.auth().setCustomUserClaims(uid, {role: "viewer"});
+      await admin.auth().setCustomUserClaims(uid, {
+        role: "viewer",
+        assignedModules: [],
+        assignedProjects: []
+      });
 
       const metadataRef = db.doc("system/metadata");
       await db.runTransaction(async (transaction) => {
@@ -94,17 +100,26 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
-    if (!afterData?.role || typeof afterData.role !== "string" ||
-        (beforeData && beforeData.role === afterData.role)) {
+    const roleChanged = afterData?.role !== beforeData?.role;
+    const modulesChanged = JSON.stringify(afterData?.assignedModules) !==
+                           JSON.stringify(beforeData?.assignedModules);
+    const projectsChanged = JSON.stringify(afterData?.assignedProjects) !==
+                            JSON.stringify(beforeData?.assignedProjects);
+
+    if (!roleChanged && !modulesChanged && !projectsChanged) {
       return;
     }
 
     const uid = event.params.userId;
-    const newRole = afterData.role;
+    const claims = {
+      role: afterData?.role || "viewer",
+      assignedModules: afterData?.assignedModules || [],
+      assignedProjects: afterData?.assignedProjects || []
+    };
 
     try {
-      await admin.auth().setCustomUserClaims(uid, {role: newRole});
-      logger.info(`[onUserRoleChange] Synced role '${newRole}' for ${uid}.`);
+      await admin.auth().setCustomUserClaims(uid, claims);
+      logger.info(`[onUserRoleChange] Synced claims for ${uid}.`);
     } catch (error) {
       logger.error(`[onUserRoleChange] Sync failed for ${uid}:`, error);
     }

@@ -21,7 +21,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { useFirestore, useMemoFirebase } from '@/firebase';
+import { useFirestore, useMemoFirebase, useCollection } from '@/firebase';
 import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -31,6 +31,12 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { APP_MODULES } from '@/lib/modules';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 const userSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
@@ -42,6 +48,7 @@ const userSchema = z.object({
   role: z.enum(['admin', 'project_manager', 'viewer']),
   status: z.enum(['pending', 'active', 'invited', 'rejected']).optional(),
   assignedModules: z.array(z.string()).default([]),
+  assignedProjects: z.array(z.string()).default([]),
 });
 
 type UserFormValues = z.infer<typeof userSchema>;
@@ -60,6 +67,12 @@ export function UserForm({ initialData }: UserFormProps) {
     () => (firestore ? collection(firestore, 'users') : null),
     [firestore]
   );
+
+  const projectsCollection = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
+  const { data: projectsData } = useCollection(projectsCollection);
   
   const form = useForm<UserFormValues>({
     resolver: zodResolver(userSchema),
@@ -73,6 +86,7 @@ export function UserForm({ initialData }: UserFormProps) {
       role: 'viewer',
       status: 'pending',
       assignedModules: [],
+      assignedProjects: [],
     },
   });
 
@@ -81,6 +95,7 @@ export function UserForm({ initialData }: UserFormProps) {
       form.reset({
         ...initialData,
         assignedModules: initialData.assignedModules || [],
+        assignedProjects: initialData.assignedProjects || [],
       });
     }
   }, [initialData, form]);
@@ -279,9 +294,54 @@ export function UserForm({ initialData }: UserFormProps) {
         <Separator />
 
         <div className="space-y-4">
-            <h3 className="text-sm font-medium">Module Visibility (Automatic Management)</h3>
+            <h3 className="text-sm font-medium">Project Assignments</h3>
             <p className="text-xs text-muted-foreground">
-                Select the modules that this user will be able to view. This list is automatically updated from the central configuration.
+                Select the projects this user is authorized to consult.
+            </p>
+            <FormField
+              control={form.control}
+              name="assignedProjects"
+              render={({ field }) => (
+                <FormItem>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" className="w-full justify-start font-normal h-10">
+                        <span className="truncate">
+                          {field.value && field.value.length > 0
+                            ? projectsData?.filter(p => field.value.includes(p.id)).map(p => p.name).join(', ')
+                            : 'Assign projects...'}
+                        </span>
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-[--radix-dropdown-menu-trigger-width]" align="start">
+                      {projectsData?.map((project) => (
+                        <DropdownMenuCheckboxItem
+                          key={project.id}
+                          checked={field.value?.includes(project.id)}
+                          onCheckedChange={(checked) => {
+                            const current = field.value || [];
+                            field.onChange(checked 
+                              ? [...current, project.id] 
+                              : current.filter(id => id !== project.id));
+                          }}
+                        >
+                          {project.name}
+                        </DropdownMenuCheckboxItem>
+                      ))}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+        </div>
+
+        <Separator />
+
+        <div className="space-y-4">
+            <h3 className="text-sm font-medium">Module Visibility</h3>
+            <p className="text-xs text-muted-foreground">
+                Select the modules that this user will be able to view.
             </p>
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-4 pt-2">
                 {APP_MODULES.map((module) => (
