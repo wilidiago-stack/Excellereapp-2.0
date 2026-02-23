@@ -75,10 +75,10 @@
   },
   "overrides": {
     "cross-spawn": "7.0.6",
-    "glob": "11.0.1",
+    "glob": "11.0.7",
     "minimatch": "10.2.1",
-    "ajv": "8.18.0",
-    "tmp": "0.2.3"
+    "tmp": "0.2.3",
+    "ajv": "8.18.0"
   },
   "engines": {
     "node": "20"
