@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { PlusCircle, MoreHorizontal, FileText, Search, History, Calendar as CalendarIcon, Clock, Filter } from 'lucide-react';
+import { PlusCircle, MoreHorizontal, FileText, Search, FileEdit, Eye, Calendar as CalendarIcon } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { collection, doc, deleteDoc, query, where } from 'firebase/firestore';
 
@@ -11,8 +11,6 @@ import { Button } from '@/components/ui/button';
 import {
   Card,
   CardHeader,
-  CardTitle,
-  CardDescription,
   CardContent,
 } from '@/components/ui/card';
 import {
@@ -179,7 +177,16 @@ export default function DailyReportPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100"><MoreHorizontal className="h-3.5 w-3.5" /></Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="rounded-sm">
-                            <DropdownMenuItem asChild className="text-xs cursor-pointer"><Link href={`/daily-report/${report.id}`}>View</Link></DropdownMenuItem>
+                            <DropdownMenuItem asChild className="text-xs cursor-pointer">
+                              <Link href={`/daily-report/${report.id}`} className="flex items-center gap-2">
+                                <Eye className="h-3.5 w-3.5" /> View Details
+                              </Link>
+                            </DropdownMenuItem>
+                            <DropdownMenuItem asChild className="text-xs cursor-pointer">
+                              <Link href={`/daily-report/${report.id}/edit`} className="flex items-center gap-2">
+                                <FileEdit className="h-3.5 w-3.5" /> Edit Report
+                              </Link>
+                            </DropdownMenuItem>
                             <DropdownMenuItem onClick={() => { setSelectedReport(report); setShowDeleteDialog(true); }} className="text-xs text-destructive cursor-pointer">Discard</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>

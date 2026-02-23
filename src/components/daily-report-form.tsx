@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -57,7 +57,7 @@ import {
   TableCell,
 } from '@/components/ui/table';
 import { Separator } from './ui/separator';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 const safetyEventSchema = z.object({
@@ -115,22 +115,16 @@ const dailyReportSchema = z.object({
 
 type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 
-const eventTypes = [
-  { id: 'near-miss', label: 'Near Miss' },
-  { id: 'incident', label: 'Incident' },
-  { id: 'observation', label: 'Observation' },
-];
-const categories = [
-  { id: 'safety', label: 'Safety' },
-  { id: 'environmental', label: 'Environmental' },
-  { id: 'quality', label: 'Quality' },
-];
+interface DailyReportFormProps {
+  initialData?: DailyReportFormValues & { id: string };
+}
 
-export function DailyReportForm() {
+export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const router = useRouter();
+  const isEditMode = !!initialData;
 
   const dailyReportsCollection = useMemoFirebase(
     () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
@@ -176,26 +170,26 @@ export function DailyReportForm() {
   });
 
   useEffect(() => {
-    if (user && !form.getValues('username')) {
+    if (initialData) {
+      form.reset({
+        ...initialData,
+        date: initialData.date?.toDate ? initialData.date.toDate() : (initialData.date instanceof Date ? initialData.date : new Date()),
+      });
+    } else if (user && !form.getValues('username')) {
       form.setValue('username', user.displayName || '');
     }
-  }, [user, form]);
+  }, [user, initialData, form]);
 
-  const {
-    fields: safetyEventFields,
-    append: appendSafetyEvent,
-    remove: removeSafetyEvent,
-  } = useFieldArray({ control: form.control, name: 'safetyEvents' });
-  const {
-    fields: manHourFields,
-    append: appendManHour,
-    remove: removeManHour,
-  } = useFieldArray({ control: form.control, name: 'manHours' });
   const {
     fields: dailyActivityFields,
     append: appendDailyActivity,
     remove: removeDailyActivity,
   } = useFieldArray({ control: form.control, name: 'dailyActivities' });
+  const {
+    fields: manHourFields,
+    append: appendManHour,
+    remove: removeManHour,
+  } = useFieldArray({ control: form.control, name: 'manHours' });
   const {
     fields: noteFields,
     append: appendNote,
@@ -226,23 +220,27 @@ export function DailyReportForm() {
   const onSubmit = (data: DailyReportFormValues) => {
     if (!firestore || !user || !dailyReportsCollection) return;
 
-    addDoc(dailyReportsCollection, {
-      ...data,
-      authorId: user.uid,
-      createdAt: new Date(),
-    })
+    const payload = isEditMode 
+      ? { ...data, updatedAt: new Date() }
+      : { ...data, authorId: user.uid, createdAt: new Date() };
+
+    const operation = isEditMode
+      ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload)
+      : addDoc(dailyReportsCollection, payload);
+
+    operation
       .then(() => {
         toast({
-          title: 'Daily Report Created',
+          title: isEditMode ? 'Report Updated' : 'Daily Report Created',
           description: `Report for ${format(data.date, 'PPP')} has been saved.`,
         });
         router.push('/daily-report');
       })
       .catch((serverError) => {
         const permissionError = new FirestorePermissionError({
-          path: 'dailyReports',
-          operation: 'create',
-          requestResourceData: { ...data, authorId: user.uid },
+          path: isEditMode ? `dailyReports/${initialData.id}` : 'dailyReports',
+          operation: isEditMode ? 'update' : 'create',
+          requestResourceData: payload,
         });
         errorEmitter.emit('permission-error', permissionError);
       });
@@ -251,7 +249,6 @@ export function DailyReportForm() {
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10">
-        {/* Section: General Info */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-[#46a395]">
             <ClipboardList className="h-5 w-5" />
@@ -311,7 +308,7 @@ export function DailyReportForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Project Reference</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs">
                         <SelectValue placeholder="Select project" />
@@ -333,7 +330,7 @@ export function DailyReportForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Shift Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                  <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs">
                         <SelectValue placeholder="Select shift" />
@@ -351,7 +348,6 @@ export function DailyReportForm() {
           </div>
         </div>
 
-        {/* Section: Weather */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-orange-500">
             <CloudSun className="h-5 w-5" />
@@ -426,7 +422,6 @@ export function DailyReportForm() {
           </div>
         </div>
 
-        {/* Section: Safety Stats */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-primary">
             <ShieldCheck className="h-5 w-5" />
@@ -462,7 +457,6 @@ export function DailyReportForm() {
 
         <Separator className="opacity-50" />
 
-        {/* Section: Daily Activities */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-[#46a395]">
@@ -503,7 +497,7 @@ export function DailyReportForm() {
                           control={form.control}
                           name={`dailyActivities.${index}.contractorId`}
                           render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
                                   <SelectValue placeholder="Contractor" />
@@ -530,7 +524,7 @@ export function DailyReportForm() {
                           control={form.control}
                           name={`dailyActivities.${index}.location`}
                           render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
                                   <SelectValue placeholder="Location" />
@@ -611,7 +605,6 @@ export function DailyReportForm() {
           </div>
         </div>
 
-        {/* Section: Man Hours */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-primary">
@@ -651,7 +644,7 @@ export function DailyReportForm() {
                           control={form.control}
                           name={`manHours.${index}.contractorId`}
                           render={({ field }) => (
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                            <Select onValueChange={field.onChange} value={field.value}>
                               <FormControl>
                                 <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
                                   <SelectValue placeholder="Contractor" />
@@ -705,7 +698,6 @@ export function DailyReportForm() {
           </div>
         </div>
 
-        {/* Section: Notes & Photos */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 text-orange-400">
@@ -743,7 +735,7 @@ export function DailyReportForm() {
                       control={form.control}
                       name={`notes.${index}.status`}
                       render={({ field }) => (
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                        <Select onValueChange={field.onChange} value={field.value}>
                           <FormControl>
                             <SelectTrigger className="h-8 rounded-sm text-xs">
                               <SelectValue placeholder="Status" />
@@ -775,7 +767,6 @@ export function DailyReportForm() {
           </div>
         </div>
 
-        {/* Form Actions */}
         <div className="flex justify-end gap-4 pt-6 border-t border-slate-100">
           <Button
             variant="outline"
@@ -790,7 +781,7 @@ export function DailyReportForm() {
             disabled={form.formState.isSubmitting}
             className="h-10 px-10 rounded-sm text-xs font-bold uppercase tracking-wider shadow-md"
           >
-            {form.formState.isSubmitting ? 'Finalizing...' : 'Submit Daily Report'}
+            {form.formState.isSubmitting ? 'Finalizing...' : isEditMode ? 'Update Report' : 'Submit Daily Report'}
           </Button>
         </div>
       </form>
