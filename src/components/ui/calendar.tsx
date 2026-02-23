@@ -34,7 +34,7 @@ function Calendar({
           "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 z-10"
         ),
         month_grid: "w-full border-collapse grid grid-cols-7 gap-1",
-        weekdays: "grid grid-cols-7 w-full",
+        weekdays: "grid grid-cols-7 w-full mb-2",
         weekday: "text-muted-foreground rounded-md w-full font-bold text-[0.7rem] uppercase text-center py-2",
         week: "grid grid-cols-7 w-full mt-1",
         day: "h-9 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
