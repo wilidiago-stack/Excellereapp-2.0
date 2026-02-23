@@ -20,6 +20,9 @@ import {
   Paperclip,
   CheckCircle2,
   AlertCircle,
+  AlertOctagon,
+  AlertTriangle,
+  Info,
   Users as UsersIcon,
   Printer,
   FileDown
@@ -28,6 +31,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { cn } from '@/lib/utils';
 
 export default function ViewDailyReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
@@ -66,6 +70,55 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
     }
   };
 
+  const getSafetyAdvisory = (weather: any) => {
+    const advisories = [];
+    if (!weather) return [];
+    
+    const wind = weather.wind || 0;
+    const temp = weather.highTemp || 0;
+    const conditions = (weather.conditions || '').toLowerCase();
+
+    if (wind > 20) {
+      advisories.push({
+        title: "High Wind Alert",
+        text: "Crane operations must be suspended if gust limits are exceeded. Secure all loose materials.",
+        type: "danger"
+      });
+    }
+
+    if (temp > 90) {
+      advisories.push({
+        title: "Heat Stress Advisory",
+        text: "Mandatory hydration breaks every 45 minutes. Watch for signs of heat exhaustion.",
+        type: "warning"
+      });
+    } else if (temp < 32) {
+      advisories.push({
+        title: "Freeze & Slip Hazard",
+        text: "Ice accumulation likely on scaffolding. Apply anti-slip grit to walkways.",
+        type: "warning"
+      });
+    }
+
+    if (conditions.includes('rain')) {
+      advisories.push({
+        title: "Wet Site Conditions",
+        text: "Increased electrical hazard. Suspend outdoor electrical work. Verify trench stability.",
+        type: "info"
+      });
+    }
+
+    if (advisories.length === 0) {
+      advisories.push({
+        title: "Optimal Site Conditions",
+        text: "Site weather is within normal operating parameters. Maintain standard protocols.",
+        type: "success"
+      });
+    }
+
+    return advisories;
+  };
+
   const handlePrint = () => {
     window.print();
   };
@@ -85,6 +138,8 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
   if (!report) {
     return <div className="p-10 text-center text-slate-500">Daily report not found or record deleted.</div>;
   }
+
+  const advisories = getSafetyAdvisory(report.weather);
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-500">
@@ -145,54 +200,92 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-content">
-        {/* Project & Weather Summary */}
-        <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden lg:col-span-2 card">
-          <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-            <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <ClipboardList className="h-3.5 w-3.5 text-primary" /> Project Context
-            </CardTitle>
-            <Badge variant="outline" className="rounded-sm text-[9px] font-black uppercase">{project?.name || 'Loading Project...'}</Badge>
-          </CardHeader>
-          <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-sm bg-blue-50 flex items-center justify-center text-blue-500">
-                  <MapPin className="h-5 w-5" />
+        {/* Project & Weather Summary with Advisory */}
+        <div className="lg:col-span-2 flex flex-col gap-4">
+          <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden card">
+            <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
+              <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
+                <ClipboardList className="h-3.5 w-3.5 text-primary" /> Project Context
+              </CardTitle>
+              <Badge variant="outline" className="rounded-sm text-[9px] font-black uppercase">{project?.name || 'Loading Project...'}</Badge>
+            </CardHeader>
+            <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-sm bg-blue-50 flex items-center justify-center text-blue-500">
+                    <MapPin className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Site Location</div>
+                    <div className="text-sm font-bold text-slate-700">{report.weather?.city || 'Not specified'}</div>
+                  </div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Site Location</div>
-                  <div className="text-sm font-bold text-slate-700">{report.weather?.city || 'Not specified'}</div>
+                <div className="flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-sm bg-orange-50 flex items-center justify-center text-orange-500">
+                    <CloudSun className="h-5 w-5" />
+                  </div>
+                  <div>
+                    <div className="text-[10px] font-bold text-slate-400 uppercase">Sky Conditions</div>
+                    <div className="text-sm font-bold text-slate-700">{report.weather?.conditions || 'N/A'}</div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-sm bg-orange-50 flex items-center justify-center text-orange-500">
-                  <CloudSun className="h-5 w-5" />
+              <div className="grid grid-cols-3 gap-2 bg-slate-50 p-4 rounded-sm border border-slate-100">
+                <div className="text-center">
+                  <Thermometer className="h-4 w-4 mx-auto mb-1 text-slate-400" />
+                  <div className="text-[9px] font-bold text-slate-400 uppercase">High/Low</div>
+                  <div className="text-xs font-black">{report.weather?.highTemp || 0}° / {report.weather?.lowTemp || 0}°</div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-bold text-slate-400 uppercase">Sky Conditions</div>
-                  <div className="text-sm font-bold text-slate-700">{report.weather?.conditions || 'N/A'}</div>
+                <div className="text-center border-x border-slate-200 px-2">
+                  <Wind className="h-4 w-4 mx-auto mb-1 text-slate-400" />
+                  <div className="text-[9px] font-bold text-slate-400 uppercase">Wind</div>
+                  <div className="text-xs font-black">{report.weather?.wind || 0} mph</div>
+                </div>
+                <div className="text-center">
+                  <Droplets className="h-4 w-4 mx-auto mb-1 text-slate-400" />
+                  <div className="text-[9px] font-bold text-slate-400 uppercase">Humidity</div>
+                  <div className="text-xs font-black">N/A</div>
                 </div>
               </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 bg-slate-50 p-4 rounded-sm border border-slate-100">
-              <div className="text-center">
-                <Thermometer className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <div className="text-[9px] font-bold text-slate-400 uppercase">High/Low</div>
-                <div className="text-xs font-black">{report.weather?.highTemp || 0}° / {report.weather?.lowTemp || 0}°</div>
+            </CardContent>
+          </Card>
+
+          {/* Site Safety Advisory Integration */}
+          <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden bg-slate-50/20 card">
+            <CardHeader className="p-3 border-b flex flex-row items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="h-3.5 w-3.5 text-[#46a395]" />
+                <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Site Safety Advisory</CardTitle>
               </div>
-              <div className="text-center border-x border-slate-200 px-2">
-                <Wind className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <div className="text-[9px] font-bold text-slate-400 uppercase">Wind</div>
-                <div className="text-xs font-black">{report.weather?.wind || 0} mph</div>
-              </div>
-              <div className="text-center">
-                <Droplets className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <div className="text-[9px] font-bold text-slate-400 uppercase">Humidity</div>
-                <div className="text-xs font-black">N/A</div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardHeader>
+            <CardContent className="p-4 space-y-2">
+              {advisories.map((adv, idx) => (
+                <div key={idx} className={cn(
+                  "flex items-start gap-3 p-3 rounded-sm border",
+                  adv.type === 'danger' ? "bg-red-50 border-red-100" :
+                  adv.type === 'warning' ? "bg-orange-50 border-orange-100" :
+                  adv.type === 'info' ? "bg-blue-50 border-blue-100" :
+                  "bg-green-50 border-green-100"
+                )}>
+                  {adv.type === 'danger' ? <AlertOctagon className="h-4 w-4 text-red-500 mt-0.5" /> :
+                   adv.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" /> :
+                   adv.type === 'info' ? <Info className="h-4 w-4 text-blue-500 mt-0.5" /> :
+                   <ShieldCheck className="h-4 w-4 text-[#46a395] mt-0.5" />}
+                  <div>
+                    <h4 className={cn(
+                      "text-[10px] font-black uppercase mb-0.5",
+                      adv.type === 'danger' ? "text-red-700" :
+                      adv.type === 'warning' ? "text-orange-700" :
+                      adv.type === 'info' ? "text-blue-700" :
+                      "text-green-700"
+                    )}>{adv.title}</h4>
+                    <p className="text-[9px] text-slate-600 leading-relaxed font-medium">{adv.text}</p>
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
 
         {/* Safety Stats */}
         <Card className="rounded-sm border-slate-200 shadow-sm flex flex-col card">
