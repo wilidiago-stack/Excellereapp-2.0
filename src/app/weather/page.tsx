@@ -59,10 +59,10 @@ export default function WeatherPage() {
       <div className="flex items-center justify-between mb-2">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Weather Service</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            Real-time conditions for {selectedProjectId ? 'Active Project' : 'All Sites'}.
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>Real-time conditions for {selectedProjectId ? 'Active Project' : 'All Sites'}.</span>
             {selectedProjectId && <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20 font-bold">Context Active</Badge>}
-          </p>
+          </div>
         </div>
         <Button variant="outline" size="sm" className="h-8 text-xs gap-2"><RefreshCw className="h-3.5 w-3.5" /> Refresh</Button>
       </div>

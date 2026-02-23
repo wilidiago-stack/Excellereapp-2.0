@@ -54,10 +54,10 @@ export default function CalendarPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Project Calendar</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            Milestones & Delivery.
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>Milestones & Delivery.</span>
             {selectedProjectId && <Badge variant="outline" className="text-[9px] h-4 rounded-sm border-primary/30 text-primary font-bold">Project Focus Active</Badge>}
-          </p>
+          </div>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => setCurrentMonth(subMonths(currentMonth, 1))} className="h-8 w-8 rounded-sm">

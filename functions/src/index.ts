@@ -17,50 +17,51 @@ interface AuthEvent {
   };
 }
 
-export const setupInitialUserRole = onAuthUserCreated(async (event: AuthEvent) => {
-  const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] UID: ${uid}`);
+export const setupInitialUserRole = onAuthUserCreated(
+  async (event: AuthEvent) => {
+    const {uid, email, displayName} = event.data;
+    logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
-  const userDocRef = db.doc(`users/${uid}`);
+    const userDocRef = db.doc(`users/${uid}`);
 
-  try {
-    const nameParts = (displayName || "").split(" ")
-      .filter((p: string) => p.length > 0);
-    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1
-      ? nameParts.slice(1).join(" ")
-      : (email ? "(from email)" : "User");
+    try {
+      const nameParts = (displayName || "").split(" ")
+        .filter((p: string) => p.length > 0);
+      const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+      const lastName = nameParts.length > 1 ?
+        nameParts.slice(1).join(" ") :
+        (email ? "(from email)" : "User");
 
-    const newUserDocument = {
-      firstName,
-      lastName,
-      email: email || "",
-      role: "viewer",
-      status: "active",
-    };
+      const newUserDocument = {
+        firstName,
+        lastName,
+        email: email || "",
+        role: "viewer",
+        status: "active",
+      };
 
-    await userDocRef.set(newUserDocument);
-    await admin.auth().setCustomUserClaims(uid, {role: "viewer"});
+      await userDocRef.set(newUserDocument);
+      await admin.auth().setCustomUserClaims(uid, {role: "viewer"});
 
-    const metadataRef = db.doc("system/metadata");
-    await db.runTransaction(async (transaction) => {
-      const metadataDoc = await transaction.get(metadataRef);
-      const currentCount = metadataDoc.exists ?
-        metadataDoc.data()?.userCount || 0 : 0;
-      const newCount = currentCount + 1;
+      const metadataRef = db.doc("system/metadata");
+      await db.runTransaction(async (transaction) => {
+        const metadataDoc = await transaction.get(metadataRef);
+        const currentCount = metadataDoc.exists ?
+          metadataDoc.data()?.userCount || 0 : 0;
+        const newCount = currentCount + 1;
 
-      if (metadataDoc.exists) {
-        transaction.update(metadataRef, {userCount: newCount});
-      } else {
-        transaction.set(metadataRef, {userCount: newCount});
-      }
-    });
+        if (metadataDoc.exists) {
+          transaction.update(metadataRef, {userCount: newCount});
+        } else {
+          transaction.set(metadataRef, {userCount: newCount});
+        }
+      });
 
-    logger.info(`[setupInitialUserRole] Setup complete for ${uid}.`);
-  } catch (error) {
-    logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
-  }
-});
+      logger.info(`[setupInitialUserRole] Setup complete for ${uid}.`);
+    } catch (error) {
+      logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
+    }
+  });
 
 export const cleanupUser = onAuthUserDeleted(async (event: AuthEvent) => {
   const {uid} = event.data;

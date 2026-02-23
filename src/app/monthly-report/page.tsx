@@ -107,12 +107,12 @@ export default function MonthlyReportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Monthly Reports</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            Strategic summaries.
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>Strategic summaries.</span>
             {selectedProjectId && (
               <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] font-black">Filtered by Project</Badge>
             )}
-          </p>
+          </div>
         </div>
         <Button asChild size="sm" className="h-8 rounded-sm gap-2">
           <Link href="/monthly-report/new">

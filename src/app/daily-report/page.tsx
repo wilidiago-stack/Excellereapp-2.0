@@ -108,14 +108,14 @@ export default function DailyReportPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-xl font-bold tracking-tight">Daily Reports</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-2">
-            Track site conditions.
+          <div className="text-xs text-muted-foreground flex items-center gap-2">
+            <span>Track site conditions.</span>
             {selectedProjectId && (
               <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20 font-bold">
                 Project Filter Active
               </Badge>
             )}
-          </p>
+          </div>
         </div>
         <Button asChild size="sm" className="h-8 rounded-sm gap-2">
           <Link href="/daily-report/new">
