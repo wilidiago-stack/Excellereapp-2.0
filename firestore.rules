@@ -5,24 +5,7 @@ service cloud.firestore {
     /**
      * Core Philosophy: This ruleset implements a strict ownership and role-based access model 
      * while maintaining flexibility for rapid prototyping. Authorization is decentralized 
-     * and independent, relying on denormalized fields like 'ownerId', 'projectOwnerId', 
-     * and 'uploadedById' to ensure fast and secure checks without unnecessary database lookups.
-     *
-     * Data Structure: 
-     * - Global configurations (Roles, Modules) are stored at the root and are generally read-only.
-     * - User profiles are stored at the root, secured by the authenticated User's UID.
-     * - Projects are root-level entities secured by an 'ownerId' field.
-     * - Documents are organized as subcollections under Projects to facilitate natural filtering 
-     *   by the active project, with access controlled by project ownership or upload authorship.
-     *
-     * Key Security Decisions:
-     * - Strict User Ownership: Users can only access their own profiles and projects.
-     * - Subcollection Authorization: Access to project documents is validated by looking up the 
-     *   parent project's ownership or checking denormalized ownership fields within the document.
-     * - Denormalization for Performance: Relational IDs are copied onto child documents to 
-     *   avoid slow recursive security checks.
-     * - Prototyping Flexibility: Schema validation is limited to identity and relational 
-     *   integrity fields, allowing developers to iterate on content fields without updating rules.
+     * and independent, relying on custom claims and ownership fields.
      */
 
     // --- Helper Functions ---
@@ -32,97 +15,122 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    /** Checks if the user has the 'admin' role in their custom claims. */
+    function isAdmin() {
+      return isSignedIn() && request.auth.token.role == 'admin';
+    }
+
     /** Checks if the authenticated user's UID matches the provided userId. */
     function isOwner(userId) {
       return isSignedIn() && request.auth.uid == userId;
     }
 
-    /** 
-     * Checks if a document exists and the current user is the owner stored in the document's data.
-     * This function implicitly checks `resource.data.ownerId` against the authenticated user's UID.
-     */
-    function isExistingOwner() {
-      return isSignedIn() && resource != null && resource.data.ownerId == request.auth.uid;
-    }
-
-    /** Checks if the authenticated user owns the parent project. */
-    function isProjectOwner(projectId) {
-      return isSignedIn() && get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
-    }
-
-    /** Checks if the authenticated user is the uploader of the existing document. */
-    function isUploader() {
-      return isSignedIn() && resource != null && resource.data.uploadedById == request.auth.uid;
-    }
-
     // --- Collection Rules ---
 
     /**
-     * @description Rules for the UserProfile collection. Restricts access to the profile owner.
-     * @path /user_profiles/{userId}
-     * @allow Authenticated user (get) their own profile.
-     * @deny User A (create) a profile with User B's ID.
-     * @principle Restricts access to a user's own data tree and enforces path-to-ID consistency.
+     * @description Rules for the System collection.
+     * @path /system/metadata
      */
-    match /user_profiles/{userId} {
-      allow get, list: if isOwner(userId);
-      allow create: if isOwner(userId) && request.resource.data.id == userId;
-      allow update: if isOwner(userId) && request.resource.data.id == resource.data.id;
-      allow delete: if isOwner(userId) && resource != null;
+    match /system/metadata {
+      allow read: if isSignedIn();
+      allow write: if false; // Only modified via Cloud Functions
     }
 
     /**
-     * @description Rules for the Roles collection. Global configuration data.
-     * @path /roles/{roleId}
-     * @allow Authenticated users (get) role definitions.
-     * @deny Any user (update) role definitions via the client SDK.
-     * @principle Read-only access for authenticated users to global configuration.
+     * @description Rules for the Users collection.
+     * @path /users/{userId}
      */
-    match /roles/{roleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
+    match /users/{userId} {
+      allow get: if isOwner(userId) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if isSignedIn(); 
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
     }
 
     /**
-     * @description Rules for the Modules collection. Global application navigation/UI config.
-     * @path /modules/{moduleId}
-     * @allow Authenticated users (get) module details.
-     * @deny Unauthenticated users (list) modules.
-     * @principle Read-only access for authenticated users to global configuration.
-     */
-    match /modules/{moduleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if false;
-    }
-
-    /**
-     * @description Rules for the Projects collection. Secured by 'ownerId' field.
+     * @description Rules for the Projects collection.
      * @path /projects/{projectId}
-     * @allow Owner (update) project details.
-     * @deny Non-owner (get) a project.
-     * @principle Enforces document ownership for all write and individual read operations.
      */
     match /projects/{projectId} {
-      allow get: if isSignedIn() && resource.data.ownerId == request.auth.uid;
-      allow list: if false; // Secure listing requires path-based or user-profile lookup (P6).
-      allow create: if isSignedIn() && request.resource.data.ownerId == request.auth.uid;
-      allow update: if isExistingOwner() && request.resource.data.ownerId == resource.data.ownerId;
-      allow delete: if isExistingOwner();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+
+      /** Documents subcollection */
+      match /documents/{documentId} {
+        allow read, write: if isSignedIn();
+      }
     }
 
     /**
-     * @description Rules for Documents subcollection. Linked to Projects for filtering.
-     * @path /projects/{projectId}/documents/{documentId}
-     * @allow Project Owner (create) a document within their project.
-     * @deny User (create) a document in a project they do not own.
-     * @principle Validates relational integrity using parent project ownership lookups.
+     * @description Rules for the Contractors collection.
+     * @path /contractors/{contractorId}
      */
-    match /projects/{projectId}/documents/{documentId} {
-      allow get: if isProjectOwner(projectId) || (isSignedIn() && resource.data.uploadedById == request.auth.uid);
-      allow list: if isProjectOwner(projectId);
-      allow create: if isProjectOwner(projectId) && request.resource.data.projectId == projectId && request.resource.data.uploadedById == request.auth.uid;
-      allow update: if (isProjectOwner(projectId) || isUploader()) && request.resource.data.projectId == resource.data.projectId;
-      allow delete: if (isProjectOwner(projectId) || isUploader()) && resource != null;
+    match /contractors/{contractorId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
+    }
+
+    /**
+     * @description Rules for the Daily Reports collection.
+     * @path /dailyReports/{reportId}
+     */
+    match /dailyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+    }
+
+    /**
+     * @description Rules for the Monthly Reports collection.
+     * @path /monthlyReports/{reportId}
+     */
+    match /monthlyReports/{reportId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+    }
+
+    /**
+     * @description Rules for the Safety Events collection.
+     * @path /safetyEvents/{eventId}
+     */
+    match /safetyEvents/{eventId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+    }
+
+    /**
+     * @description Rules for Time Entries.
+     * @path /time_entries/{entryId}
+     */
+    match /time_entries/{entryId} {
+      allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update, delete: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+    }
+
+    /**
+     * @description Rules for Weekly Submissions.
+     * @path /weekly_submissions/{submissionId}
+     */
+    match /weekly_submissions/{submissionId} {
+      allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+      allow write: if isAdmin() || (isSignedIn() && (submissionId.startsWith(request.auth.uid)));
+    }
+
+    // --- Legacy / Compatibility ---
+    match /user_profiles/{userId} {
+      allow read, write: if isOwner(userId) || isAdmin();
+    }
+    match /roles/{roleId} {
+      allow get, list: if isSignedIn();
+    }
+    match /modules/{moduleId} {
+      allow get, list: if isSignedIn();
     }
   }
 }
