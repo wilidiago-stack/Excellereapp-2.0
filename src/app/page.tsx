@@ -1,39 +1,29 @@
 'use client';
 
-import { useState, useEffect } from 'react';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { Clock, FolderKanban, HardHat, Users } from 'lucide-react';
+import { FolderKanban, HardHat, Users, Target, LayoutDashboard } from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
 import { useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useProjectContext } from '@/context/project-context';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 export default function Home() {
   const { user } = useAuth();
   const firestore = useFirestore();
-
-  // State to handle client-side date and time to avoid hydration mismatch
-  const [dateTime, setDateTime] = useState<{ time: string; date: string } | null>(null);
-
-  useEffect(() => {
-    const updateDateTime = () => {
-      const now = new Date();
-      setDateTime({
-        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }),
-        date: now.toLocaleDateString([], { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-      });
-    };
-
-    updateDateTime();
-    const timer = setInterval(updateDateTime, 1000);
-    return () => clearInterval(timer);
-  }, []);
+  const { selectedProjectId, setSelectedProjectId } = useProjectContext();
 
   const metadataDoc = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
@@ -45,15 +35,13 @@ export default function Home() {
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user?.uid]
   );
-  const { data: projects, isLoading: projectsLoading } =
-    useCollection(projectsCollection);
+  const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
   const contractorsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
     [firestore, user?.uid]
   );
-  const { data: contractors, isLoading: contractorsLoading } =
-    useCollection(contractorsCollection);
+  const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
 
   const loading = metadataLoading || projectsLoading || contractorsLoading;
 
@@ -70,79 +58,70 @@ export default function Home() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <div className="text-2xl font-bold">{userCount}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Total users in the system
-            </p>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{userCount}</div>}
+            <p className="text-xs text-muted-foreground">System-wide directory</p>
           </CardContent>
         </Card>
+        
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Projects
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <div className="text-2xl font-bold">{projectCount}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Total projects managed
-            </p>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{projectCount}</div>}
+            <p className="text-xs text-muted-foreground">Portfolio size</p>
           </CardContent>
         </Card>
+
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Total Contractors
-            </CardTitle>
+            <CardTitle className="text-sm font-medium">Contractors</CardTitle>
             <HardHat className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <Skeleton className="h-7 w-20" />
-            ) : (
-              <div className="text-2xl font-bold">{contractorCount}</div>
-            )}
-            <p className="text-xs text-muted-foreground">
-              Total contractors available
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{contractorCount}</div>}
+            <p className="text-xs text-muted-foreground">Verified vendors</p>
+          </CardContent>
+        </Card>
+
+        <Card className="border-primary/20 bg-primary/5">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
+              <Target className="h-4 w-4" /> Focused Project
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <Select 
+              value={selectedProjectId || "all"} 
+              onValueChange={(val) => setSelectedProjectId(val === "all" ? null : val)}
+            >
+              <SelectTrigger className="h-9 rounded-sm border-primary/20 bg-white text-xs font-bold shadow-sm">
+                <SelectValue placeholder="Global Context" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all" className="text-xs font-bold">All Projects (Global View)</SelectItem>
+                {projects?.map((p) => (
+                  <SelectItem key={p.id} value={p.id} className="text-xs font-medium">
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+              Modules will filter based on this selection.
             </p>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">
-              Local Time
-            </CardTitle>
-            <Clock className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {!dateTime ? (
-              <Skeleton className="h-7 w-32" />
-            ) : (
-              <div className="flex flex-col gap-1">
-                <div className="text-2xl font-bold">{dateTime.time}</div>
-                <p className="text-[10px] text-muted-foreground capitalize truncate">
-                  {dateTime.date}
-                </p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
       </div>
+
       <Card>
-        <CardHeader>
-          <CardTitle>Overview</CardTitle>
-          <CardDescription>
-            Activity summary for the last 6 months.
-          </CardDescription>
+        <CardHeader className="flex flex-row items-center gap-2">
+          <LayoutDashboard className="h-4 w-4 text-slate-400" />
+          <div>
+            <CardTitle className="text-lg">Activity Overview</CardTitle>
+            <CardDescription>System performance trends.</CardDescription>
+          </div>
         </CardHeader>
         <CardContent>
           <OverviewChart />
