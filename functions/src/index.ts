@@ -9,118 +9,79 @@ const db = admin.firestore();
 
 setGlobalOptions({maxInstances: 10});
 
-/**
- * Triggered on new user creation in Firebase Authentication.
- */
-export const setupInitialUserRole = onAuthUserCreate(async (event) => {
+interface AuthEvent {
+  data: {
+    uid: string;
+    email?: string;
+    displayName?: string;
+  };
+}
+
+export const setupInitialUserRole = onAuthUserCreate(async (event: AuthEvent) => {
   const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] UID: ${uid}`);
-
   const userDocRef = db.doc(`users/${uid}`);
-
   try {
-    const nameParts = (displayName || "").split(" ")
-      .filter((p: string) => p.length > 0);
+    const nameParts = (displayName || "").split(" ").filter((p) => p.length > 0);
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ?
-      nameParts.slice(1).join(" ") :
-      (email ? "(from email)" : "User");
-
-    const newUserDocument = {
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
+    const newUser = {
       firstName,
       lastName,
       email: email || "",
       role: "viewer",
       status: "active",
       assignedModules: [],
-      assignedProjects: []
+      assignedProjects: [],
     };
-
-    await userDocRef.set(newUserDocument);
+    await userDocRef.set(newUser);
     await admin.auth().setCustomUserClaims(uid, {
       role: "viewer",
       assignedModules: [],
-      assignedProjects: []
+      assignedProjects: [],
     });
-
     const metadataRef = db.doc("system/metadata");
-    await db.runTransaction(async (transaction) => {
-      const metadataDoc = await transaction.get(metadataRef);
-      const currentCount = metadataDoc.exists ?
-        metadataDoc.data()?.userCount || 0 : 0;
-      const newCount = currentCount + 1;
-
-      if (metadataDoc.exists) {
-        transaction.update(metadataRef, {userCount: newCount});
-      } else {
-        transaction.set(metadataRef, {userCount: newCount});
-      }
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(metadataRef);
+      const count = doc.exists ? doc.data()?.userCount || 0 : 0;
+      t.set(metadataRef, {userCount: count + 1}, {merge: true});
     });
-
-    logger.info(`[setupInitialUserRole] Setup complete for ${uid}.`);
   } catch (error) {
-    logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
+    logger.error("setupInitialUserRole error", error);
   }
 });
 
-/**
- * Triggered on user deletion from Firebase Authentication.
- */
-export const cleanupUser = onAuthUserDelete(async (event) => {
+export const cleanupUser = onAuthUserDelete(async (event: AuthEvent) => {
   const {uid} = event.data;
-  logger.info(`[cleanupUser] UID: ${uid}`);
-
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
-
   try {
-    const metadataDoc = await metadataRef.get();
-    const batch = db.batch();
-
-    batch.delete(userDocRef);
-
-    if (metadataDoc.exists && (metadataDoc.data()?.userCount || 0) > 0) {
-      batch.update(metadataRef, {
-        userCount: admin.firestore.FieldValue.increment(-1),
-      });
-    }
-
-    await batch.commit();
-    logger.info(`[cleanupUser] Cleanup complete for ${uid}.`);
+    await db.runTransaction(async (t) => {
+      const doc = await t.get(metadataRef);
+      const count = doc.exists ? doc.data()?.userCount || 0 : 0;
+      t.delete(userDocRef);
+      if (count > 0) {
+        t.update(metadataRef, {userCount: count - 1});
+      }
+    });
   } catch (error) {
-    logger.error(`[cleanupUser] Error during cleanup for ${uid}:`, error);
+    logger.error("cleanupUser error", error);
   }
 });
 
-/**
- * Syncs Firestore document to custom claims.
- */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
-    const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
-
-    const roleChanged = afterData?.role !== beforeData?.role;
-    const modulesChanged = JSON.stringify(afterData?.assignedModules) !==
-                           JSON.stringify(beforeData?.assignedModules);
-    const projectsChanged = JSON.stringify(afterData?.assignedProjects) !==
-                            JSON.stringify(beforeData?.assignedProjects);
-
-    if (!roleChanged && !modulesChanged && !projectsChanged) {
-      return;
-    }
-
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
+    if (!after || JSON.stringify(before) === JSON.stringify(after)) return;
     const uid = event.params.userId;
     const claims = {
-      role: afterData?.role || "viewer",
-      assignedModules: afterData?.assignedModules || [],
-      assignedProjects: afterData?.assignedProjects || []
+      role: after.role || "viewer",
+      assignedModules: after.assignedModules || [],
+      assignedProjects: after.assignedProjects || [],
     };
-
     try {
       await admin.auth().setCustomUserClaims(uid, claims);
-      logger.info(`[onUserRoleChange] Synced claims for ${uid}.`);
     } catch (error) {
-      logger.error(`[onUserRoleChange] Sync failed for ${uid}:`, error);
+      logger.error("onUserRoleChange error", error);
     }
   });

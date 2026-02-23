@@ -1,6 +1,5 @@
 /**
  * @fileOverview Data structure for countries, states, and cities.
- * Includes all 50 US States + Puerto Rico and alphabetical sorting logic.
  */
 
 export interface LocationData {
@@ -74,38 +73,6 @@ export const LOCATION_DATA: LocationData = {
       "Nuevo Leon": ["Monterrey", "San Pedro Garza Garcia"],
       "Quintana Roo": ["Cancun", "Playa del Carmen", "Tulum"],
       "Yucatan": ["Merida"],
-    }
-  },
-  "Colombia": {
-    states: {
-      "Antioquia": ["Medellin", "Envigado", "Itagui"],
-      "Cundinamarca": ["Bogota", "Soacha"],
-      "Valle del Cuaca": ["Cali", "Palmira"],
-      "Atlantico": ["Barranquilla"],
-      "Bolivar": ["Cartagena"],
-    }
-  },
-  "Spain": {
-    states: {
-      "Madrid": ["Madrid", "Alcala de Henares"],
-      "Catalonia": ["Barcelona", "Girona", "Tarragona"],
-      "Andalusia": ["Seville", "Malaga", "Granada"],
-      "Valencia": ["Valencia", "Alicante"],
-    }
-  },
-  "Canada": {
-    states: {
-      "Ontario": ["Toronto", "Ottawa", "Mississauga"],
-      "Quebec": ["Montreal", "Quebec City"],
-      "British Columbia": ["Vancouver", "Victoria"],
-      "Alberta": ["Calgary", "Edmonton"],
-    }
-  },
-  "Argentina": {
-    states: {
-      "Buenos Aires": ["Buenos Aires City", "La Plata", "Mar del Plata"],
-      "Cordoba": ["Cordoba City"],
-      "Santa Fe": ["Rosario"],
     }
   }
 };
