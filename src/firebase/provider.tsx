@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore } from 'firebase/firestore';
+import { Firestore, doc, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
 
@@ -19,6 +19,8 @@ interface UserAuthState {
   claims: any | null;
   isUserLoading: boolean;
   userError: Error | null;
+  // Live profile data from Firestore to avoid Auth Token lag
+  dbProfile: any | null;
 }
 
 export interface FirebaseContextState extends UserAuthState {
@@ -50,6 +52,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     claims: null,
     isUserLoading: true,
     userError: null,
+    dbProfile: null,
   });
 
   useEffect(() => {
@@ -58,25 +61,27 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       return;
     }
 
-    const unsubscribe = onAuthStateChanged(
+    const unsubscribeAuth = onAuthStateChanged(
       auth,
       async (firebaseUser) => {
         if (firebaseUser) {
           try {
             const tokenResult = await getIdTokenResult(firebaseUser);
-            setAuthState({
+            setAuthState(prev => ({
+              ...prev,
               user: firebaseUser,
               claims: tokenResult.claims,
               isUserLoading: false,
               userError: null,
-            });
+            }));
           } catch (e: any) {
-            setAuthState({
+            setAuthState(prev => ({
+              ...prev,
               user: firebaseUser,
               claims: null,
               isUserLoading: false,
               userError: e,
-            });
+            }));
           }
         } else {
           setAuthState({
@@ -84,15 +89,43 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
             claims: null,
             isUserLoading: false,
             userError: null,
+            dbProfile: null,
           });
         }
       },
       (error) => {
-        setAuthState({ user: null, claims: null, isUserLoading: false, userError: error });
+        setAuthState(prev => ({ ...prev, user: null, claims: null, isUserLoading: false, userError: error }));
       }
     );
-    return () => unsubscribe();
+
+    return () => unsubscribeAuth();
   }, [auth]);
+
+  // Real-time synchronization with the Firestore User document
+  // This is critical because Auth Claims take time to propagate, but Firestore is instant.
+  useEffect(() => {
+    if (!firestore || !authState.user) {
+      setAuthState(prev => ({ ...prev, dbProfile: null }));
+      return;
+    }
+
+    const userDocRef = doc(firestore, 'users', authState.user.uid);
+    const unsubscribeDoc = onSnapshot(
+      userDocRef, 
+      (docSnap) => {
+        if (docSnap.exists()) {
+          setAuthState(prev => ({ ...prev, dbProfile: docSnap.data() }));
+        } else {
+          setAuthState(prev => ({ ...prev, dbProfile: null }));
+        }
+      },
+      (error) => {
+        console.warn("Live profile sync failed. Relying on Auth claims.", error);
+      }
+    );
+
+    return () => unsubscribeDoc();
+  }, [firestore, authState.user?.uid]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
@@ -123,16 +156,24 @@ export const useFirebase = (): FirebaseContextState => {
 };
 
 export const useAuth = (): AuthState => {
-  const { user, claims, isUserLoading, userError } = useFirebase();
+  const { user, claims, isUserLoading, userError, dbProfile } = useFirebase();
+  
+  // Prefer live data from Firestore (dbProfile) over cached data in Auth claims
+  // This allows immediate UI updates when an Admin changes a user's role.
+  const role = dbProfile?.role || claims?.role || null;
+  const assignedModules = dbProfile?.assignedModules || claims?.assignedModules || null;
+  const assignedProjects = dbProfile?.assignedProjects || claims?.assignedProjects || null;
+
   return {
     user,
     claims,
+    dbProfile,
     isUserLoading,
     loading: isUserLoading,
     userError,
-    role: claims?.role || null,
-    assignedModules: claims?.assignedModules || null,
-    assignedProjects: claims?.assignedProjects || null,
+    role,
+    assignedModules,
+    assignedProjects,
   };
 };
 

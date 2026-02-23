@@ -1,7 +1,6 @@
-
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
-import { onDocumentUpdated } from "firebase-functions/v2/firestore";
+import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -10,125 +9,131 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Set global options for the function
-setGlobalOptions({ maxInstances: 10 });
+setGlobalOptions({maxInstances: 10});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
- * This function creates a user document in Firestore with basic profile information
- * and assigns the 'viewer' role to all new users, ensuring every user has a DB record.
+ * This function creates a user document in Firestore with basic profile information.
+ * It automatically assigns the 'admin' role to the very first user of the system.
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
-  const { uid, email, displayName } = event.data;
+  const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] Triggered for new user UID: ${uid}`);
 
   const userDocRef = db.doc(`users/${uid}`);
+  const metadataRef = db.doc("system/metadata");
 
   try {
-    // 1. Determine user's name, with fallbacks.
-    const nameParts = displayName?.split(' ').filter(p => p.length > 0) || [];
-    const firstName = nameParts[0] || (email ? email.split('@')[0] : 'New');
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(' ') : (email ? '(from email)' : 'User');
-    
-    // 2. Prepare the user document. This is the definitive record.
-    const newUserDocument = {
-      firstName,
-      lastName,
-      email: email || '',
-      role: 'viewer', // All new users start as viewers
-      status: 'active',
-    };
-
-    logger.info(`[setupInitialUserRole] Preparing to create user document for ${uid}:`, newUserDocument);
-    
-    // 3. Create the user document in Firestore.
-    await userDocRef.set(newUserDocument);
-    logger.info(`[setupInitialUserRole] Successfully created Firestore document for user ${uid}.`);
-
-    // 4. Set the custom authentication claim for the user's role.
-    await admin.auth().setCustomUserClaims(uid, { role: 'viewer' });
-    logger.info(`[setupInitialUserRole] Successfully set custom claim 'role: viewer' for user ${uid}.`);
-
-    // 5. Increment the total user count in a separate, safe transaction.
-    const metadataRef = db.doc('system/metadata');
+    // 1. Determine if this is the first user in a transaction to be thread-safe
+    let isFirstUser = false;
     await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const currentCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
-      const newCount = currentCount + 1;
       
-      if (metadataDoc.exists) {
-        transaction.update(metadataRef, { userCount: newCount });
-      } else {
-        transaction.set(metadataRef, { userCount: newCount });
+      if (currentCount === 0) {
+        isFirstUser = true;
       }
-      logger.info(`[setupInitialUserRole] User count incremented to ${newCount}.`);
+      
+      const newCount = currentCount + 1;
+      if (metadataDoc.exists) {
+        transaction.update(metadataRef, {userCount: newCount});
+      } else {
+        transaction.set(metadataRef, {userCount: newCount});
+      }
     });
 
-    logger.info(`[setupInitialUserRole] Successfully completed all setup for user ${uid}.`);
+    // 2. Determine user's name
+    const nameParts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
+    
+    // 3. Prepare the user document
+    const role = isFirstUser ? "admin" : "viewer";
+    
+    // For the first admin, we assign all core modules by default to avoid empty UI
+    const defaultModules = isFirstUser ? [
+      "dashboard", "projects", "users", "contractors", 
+      "daily-report", "monthly-report", "safety-events", 
+      "project-team", "documents", "calendar", "map", "weather"
+    ] : [];
+
+    const newUserDocument = {
+      firstName,
+      lastName,
+      email: email || "",
+      role: role,
+      status: "active",
+      assignedModules: defaultModules,
+      assignedProjects: [],
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+    };
+
+    logger.info(`[setupInitialUserRole] Creating ${role} document for ${uid}`);
+    await userDocRef.set(newUserDocument);
+
+    // 4. Set the custom authentication claim for the user's role and modules
+    // This is used by security rules and the UI (via token refresh)
+    await admin.auth().setCustomUserClaims(uid, {
+      role: role,
+      assignedModules: defaultModules,
+    });
+
+    logger.info(`[setupInitialUserRole] Setup completed for ${uid}. First user: ${isFirstUser}`);
 
   } catch (error) {
-    logger.error(`[setupInitialUserRole] CRITICAL ERROR during initial setup for ${uid}:`, error);
+    logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
   }
 });
 
-
 /**
  * Triggered on user deletion from Firebase Authentication.
- * This function deletes the user's Firestore document and decrements the total user count.
  */
 export const cleanupUser = onAuthUserDelete(async (event) => {
-  const { uid } = event.data;
-  logger.info(`[cleanupUser] Triggered for deleted user UID: ${uid}. Cleaning up Firestore data.`);
-
+  const {uid} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
-  const metadataRef = db.doc('system/metadata');
+  const metadataRef = db.doc("system/metadata");
 
   try {
     const metadataDoc = await metadataRef.get();
     const batch = db.batch();
-
-    // 1. Delete the user's document from Firestore.
     batch.delete(userDocRef);
-    logger.info(`[cleanupUser] Queued deletion for user document ${uid}.`);
-
-    // 2. Atomically decrement the user count only if it exists and is > 0.
     if (metadataDoc.exists && (metadataDoc.data()?.userCount || 0) > 0) {
       batch.update(metadataRef, {
         userCount: admin.firestore.FieldValue.increment(-1),
       });
-      logger.info(`[cleanupUser] Queued decrement of user count.`);
     }
-
     await batch.commit();
-    logger.info(`[cleanupUser] Successfully cleaned up data for user ${uid}.`);
+    logger.info(`[cleanupUser] Data removed for ${uid}.`);
   } catch (error) {
-    logger.error(`[cleanupUser] Error during user cleanup for ${uid}:`, error, "This may happen if the userCount document doesn't exist or the user doc was already deleted. It's usually safe to ignore in development if the user count is being decremented.");
+    logger.error(`[cleanupUser] Error for ${uid}:`, error);
   }
 });
 
 /**
- * Triggered on user document update in Firestore.
- * This function syncs the 'role' from the Firestore document to Firebase Auth custom claims.
- * This ensures that a user's permissions are always up-to-date with their document.
+ * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
+ * This ensures security rules and the UI stay in sync with the database.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event) => {
-    const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
+  const beforeData = event.data?.before.data();
+  const afterData = event.data?.after.data();
 
-    // Exit if the role hasn't changed, is missing in the new data, or is not a string.
-    if (!afterData?.role || typeof afterData.role !== 'string' || (beforeData && beforeData.role === afterData.role)) {
-      return;
-    }
-    
-    const uid = event.params.userId;
-    const newRole = afterData.role;
-    
-    logger.info(`[onUserRoleChange] Role for user ${uid} changed to '${newRole}'. Syncing to Auth claims.`);
+  if (!afterData) return;
 
-    try {
-        // Set the custom claim on the user's Auth record.
-        await admin.auth().setCustomUserClaims(uid, { role: newRole });
-        logger.info(`[onUserRoleChange] Successfully set custom claim 'role: ${newRole}' for user ${uid}.`);
-    } catch (error) {
-        logger.error(`[onUserRoleChange] CRITICAL ERROR setting custom claims for ${uid}:`, error);
-    }
+  // Only sync if the role or assigned modules have changed
+  const roleChanged = afterData.role !== beforeData?.role;
+  const modulesChanged = JSON.stringify(afterData.assignedModules) !== JSON.stringify(beforeData?.assignedModules);
+
+  if (!roleChanged && !modulesChanged) return;
+  
+  const uid = event.params.userId;
+  logger.info(`[onUserRoleChange] Syncing claims for ${uid}. Role: ${afterData.role}`);
+
+  try {
+    await admin.auth().setCustomUserClaims(uid, {
+      role: afterData.role || "viewer",
+      assignedModules: afterData.assignedModules || [],
+    });
+  } catch (error) {
+    logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);
+  }
 });

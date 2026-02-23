@@ -3,14 +3,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Core Philosophy: This ruleset implements a strict ownership and role-based access model 
-     * while maintaining flexibility for rapid prototyping. Authorization is decentralized 
-     * and independent, relying on custom claims and ownership fields.
+     * Core Philosophy: Access control is based on authentication state, 
+     * specific document ownership, and custom role-based claims.
      */
 
     // --- Helper Functions ---
 
-    /** Checks if the request is from an authenticated user. */
     function isSignedIn() {
       return request.auth != null;
     }
@@ -28,17 +26,16 @@ service cloud.firestore {
     // --- Collection Rules ---
 
     /**
-     * @description Rules for the System collection.
-     * @path /system/metadata
+     * System metadata is readable by all authenticated users to show total stats.
      */
     match /system/metadata {
       allow read: if isSignedIn();
-      allow write: if false; // Only modified via Cloud Functions
+      allow write: if false; // Managed by Cloud Functions
     }
 
     /**
-     * @description Rules for the Users collection.
-     * @path /users/{userId}
+     * Users can always read and update their own profiles.
+     * Administrators can manage all profiles.
      */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
@@ -49,8 +46,8 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for the Projects collection.
-     * @path /projects/{projectId}
+     * Projects are visible to all internal staff.
+     * Creation and management is restricted to authenticated users.
      */
     match /projects/{projectId} {
       allow read: if isSignedIn();
@@ -58,45 +55,32 @@ service cloud.firestore {
       allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
       allow delete: if isAdmin();
 
-      /** Documents subcollection */
+      /** Subcollection for documents. Inherits project-level read access. */
       match /documents/{documentId} {
         allow read, write: if isSignedIn();
       }
     }
 
     /**
-     * @description Rules for the Contractors collection.
-     * @path /contractors/{contractorId}
+     * Site records and operational logs.
      */
     match /contractors/{contractorId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn();
     }
 
-    /**
-     * @description Rules for the Daily Reports collection.
-     * @path /dailyReports/{reportId}
-     */
     match /dailyReports/{reportId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
     }
 
-    /**
-     * @description Rules for the Monthly Reports collection.
-     * @path /monthlyReports/{reportId}
-     */
     match /monthlyReports/{reportId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
     }
 
-    /**
-     * @description Rules for the Safety Events collection.
-     * @path /safetyEvents/{eventId}
-     */
     match /safetyEvents/{eventId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
@@ -104,8 +88,8 @@ service cloud.firestore {
     }
 
     /**
-     * @description Rules for Time Entries.
-     * @path /time_entries/{entryId}
+     * Time tracking entries. Users manage their own time. 
+     * Admins can view and manage everyone's time for payroll/approval.
      */
     match /time_entries/{entryId} {
       allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
@@ -113,24 +97,14 @@ service cloud.firestore {
       allow update, delete: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
     }
 
-    /**
-     * @description Rules for Weekly Submissions.
-     * @path /weekly_submissions/{submissionId}
-     */
     match /weekly_submissions/{submissionId} {
       allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
       allow write: if isAdmin() || (isSignedIn() && (submissionId.startsWith(request.auth.uid)));
     }
 
-    // --- Legacy / Compatibility ---
+    // Compatibility for legacy frontend versions
     match /user_profiles/{userId} {
       allow read, write: if isOwner(userId) || isAdmin();
-    }
-    match /roles/{roleId} {
-      allow get, list: if isSignedIn();
-    }
-    match /modules/{moduleId} {
-      allow get, list: if isSignedIn();
     }
   }
 }
