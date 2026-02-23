@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useCollection, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc, deleteDoc, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
+import * as XLSX from 'xlsx';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -118,15 +119,39 @@ export default function DailyReportPage() {
       toast({ variant: 'destructive', title: "No data", description: "There is no data to export." });
       return;
     }
-    const dataStr = JSON.stringify(filteredReports, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `daily-reports-export-${format(new Date(), 'yyyy-MM-dd')}.json`;
-    link.click();
-    URL.revokeObjectURL(url);
-    toast({ title: "Export Complete", description: "Your data has been downloaded." });
+
+    // Prepare data for Excel (Flattening complex objects)
+    const exportData = filteredReports.map(r => ({
+      ID: r.id,
+      Date: r.date ? format(r.date.toDate ? r.date.toDate() : new Date(r.date), 'yyyy-MM-dd') : 'N/A',
+      Project: projectMap[r.projectId] || 'Unknown',
+      Author: r.username,
+      Shift: r.shift,
+      Weather_City: r.weather?.city || '',
+      Weather_Conditions: r.weather?.conditions || '',
+      Weather_High: r.weather?.highTemp || 0,
+      Weather_Low: r.weather?.lowTemp || 0,
+      Weather_Wind: r.weather?.wind || 0,
+      Safety_Incidents: r.safetyStats?.recordableIncidents || 0,
+      Safety_FirstAid: r.safetyStats?.lightFirstAids || 0,
+      // Metadata fields as JSON strings to preserve complex structure if needed
+      Activities_JSON: JSON.stringify(r.dailyActivities || []),
+      ManHours_JSON: JSON.stringify(r.manHours || []),
+      Notes_JSON: JSON.stringify(r.notes || [])
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Reports");
+    
+    // Auto-size columns
+    const columnWidths = Object.keys(exportData[0]).map(key => ({
+      wch: Math.max(key.length, 15)
+    }));
+    worksheet['!cols'] = columnWidths;
+
+    XLSX.writeFile(workbook, `daily-reports-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
+    toast({ title: "Export Complete", description: "Excel file has been downloaded." });
   };
 
   const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -136,24 +161,35 @@ export default function DailyReportPage() {
     const reader = new FileReader();
     reader.onload = (event) => {
       try {
-        const jsonData = JSON.parse(event.target?.result as string);
-        if (Array.isArray(jsonData)) {
-          jsonData.forEach((report) => {
-            const { id, ...cleanReport } = report;
-            
-            let finalDate = new Date();
-            if (cleanReport.date) {
-              if (cleanReport.date.seconds) {
-                finalDate = new Date(cleanReport.date.seconds * 1000);
-              } else {
-                finalDate = new Date(cleanReport.date);
-              }
-            }
+        const data = new Uint8Array(event.target?.result as ArrayBuffer);
+        const workbook = XLSX.read(data, { type: 'array' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
 
-            const reportToImport = {
-              ...cleanReport,
+        if (Array.isArray(jsonData)) {
+          jsonData.forEach((row) => {
+            // Reconstruct the report object from flat Excel structure
+            const reportToImport: any = {
+              username: row.Author,
+              shift: row.Shift,
+              projectId: Object.keys(projectMap).find(id => projectMap[id] === row.Project) || '',
+              date: row.Date ? new Date(row.Date) : new Date(),
+              weather: {
+                city: row.Weather_City || '',
+                conditions: row.Weather_Conditions || '',
+                highTemp: row.Weather_High || 0,
+                lowTemp: row.Weather_Low || 0,
+                wind: row.Weather_Wind || 0,
+              },
+              safetyStats: {
+                recordableIncidents: row.Safety_Incidents || 0,
+                lightFirstAids: row.Safety_FirstAid || 0,
+              },
+              dailyActivities: row.Activities_JSON ? JSON.parse(row.Activities_JSON) : [],
+              manHours: row.ManHours_JSON ? JSON.parse(row.ManHours_JSON) : [],
+              notes: row.Notes_JSON ? JSON.parse(row.Notes_JSON) : [],
               importedAt: serverTimestamp(),
-              date: finalDate
             };
             
             addDoc(collection(firestore, 'dailyReports'), reportToImport)
@@ -165,16 +201,17 @@ export default function DailyReportPage() {
                  }));
               });
           });
-          toast({ title: "Import Started", description: `Importing ${jsonData.length} records...` });
+          toast({ title: "Import Started", description: `Importing ${jsonData.length} records from Excel...` });
         } else {
-          toast({ variant: 'destructive', title: "Import Failed", description: "JSON must be an array of reports." });
+          toast({ variant: 'destructive', title: "Import Failed", description: "Excel file is empty or invalid." });
         }
       } catch (err) {
-        toast({ variant: 'destructive', title: "Import Failed", description: "Invalid JSON file format." });
+        console.error("Import Error:", err);
+        toast({ variant: 'destructive', title: "Import Failed", description: "Could not process Excel file. Ensure data format is correct." });
       }
       e.target.value = '';
     };
-    reader.readAsText(file);
+    reader.readAsArrayBuffer(file);
   };
 
   return (
@@ -195,13 +232,13 @@ export default function DailyReportPage() {
           {isAdmin && (
             <>
               <Button variant="outline" size="sm" onClick={handleExport} className="h-8 rounded-sm gap-2">
-                <Download className="h-3.5 w-3.5" /> Export
+                <Download className="h-3.5 w-3.5" /> Export Excel
               </Button>
               <div className="relative">
                 <Button variant="outline" size="sm" onClick={() => document.getElementById('import-input')?.click()} className="h-8 rounded-sm gap-2">
-                  <Upload className="h-3.5 w-3.5" /> Import
+                  <Upload className="h-3.5 w-3.5" /> Import Excel
                 </Button>
-                <input id="import-input" type="file" accept=".json" onChange={handleImport} className="hidden" />
+                <input id="import-input" type="file" accept=".xlsx, .xls" onChange={handleImport} className="hidden" />
               </div>
             </>
           )}
