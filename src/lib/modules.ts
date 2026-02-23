@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview CENTRAL APPLICATION MODULES CONFIGURATION
  * 
@@ -11,7 +10,7 @@
 import { 
   Home, Users, FolderKanban, Building, HardHat, FileText, 
   CalendarDays, Files, Camera, Map as MapIcon, DollarSign, 
-  BarChart2, Clock, Sheet, Timer, CloudSun, LucideIcon 
+  BarChart2, Clock, CloudSun, LucideIcon 
 } from 'lucide-react';
 
 export interface AppModule {
@@ -39,7 +38,5 @@ export const APP_MODULES: AppModule[] = [
   { id: 'capex', label: 'CapEx', href: '#', icon: DollarSign, defaultVisibility: 'all' },
   { id: 'reports-analytics', label: 'Report/Analytics', href: '#', icon: BarChart2, defaultVisibility: 'all' },
   { id: 'schedule', label: 'Schedule', href: '#', icon: Clock, defaultVisibility: 'all' },
-  { id: 'master-sheet-time', label: 'Master Sheet Time', href: '/master-sheet-time', icon: Sheet, defaultVisibility: 'all' },
-  { id: 'time-sheet', label: 'Time Sheet', href: '/time-sheet', icon: Timer, defaultVisibility: 'all' },
   { id: 'weather', label: 'Weather', href: '/weather', icon: CloudSun, defaultVisibility: 'all' },
 ];
