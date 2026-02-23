@@ -1,4 +1,3 @@
-
 /**
  * @fileOverview CENTRAL APPLICATION MODULES CONFIGURATION
  * 
@@ -33,7 +32,7 @@ export const APP_MODULES: AppModule[] = [
   { id: 'monthly-report', label: 'Monthly Report', href: '/monthly-report', icon: CalendarDays, defaultVisibility: 'manager' },
   { id: 'safety-events', label: 'Safety Events', href: '/safety-events', icon: ShieldAlert, defaultVisibility: 'all' },
   { id: 'project-team', label: 'Project Team', href: '/project-team', icon: Users, defaultVisibility: 'all' },
-  { id: 'documents', label: 'Documents', href: '#', icon: Files, defaultVisibility: 'all' },
+  { id: 'documents', label: 'Documents', href: '/documents', icon: Files, defaultVisibility: 'all' },
   { id: 'project-aerial-view', label: 'Project Aerial View', href: '#', icon: Camera, defaultVisibility: 'all' },
   { id: 'calendar', label: 'Calendar', href: '/calendar', icon: CalendarDays, defaultVisibility: 'all' },
   { id: 'map', label: 'Map', href: '/map', icon: MapIcon, defaultVisibility: 'all' },
