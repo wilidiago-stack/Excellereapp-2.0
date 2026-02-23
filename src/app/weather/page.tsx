@@ -6,7 +6,8 @@ import { collection, query, where } from 'firebase/firestore';
 import { 
   Cloud, Sun, CloudRain, CloudSun, Wind, 
   Thermometer, Droplets, MapPin, Search, 
-  RefreshCw, Umbrella, CalendarDays, Loader2, AlertCircle
+  RefreshCw, Umbrella, CalendarDays, Loader2, AlertCircle,
+  ShieldCheck, AlertTriangle, Info, AlertOctagon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -16,6 +17,7 @@ import { Badge } from '@/components/ui/badge';
 import { useProjectContext } from '@/context/project-context';
 import { format, parseISO } from 'date-fns';
 import { getRealWeather, type WeatherOutput } from '@/ai/flows/get-weather-flow';
+import { cn } from '@/lib/utils';
 
 export default function WeatherPage() {
   const firestore = useFirestore();
@@ -83,11 +85,58 @@ export default function WeatherPage() {
     return 'text-slate-400';
   };
 
+  const getSafetyAdvisory = (data: WeatherOutput) => {
+    const advisories = [];
+    
+    // Wind Logic
+    if (data.wind > 20) {
+      advisories.push({
+        title: "High Wind Alert",
+        text: "Crane operations must be suspended if gust limits are exceeded. Secure all loose materials on upper floors.",
+        type: "danger"
+      });
+    }
+
+    // Temperature Logic
+    if (data.temp > 90) {
+      advisories.push({
+        title: "Heat Stress Advisory",
+        text: "Mandatory hydration breaks every 45 minutes. Watch for signs of heat exhaustion in site personnel.",
+        type: "warning"
+      });
+    } else if (data.temp < 32) {
+      advisories.push({
+        title: "Freeze & Slip Hazard",
+        text: "Ice accumulation likely on scaffolding and metal decking. Apply anti-slip grit to walkways.",
+        type: "warning"
+      });
+    }
+
+    // Conditions Logic
+    if (data.conditions.toLowerCase().includes('rain')) {
+      advisories.push({
+        title: "Wet Site Conditions",
+        text: "Increased electrical hazard. Suspend outdoor electrical work. Verify trench stability and drainage.",
+        type: "info"
+      });
+    }
+
+    if (advisories.length === 0) {
+      advisories.push({
+        title: "Optimal Site Conditions",
+        text: "Site weather is within normal operating parameters. Maintain standard safety protocols.",
+        type: "success"
+      });
+    }
+
+    return advisories;
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between mb-2">
         <div className="flex flex-col">
-          <h1 className="text-xl font-bold tracking-tight">Weather Service</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Weather Service</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <span>Site conditions monitoring in Fahrenheit.</span>
             {selectedProjectId && (
@@ -200,7 +249,46 @@ export default function WeatherPage() {
                 </div>
               </Card>
 
-              <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden flex-1">
+              {/* SITE SAFETY ADVISORY SECTION */}
+              <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden bg-slate-50/50">
+                <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="h-3.5 w-3.5 text-[#46a395]" />
+                    <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Site Safety Advisory</CardTitle>
+                  </div>
+                  <Badge variant="outline" className="text-[8px] h-4 rounded-sm font-black uppercase bg-white">Operational Intelligence</Badge>
+                </CardHeader>
+                <CardContent className="p-4">
+                  <div className="grid grid-cols-1 gap-2">
+                    {getSafetyAdvisory(weatherData).map((adv, idx) => (
+                      <div key={idx} className={cn(
+                        "flex items-start gap-3 p-3 rounded-sm border transition-all animate-in fade-in slide-in-from-left-2",
+                        adv.type === 'danger' ? "bg-red-50 border-red-100" :
+                        adv.type === 'warning' ? "bg-orange-50 border-orange-100" :
+                        adv.type === 'info' ? "bg-blue-50 border-blue-100" :
+                        "bg-green-50 border-green-100"
+                      )}>
+                        {adv.type === 'danger' ? <AlertOctagon className="h-4 w-4 text-red-500 mt-0.5" /> :
+                         adv.type === 'warning' ? <AlertTriangle className="h-4 w-4 text-orange-500 mt-0.5" /> :
+                         adv.type === 'info' ? <Info className="h-4 w-4 text-blue-500 mt-0.5" /> :
+                         <ShieldCheck className="h-4 w-4 text-[#46a395] mt-0.5" />}
+                        <div>
+                          <h4 className={cn(
+                            "text-[11px] font-black uppercase mb-0.5",
+                            adv.type === 'danger' ? "text-red-700" :
+                            adv.type === 'warning' ? "text-orange-700" :
+                            adv.type === 'info' ? "text-blue-700" :
+                            "text-green-700"
+                          )}>{adv.title}</h4>
+                          <p className="text-[10px] text-slate-600 leading-relaxed font-medium">{adv.text}</p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden">
                 <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="h-3.5 w-3.5 text-[#46a395]" />

@@ -61,13 +61,6 @@ import { Separator } from './ui/separator';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
-const safetyEventSchema = z.object({
-  eventType: z.string().min(1, 'Please select an event type'),
-  category: z.string().min(1, 'Please select a category'),
-  responsibleContractor: z.string().min(1, 'Please select a contractor'),
-  eventDescription: z.string().min(1, 'Description is required'),
-});
-
 const manHourSchema = z.object({
   contractorId: z.string().min(1, 'Please select a contractor'),
   headcount: z.coerce.number().min(0).default(0),
