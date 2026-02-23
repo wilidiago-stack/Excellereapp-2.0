@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
 import { format, parseISO } from 'date-fns';
@@ -25,7 +25,8 @@ import {
   Info,
   Users as UsersIcon,
   Printer,
-  FileDown
+  FileDown,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -36,6 +37,7 @@ import { cn } from '@/lib/utils';
 export default function ViewDailyReportPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = React.use(params);
   const firestore = useFirestore();
+  const [isExporting, setIsExporting] = useState(false);
 
   const reportDocRef = useMemoFirebase(
     () => (firestore && id ? doc(firestore, 'dailyReports', id) : null),
@@ -119,8 +121,40 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
     return advisories;
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handleDownloadPDF = async () => {
+    const element = document.getElementById('report-content');
+    if (!element) return;
+    
+    setIsExporting(true);
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const { jsPDF } = await import('jspdf');
+      
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: '#ffffff'
+      });
+      
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+      });
+      
+      const imgProps = pdf.getImageProperties(imgData);
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Report_${id.substring(0, 8)}.pdf`);
+    } catch (error) {
+      console.error('PDF Generation error:', error);
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const isLoading = reportLoading || projectsLoading || contractorsLoading;
@@ -143,32 +177,6 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-500">
-      <style jsx global>{`
-        @media print {
-          header, aside, .no-print, button, .print-hidden {
-            display: none !important;
-          }
-          main {
-            padding: 0 !important;
-            margin: 0 !important;
-          }
-          .flex-col {
-            display: block !important;
-          }
-          .grid {
-            display: block !important;
-          }
-          .card {
-            border: 1px solid #e2e8f0 !important;
-            margin-bottom: 20px !important;
-            break-inside: avoid;
-          }
-          body {
-            background: white !important;
-          }
-        }
-      `}</style>
-
       <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" className="h-8 w-8 rounded-sm" asChild>
@@ -188,8 +196,9 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <Button onClick={handlePrint} variant="outline" className="h-9 rounded-sm gap-2">
-            <Printer className="h-4 w-4" /> Download PDF
+          <Button onClick={handleDownloadPDF} variant="outline" className="h-9 rounded-sm gap-2" disabled={isExporting}>
+            {isExporting ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileDown className="h-4 w-4" />}
+            Download PDF
           </Button>
           <Button asChild className="h-9 rounded-sm gap-2 bg-[#46a395] hover:bg-[#3d8c7f]">
             <Link href={`/daily-report/${id}/edit`}>
@@ -199,7 +208,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-content">
+      <div id="report-content" className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-1 bg-white">
         {/* Project & Weather Summary with Advisory */}
         <div className="lg:col-span-2 flex flex-col gap-4">
           <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden card">
