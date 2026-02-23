@@ -1,3 +1,4 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -20,6 +21,12 @@ service cloud.firestore {
     }
 
     // --- COLLECTION RULES ---
+
+    match /safetyEvents/{eventId} {
+      allow read: if isSignedIn() && (isAdmin() || (request.auth.token.assignedProjects != null && resource.data.projectId in request.auth.token.assignedProjects));
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && (isAdmin() || resource.data.authorId == request.auth.uid);
+    }
 
     match /dailyReports/{reportId} {
       allow read: if isSignedIn() && (isAdmin() || (request.auth.token.assignedProjects != null && resource.data.projectId in request.auth.token.assignedProjects));

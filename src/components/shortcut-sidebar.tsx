@@ -1,3 +1,4 @@
+
 'use client';
 
 import { 
@@ -16,7 +17,8 @@ import {
   PinOff,
   Map,
   CloudSun,
-  Loader2
+  Loader2,
+  ShieldAlert
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -42,7 +44,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 
-const DEFAULT_SHORTCUTS = ['dashboard', 'project-new', 'daily-report-new'];
+const DEFAULT_SHORTCUTS = ['dashboard', 'project-new', 'daily-report-new', 'safety-event-new'];
 
 const ACTION_REGISTRY = [
   { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, moduleId: 'dashboard', moduleName: 'System' },
@@ -56,6 +58,8 @@ const ACTION_REGISTRY = [
   { id: 'daily-report-list', label: 'Daily Reports', href: '/daily-report', icon: FileText, moduleId: 'daily-report', moduleName: 'Reports' },
   { id: 'monthly-report-new', label: 'New Monthly Report', href: '/monthly-report/new', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
   { id: 'monthly-report-list', label: 'Monthly Reports', href: '/monthly-report', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
+  { id: 'safety-event-new', label: 'New Safety Event', href: '/safety-events/new', icon: ShieldAlert, moduleId: 'safety-events', moduleName: 'Safety' },
+  { id: 'safety-events-list', label: 'Safety Events', href: '/safety-events', icon: ShieldAlert, moduleId: 'safety-events', moduleName: 'Safety' },
   { id: 'calendar-view', label: 'Calendar', href: '/calendar', icon: CalendarDays, moduleId: 'calendar', moduleName: 'Tools' },
   { id: 'map-view', label: 'Project Map', href: '/map', icon: Map, moduleId: 'map', moduleName: 'Tools' },
   { id: 'weather-view', label: 'Weather', href: '/weather', icon: CloudSun, moduleId: 'weather', moduleName: 'Tools' },
@@ -84,7 +88,7 @@ export function ShortcutSidebar() {
   const availableActions = useMemo(() => {
     return ACTION_REGISTRY.filter(action => {
       if (isAdmin) return true;
-      return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map'].includes(action.moduleId);
+      return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map', 'safety-events'].includes(action.moduleId);
     });
   }, [isAdmin, assignedModules]);
 

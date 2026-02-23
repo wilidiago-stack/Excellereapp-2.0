@@ -95,6 +95,26 @@
         "authorId": { "type": "string" }
       },
       "required": ["projectId", "month", "year", "summary", "authorId"]
+    },
+    "SafetyEvent": {
+      "title": "SafetyEvent",
+      "type": "object",
+      "description": "Safety related incidents, near misses or observations.",
+      "properties": {
+        "projectId": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["Incident", "Near Miss", "Observation", "Safety Meeting", "Inspection"] },
+        "severity": { "type": "string", "enum": ["Low", "Medium", "High", "Critical"] },
+        "description": { "type": "string" },
+        "location": { "type": "string" },
+        "involvedPersonnel": { "type": "array", "items": { "type": "string" } },
+        "correctiveActions": { "type": "string" },
+        "status": { "type": "string", "enum": ["Open", "In Progress", "Closed"] },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["projectId", "date", "type", "severity", "description", "status"]
     }
   },
   "auth": {
@@ -156,6 +176,14 @@
           "entityName": "MonthlyReport",
           "schema": { "$ref": "#/backend/entities/MonthlyReport" },
           "description": "Monthly summaries."
+        }
+      },
+      {
+        "path": "/safetyEvents/{eventId}",
+        "definition": {
+          "entityName": "SafetyEvent",
+          "schema": { "$ref": "#/backend/entities/SafetyEvent" },
+          "description": "Safety logs."
         }
       }
     ]
