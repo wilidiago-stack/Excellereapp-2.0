@@ -98,7 +98,7 @@ export default function Home() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
               <Target className="h-4 w-4" /> Focused Project
-            </Target>
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <Select 
@@ -129,7 +129,7 @@ export default function Home() {
           <LayoutDashboard className="h-4 w-4 text-slate-400" />
           <div>
             <CardTitle className="text-lg text-slate-800">Activity Overview</CardTitle>
-            <CardDescription className="text-xs">System performance trends.</CardDescription>
+            <CardDescription className="text-xs text-muted-foreground">System performance trends.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>
