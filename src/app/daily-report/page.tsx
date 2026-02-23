@@ -3,9 +3,19 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import { PlusCircle, MoreHorizontal, FileText, Search, FileEdit, Eye, Calendar as CalendarIcon } from 'lucide-react';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
-import { collection, doc, deleteDoc, query, where } from 'firebase/firestore';
+import { 
+  PlusCircle, 
+  MoreHorizontal, 
+  FileText, 
+  Search, 
+  FileEdit, 
+  Eye, 
+  Calendar as CalendarIcon,
+  Download,
+  Upload
+} from 'lucide-react';
+import { useCollection, useFirestore, useMemoFirebase, useAuth } from '@/firebase';
+import { collection, doc, deleteDoc, query, where, addDoc, serverTimestamp } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -46,12 +56,14 @@ import { Badge } from '@/components/ui/badge';
 import { useProjectContext } from '@/context/project-context';
 
 export default function DailyReportPage() {
+  const { user, role } = useAuth();
   const firestore = useFirestore();
   const { toast } = useToast();
   const { selectedProjectId } = useProjectContext();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedReport, setSelectedReport] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const isAdmin = role === 'admin';
 
   const dailyReportsCollection = useMemoFirebase(
     () => {
@@ -101,6 +113,70 @@ export default function DailyReportPage() {
       });
   };
 
+  const handleExport = () => {
+    if (!filteredReports.length) {
+      toast({ variant: 'destructive', title: "No data", description: "There is no data to export." });
+      return;
+    }
+    const dataStr = JSON.stringify(filteredReports, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `daily-reports-export-${format(new Date(), 'yyyy-MM-dd')}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+    toast({ title: "Export Complete", description: "Your data has been downloaded." });
+  };
+
+  const handleImport = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !firestore || !user) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const jsonData = JSON.parse(event.target?.result as string);
+        if (Array.isArray(jsonData)) {
+          jsonData.forEach((report) => {
+            const { id, ...cleanReport } = report;
+            
+            let finalDate = new Date();
+            if (cleanReport.date) {
+              if (cleanReport.date.seconds) {
+                finalDate = new Date(cleanReport.date.seconds * 1000);
+              } else {
+                finalDate = new Date(cleanReport.date);
+              }
+            }
+
+            const reportToImport = {
+              ...cleanReport,
+              importedAt: serverTimestamp(),
+              date: finalDate
+            };
+            
+            addDoc(collection(firestore, 'dailyReports'), reportToImport)
+              .catch(err => {
+                 errorEmitter.emit('permission-error', new FirestorePermissionError({
+                   path: 'dailyReports',
+                   operation: 'create',
+                   requestResourceData: reportToImport
+                 }));
+              });
+          });
+          toast({ title: "Import Started", description: `Importing ${jsonData.length} records...` });
+        } else {
+          toast({ variant: 'destructive', title: "Import Failed", description: "JSON must be an array of reports." });
+        }
+      } catch (err) {
+        toast({ variant: 'destructive', title: "Import Failed", description: "Invalid JSON file format." });
+      }
+      e.target.value = '';
+    };
+    reader.readAsText(file);
+  };
+
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
@@ -115,11 +191,26 @@ export default function DailyReportPage() {
             )}
           </div>
         </div>
-        <Button asChild size="sm" className="h-8 rounded-sm gap-2">
-          <Link href="/daily-report/new">
-            <PlusCircle className="h-3.5 w-3.5" /> New Report
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={handleExport} className="h-8 rounded-sm gap-2">
+                <Download className="h-3.5 w-3.5" /> Export
+              </Button>
+              <div className="relative">
+                <Button variant="outline" size="sm" onClick={() => document.getElementById('import-input')?.click()} className="h-8 rounded-sm gap-2">
+                  <Upload className="h-3.5 w-3.5" /> Import
+                </Button>
+                <input id="import-input" type="file" accept=".json" onChange={handleImport} className="hidden" />
+              </div>
+            </>
+          )}
+          <Button asChild size="sm" className="h-8 rounded-sm gap-2">
+            <Link href="/daily-report/new">
+              <PlusCircle className="h-3.5 w-3.5" /> New Report
+            </Link>
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
@@ -168,7 +259,7 @@ export default function DailyReportPage() {
                 ) : (
                   filteredReports.map((report: any) => (
                     <TableRow key={report.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
-                      <TableCell className="py-2.5 text-xs font-semibold">{report.date ? format(report.date.toDate(), 'PPP') : 'N/A'}</TableCell>
+                      <TableCell className="py-2.5 text-xs font-semibold">{report.date ? format(report.date.toDate ? report.date.toDate() : new Date(report.date), 'PPP') : 'N/A'}</TableCell>
                       <TableCell className="py-2.5 text-xs font-bold">{projectMap[report.projectId] || 'Unknown'}</TableCell>
                       <TableCell className="py-2.5 text-xs text-slate-500">{report.username}</TableCell>
                       <TableCell className="py-2.5">
