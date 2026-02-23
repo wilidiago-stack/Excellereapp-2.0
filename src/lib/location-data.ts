@@ -110,7 +110,6 @@ export const LOCATION_DATA: LocationData = {
   }
 };
 
-// Logic to pin United States at the top
 const rawCountries = Object.keys(LOCATION_DATA).sort();
 const pinnedCountry = "United States";
 export const COUNTRIES = [pinnedCountry, ...rawCountries.filter(c => c !== pinnedCountry)];

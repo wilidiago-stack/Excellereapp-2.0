@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreated, onAuthUserDeleted} from "firebase-functions/v2/auth";
+import {onUserCreated, onUserDeleted} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -17,7 +17,10 @@ interface AuthEvent {
   };
 }
 
-export const setupInitialUserRole = onAuthUserCreated(
+/**
+ * Triggered on new user creation in Firebase Authentication.
+ */
+export const setupInitialUserRole = onUserCreated(
   async (event: AuthEvent) => {
     const {uid, email, displayName} = event.data;
     logger.info(`[setupInitialUserRole] UID: ${uid}`);
@@ -69,7 +72,10 @@ export const setupInitialUserRole = onAuthUserCreated(
     }
   });
 
-export const cleanupUser = onAuthUserDeleted(async (event: AuthEvent) => {
+/**
+ * Triggered on user deletion from Firebase Authentication.
+ */
+export const cleanupUser = onUserDeleted(async (event: AuthEvent) => {
   const {uid} = event.data;
   logger.info(`[cleanupUser] UID: ${uid}`);
 
@@ -95,6 +101,9 @@ export const cleanupUser = onAuthUserDeleted(async (event: AuthEvent) => {
   }
 });
 
+/**
+ * Syncs Firestore document to custom claims.
+ */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
