@@ -117,7 +117,7 @@ const dailyReportSchema = z.object({
 type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 
 interface DailyReportFormProps {
-  initialData?: DailyReportFormValues & { id: string };
+  initialData?: any;
 }
 
 export function DailyReportForm({ initialData }: DailyReportFormProps) {
@@ -126,7 +126,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const { selectedProjectId } = useProjectContext();
   const { toast } = useToast();
   const router = useRouter();
-  const isEditMode = !!initialData;
+  const isEditMode = !!initialData?.id;
 
   const dailyReportsCollection = useMemoFirebase(
     () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
@@ -172,17 +172,16 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   });
 
   useEffect(() => {
-    if (initialData) {
-      form.reset({
+    if (initialData && Object.keys(initialData).length > 1) {
+      const formattedData = {
         ...initialData,
         date: initialData.date?.toDate ? initialData.date.toDate() : (initialData.date instanceof Date ? initialData.date : new Date()),
-      });
+      };
+      form.reset(formattedData);
     } else {
-      // New report initialization
       if (user && !form.getValues('username')) {
         form.setValue('username', user.displayName || '');
       }
-      // AUTO-SELECT PROJECT FROM DASHBOARD CONTEXT
       if (selectedProjectId && !form.getValues('projectId')) {
         form.setValue('projectId', selectedProjectId);
       }
@@ -229,9 +228,12 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const onSubmit = (data: DailyReportFormValues) => {
     if (!firestore || !user || !dailyReportsCollection) return;
 
+    // Clean data to avoid writing restricted fields like 'id' into the document body
+    const { id, ...cleanData } = data as any;
+
     const payload = isEditMode 
-      ? { ...data, updatedAt: new Date() }
-      : { ...data, authorId: user.uid, createdAt: new Date() };
+      ? { ...cleanData, updatedAt: new Date() }
+      : { ...cleanData, authorId: user.uid, createdAt: new Date() };
 
     const operation = isEditMode
       ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload)

@@ -3,7 +3,7 @@
 import React from 'react';
 import { useFirestore, useDoc, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection } from 'firebase/firestore';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { 
@@ -19,7 +19,8 @@ import {
   Droplets,
   Paperclip,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Users as UsersIcon
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -52,6 +53,18 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
   const project = projects?.find(p => p.id === report?.projectId);
   const getContractorName = (cId: string) => contractors?.find(c => c.id === cId)?.name || 'Unknown Contractor';
 
+  const formatReportDate = (dateVal: any) => {
+    if (!dateVal) return 'N/A';
+    try {
+      if (dateVal.toDate) return format(dateVal.toDate(), 'PPPP');
+      if (dateVal instanceof Date) return format(dateVal, 'PPPP');
+      if (typeof dateVal === 'string') return format(parseISO(dateVal), 'PPPP');
+      return 'Invalid Date';
+    } catch (e) {
+      return 'N/A';
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex flex-col h-full gap-4 p-6">
@@ -77,7 +90,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
           </Button>
           <div>
             <h1 className="text-xl font-black tracking-tight text-slate-800">
-              Report: {report.date ? format(report.date.toDate(), 'PPPP') : 'N/A'}
+              Report: {formatReportDate(report.date)}
             </h1>
             <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider flex items-center gap-2">
               <span>Shift: {report.shift}</span>
@@ -109,8 +122,8 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
                   <MapPin className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Site Location</p>
-                  <p className="text-sm font-bold text-slate-700">{report.weather?.city || 'Not specified'}</p>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Site Location</div>
+                  <div className="text-sm font-bold text-slate-700">{report.weather?.city || 'Not specified'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -118,26 +131,26 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
                   <CloudSun className="h-5 w-5" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-bold text-slate-400 uppercase">Sky Conditions</p>
-                  <p className="text-sm font-bold text-slate-700">{report.weather?.conditions || 'N/A'}</p>
+                  <div className="text-[10px] font-bold text-slate-400 uppercase">Sky Conditions</div>
+                  <div className="text-sm font-bold text-slate-700">{report.weather?.conditions || 'N/A'}</div>
                 </div>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 bg-slate-50 p-4 rounded-sm border border-slate-100">
               <div className="text-center">
                 <Thermometer className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase">High/Low</p>
-                <p className="text-xs font-black">{report.weather?.highTemp}° / {report.weather?.lowTemp}°</p>
+                <div className="text-[9px] font-bold text-slate-400 uppercase">High/Low</div>
+                <div className="text-xs font-black">{report.weather?.highTemp}° / {report.weather?.lowTemp}°</div>
               </div>
               <div className="text-center border-x border-slate-200 px-2">
                 <Wind className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Wind</p>
-                <p className="text-xs font-black">{report.weather?.wind} mph</p>
+                <div className="text-[9px] font-bold text-slate-400 uppercase">Wind</div>
+                <div className="text-xs font-black">{report.weather?.wind} mph</div>
               </div>
               <div className="text-center">
                 <Droplets className="h-4 w-4 mx-auto mb-1 text-slate-400" />
-                <p className="text-[9px] font-bold text-slate-400 uppercase">Humidity</p>
-                <p className="text-xs font-black">N/A</p>
+                <div className="text-[9px] font-bold text-slate-400 uppercase">Humidity</div>
+                <div className="text-xs font-black">N/A</div>
               </div>
             </div>
           </CardContent>
@@ -212,7 +225,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
-              <Users className="h-3.5 w-3.5 text-[#46a395]" /> Labor Summary
+              <UsersIcon className="h-3.5 w-3.5 text-[#46a395]" /> Labor Summary
             </CardTitle>
           </CardHeader>
           <CardContent className="p-0">
@@ -226,14 +239,16 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {report.manHours?.map((mh: any, i: number) => (
+                {report.manHours?.length > 0 ? report.manHours.map((mh: any, i: number) => (
                   <TableRow key={i} className="hover:bg-slate-50/20">
                     <TableCell className="py-3 px-6 text-xs font-semibold">{getContractorName(mh.contractorId)}</TableCell>
                     <TableCell className="py-3 text-xs text-center font-bold text-slate-500">{mh.headcount}</TableCell>
                     <TableCell className="py-3 text-xs text-center font-bold text-slate-500">{mh.hours}</TableCell>
                     <TableCell className="py-3 text-xs text-center font-black text-slate-700">{(mh.headcount * mh.hours).toFixed(1)}h</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow><TableCell colSpan={4} className="h-24 text-center text-xs text-slate-400">No labor records registered.</TableCell></TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -265,21 +280,5 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
       </div>
     </div>
-  );
-}
-
-// Sub-component Users for icons
-function Users({ className }: { className?: string }) {
-  return (
-    <svg 
-      xmlns="http://www.w3.org/2000/svg" 
-      width="24" height="24" 
-      viewBox="0 0 24 24" fill="none" 
-      stroke="currentColor" strokeWidth="2" 
-      strokeLinecap="round" strokeLinejoin="round" 
-      className={className}
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /><path d="M16 3.13a4 4 0 0 1 0 7.75" />
-    </svg>
   );
 }

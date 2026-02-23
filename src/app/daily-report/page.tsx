@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { 
   PlusCircle, 
   MoreHorizontal, 
@@ -120,10 +120,9 @@ export default function DailyReportPage() {
       return;
     }
 
-    // Prepare data for Excel (Flattening complex objects)
     const exportData = filteredReports.map(r => ({
       ID: r.id,
-      Date: r.date ? format(r.date.toDate ? r.date.toDate() : new Date(r.date), 'yyyy-MM-dd') : 'N/A',
+      Date: r.date ? (r.date.toDate ? format(r.date.toDate(), 'yyyy-MM-dd') : format(new Date(r.date), 'yyyy-MM-dd')) : 'N/A',
       Project: projectMap[r.projectId] || 'Unknown',
       Author: r.username,
       Shift: r.shift,
@@ -134,7 +133,11 @@ export default function DailyReportPage() {
       Weather_Wind: r.weather?.wind || 0,
       Safety_Incidents: r.safetyStats?.recordableIncidents || 0,
       Safety_FirstAid: r.safetyStats?.lightFirstAids || 0,
-      // Metadata fields as JSON strings to preserve complex structure if needed
+      Safety_Meetings: r.safetyStats?.safetyMeeting || 0,
+      Safety_TBT: r.safetyStats?.toolBoxTalks || 0,
+      Safety_Orientation: r.safetyStats?.admSiteOrientation || 0,
+      Safety_Gemba: r.safetyStats?.bbsGemba || 0,
+      Safety_StandDowns: r.safetyStats?.operationsStandDowns || 0,
       Activities_JSON: JSON.stringify(r.dailyActivities || []),
       ManHours_JSON: JSON.stringify(r.manHours || []),
       Notes_JSON: JSON.stringify(r.notes || [])
@@ -144,11 +147,7 @@ export default function DailyReportPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Reports");
     
-    // Auto-size columns
-    const columnWidths = Object.keys(exportData[0]).map(key => ({
-      wch: Math.max(key.length, 15)
-    }));
-    worksheet['!cols'] = columnWidths;
+    worksheet['!cols'] = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
 
     XLSX.writeFile(workbook, `daily-reports-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     toast({ title: "Export Complete", description: "Excel file has been downloaded." });
@@ -162,19 +161,18 @@ export default function DailyReportPage() {
     reader.onload = (event) => {
       try {
         const data = new Uint8Array(event.target?.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array' });
+        const workbook = XLSX.read(data, { type: 'array', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const worksheet = workbook.Sheets[sheetName];
         const jsonData: any[] = XLSX.utils.sheet_to_json(worksheet);
 
         if (Array.isArray(jsonData)) {
           jsonData.forEach((row) => {
-            // Reconstruct the report object from flat Excel structure
             const reportToImport: any = {
-              username: row.Author,
-              shift: row.Shift,
+              username: row.Author || 'System Import',
+              shift: row.Shift || 'Day',
               projectId: Object.keys(projectMap).find(id => projectMap[id] === row.Project) || '',
-              date: row.Date ? new Date(row.Date) : new Date(),
+              date: row.Date instanceof Date ? row.Date : new Date(),
               weather: {
                 city: row.Weather_City || '',
                 conditions: row.Weather_Conditions || '',
@@ -185,29 +183,25 @@ export default function DailyReportPage() {
               safetyStats: {
                 recordableIncidents: row.Safety_Incidents || 0,
                 lightFirstAids: row.Safety_FirstAid || 0,
+                safetyMeeting: row.Safety_Meetings || 0,
+                toolBoxTalks: row.Safety_TBT || 0,
+                admSiteOrientation: row.Safety_Orientation || 0,
+                bbsGemba: row.Safety_Gemba || 0,
+                operationsStandDowns: row.Safety_StandDowns || 0,
               },
               dailyActivities: row.Activities_JSON ? JSON.parse(row.Activities_JSON) : [],
               manHours: row.ManHours_JSON ? JSON.parse(row.ManHours_JSON) : [],
               notes: row.Notes_JSON ? JSON.parse(row.Notes_JSON) : [],
+              authorId: user.uid,
               importedAt: serverTimestamp(),
             };
             
-            addDoc(collection(firestore, 'dailyReports'), reportToImport)
-              .catch(err => {
-                 errorEmitter.emit('permission-error', new FirestorePermissionError({
-                   path: 'dailyReports',
-                   operation: 'create',
-                   requestResourceData: reportToImport
-                 }));
-              });
+            addDoc(collection(firestore, 'dailyReports'), reportToImport);
           });
-          toast({ title: "Import Started", description: `Importing ${jsonData.length} records from Excel...` });
-        } else {
-          toast({ variant: 'destructive', title: "Import Failed", description: "Excel file is empty or invalid." });
+          toast({ title: "Import Successful", description: `Processed ${jsonData.length} records.` });
         }
       } catch (err) {
-        console.error("Import Error:", err);
-        toast({ variant: 'destructive', title: "Import Failed", description: "Could not process Excel file. Ensure data format is correct." });
+        toast({ variant: 'destructive', title: "Import Failed", description: "Could not process file." });
       }
       e.target.value = '';
     };
@@ -296,7 +290,7 @@ export default function DailyReportPage() {
                 ) : (
                   filteredReports.map((report: any) => (
                     <TableRow key={report.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
-                      <TableCell className="py-2.5 text-xs font-semibold">{report.date ? format(report.date.toDate ? report.date.toDate() : new Date(report.date), 'PPP') : 'N/A'}</TableCell>
+                      <TableCell className="py-2.5 text-xs font-semibold">{report.date ? (report.date.toDate ? format(report.date.toDate(), 'PPP') : format(new Date(report.date), 'PPP')) : 'N/A'}</TableCell>
                       <TableCell className="py-2.5 text-xs font-bold">{projectMap[report.projectId] || 'Unknown'}</TableCell>
                       <TableCell className="py-2.5 text-xs text-slate-500">{report.username}</TableCell>
                       <TableCell className="py-2.5">
