@@ -52,7 +52,7 @@ export const LOCATION_DATA: LocationData = {
       "Oklahoma": ["Oklahoma City", "Tulsa", "Norman", "Broken Arrow"],
       "Oregon": ["Portland", "Salem", "Eugene", "Gresham"],
       "Pennsylvania": ["Philadelphia", "Pittsburgh", "Allentown", "Erie"],
-      "Puerto Rico": ["San Juan", "Bayamón", "Carolina", "Ponce", "Caguas", "Guaynabo"],
+      "Puerto Rico": ["Guaynabo", "San Juan", "Bayamón", "Carolina", "Ponce", "Caguas"],
       "Rhode Island": ["Providence", "Warwick", "Cranston", "Pawtucket"],
       "South Carolina": ["Charleston", "Columbia", "North Charleston", "Mount Pleasant"],
       "South Dakota": ["Sioux Falls", "Rapid City", "Aberdeen", "Brookings"],
