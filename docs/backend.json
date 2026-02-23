@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "TimeSheetEntry": {
@@ -63,6 +64,37 @@
         "status": { "type": "string", "enum": ["Active", "Inactive"] }
       },
       "required": ["name", "contactPerson", "status"]
+    },
+    "DailyReport": {
+      "title": "DailyReport",
+      "type": "object",
+      "description": "Daily site operation and safety report.",
+      "properties": {
+        "date": { "type": "string", "format": "date-time" },
+        "projectId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "username": { "type": "string" },
+        "shift": { "type": "string", "enum": ["Day", "Night"] },
+        "weather": { "type": "object" },
+        "safetyStats": { "type": "object" },
+        "manHours": { "type": "array" },
+        "dailyActivities": { "type": "array" },
+        "notes": { "type": "array" }
+      },
+      "required": ["date", "projectId", "authorId", "shift"]
+    },
+    "MonthlyReport": {
+      "title": "MonthlyReport",
+      "type": "object",
+      "description": "Monthly strategic summary report.",
+      "properties": {
+        "projectId": { "type": "string" },
+        "month": { "type": "number" },
+        "year": { "type": "number" },
+        "summary": { "type": "string" },
+        "authorId": { "type": "string" }
+      },
+      "required": ["projectId", "month", "year", "summary", "authorId"]
     }
   },
   "auth": {
@@ -108,6 +140,22 @@
           "entityName": "Contractor",
           "schema": { "$ref": "#/backend/entities/Contractor" },
           "description": "Contractors."
+        }
+      },
+      {
+        "path": "/dailyReports/{reportId}",
+        "definition": {
+          "entityName": "DailyReport",
+          "schema": { "$ref": "#/backend/entities/DailyReport" },
+          "description": "Daily site logs."
+        }
+      },
+      {
+        "path": "/monthlyReports/{reportId}",
+        "definition": {
+          "entityName": "MonthlyReport",
+          "schema": { "$ref": "#/backend/entities/MonthlyReport" },
+          "description": "Monthly summaries."
         }
       }
     ]
