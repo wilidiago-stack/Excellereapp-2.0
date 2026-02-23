@@ -1,5 +1,6 @@
 'use client';
 
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -28,6 +29,7 @@ import { collection, addDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useProjectContext } from '@/context/project-context';
 
 const monthlyReportSchema = z.object({
   projectId: z.string().min(1, 'Project is required'),
@@ -41,6 +43,7 @@ type MonthlyReportFormValues = z.infer<typeof monthlyReportSchema>;
 export function MonthlyReportForm() {
   const { user } = useAuth();
   const firestore = useFirestore();
+  const { selectedProjectId } = useProjectContext();
   const { toast } = useToast();
   const router = useRouter();
 
@@ -64,6 +67,13 @@ export function MonthlyReportForm() {
       summary: '',
     },
   });
+
+  useEffect(() => {
+    // AUTO-SELECT PROJECT FROM DASHBOARD CONTEXT
+    if (selectedProjectId && !form.getValues('projectId')) {
+      form.setValue('projectId', selectedProjectId);
+    }
+  }, [selectedProjectId, form]);
 
   const onSubmit = (data: MonthlyReportFormValues) => {
     if (!firestore || !user || !monthlyReportsCollection) return;
@@ -102,7 +112,7 @@ export function MonthlyReportForm() {
               <FormLabel>Project</FormLabel>
               <Select
                 onValueChange={field.onChange}
-                defaultValue={field.value}
+                value={field.value}
               >
                 <FormControl>
                   <SelectTrigger>
