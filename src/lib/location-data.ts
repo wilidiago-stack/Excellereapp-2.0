@@ -1,6 +1,6 @@
 /**
  * @fileOverview Data structure for countries, states, and cities.
- * Includes all 50 US States and alphabetical sorting logic.
+ * Includes all 50 US States + Puerto Rico and alphabetical sorting logic.
  */
 
 export interface LocationData {
@@ -52,12 +52,13 @@ export const LOCATION_DATA: LocationData = {
       "Oklahoma": ["Oklahoma City", "Tulsa", "Norman", "Broken Arrow"],
       "Oregon": ["Portland", "Salem", "Eugene", "Gresham"],
       "Pennsylvania": ["Philadelphia", "Pittsburgh", "Allentown", "Erie"],
+      "Puerto Rico": ["San Juan", "Bayamón", "Carolina", "Ponce", "Caguas"],
       "Rhode Island": ["Providence", "Warwick", "Cranston", "Pawtucket"],
       "South Carolina": ["Charleston", "Columbia", "North Charleston", "Mount Pleasant"],
       "South Dakota": ["Sioux Falls", "Rapid City", "Aberdeen", "Brookings"],
       "Tennessee": ["Nashville", "Memphis", "Knoxville", "Chattanooga"],
       "Texas": ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth"],
-      "Utah": ["Salt Lake City", "West Valley City", "Provo", "West Jordan"],
+      "Utah": ["Slc", "West Valley City", "Provo", "West Jordan"],
       "Vermont": ["Burlington", "South Burlington", "Rutland", "Barre"],
       "Virginia": ["Virginia Beach", "Norfolk", "Chesapeake", "Richmond"],
       "Washington": ["Seattle", "Spokane", "Tacoma", "Vancouver"],
