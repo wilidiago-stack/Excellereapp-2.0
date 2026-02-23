@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { format, parseISO } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { 
   PlusCircle, 
   MoreHorizontal, 
@@ -147,8 +147,6 @@ export default function DailyReportPage() {
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, "Daily Reports");
     
-    worksheet['!cols'] = Object.keys(exportData[0]).map(() => ({ wch: 20 }));
-
     XLSX.writeFile(workbook, `daily-reports-export-${format(new Date(), 'yyyy-MM-dd')}.xlsx`);
     toast({ title: "Export Complete", description: "Excel file has been downloaded." });
   };
@@ -172,28 +170,29 @@ export default function DailyReportPage() {
               username: row.Author || 'System Import',
               shift: row.Shift || 'Day',
               projectId: Object.keys(projectMap).find(id => projectMap[id] === row.Project) || '',
-              date: row.Date instanceof Date ? row.Date : new Date(),
+              date: startOfDay(row.Date instanceof Date ? row.Date : new Date()),
               weather: {
                 city: row.Weather_City || '',
                 conditions: row.Weather_Conditions || '',
-                highTemp: row.Weather_High || 0,
-                lowTemp: row.Weather_Low || 0,
-                wind: row.Weather_Wind || 0,
+                highTemp: Number(row.Weather_High) || 0,
+                lowTemp: Number(row.Weather_Low) || 0,
+                wind: Number(row.Weather_Wind) || 0,
               },
               safetyStats: {
-                recordableIncidents: row.Safety_Incidents || 0,
-                lightFirstAids: row.Safety_FirstAid || 0,
-                safetyMeeting: row.Safety_Meetings || 0,
-                toolBoxTalks: row.Safety_TBT || 0,
-                admSiteOrientation: row.Safety_Orientation || 0,
-                bbsGemba: row.Safety_Gemba || 0,
-                operationsStandDowns: row.Safety_StandDowns || 0,
+                recordableIncidents: Number(row.Safety_Incidents) || 0,
+                lightFirstAids: Number(row.Safety_FirstAid) || 0,
+                safetyMeeting: Number(row.Safety_Meetings) || 0,
+                toolBoxTalks: Number(row.Safety_TBT) || 0,
+                admSiteOrientation: Number(row.Safety_Orientation) || 0,
+                bbsGemba: Number(row.Safety_Gemba) || 0,
+                operationsStandDowns: Number(row.Safety_StandDowns) || 0,
               },
               dailyActivities: row.Activities_JSON ? JSON.parse(row.Activities_JSON) : [],
               manHours: row.ManHours_JSON ? JSON.parse(row.ManHours_JSON) : [],
               notes: row.Notes_JSON ? JSON.parse(row.Notes_JSON) : [],
               authorId: user.uid,
-              importedAt: serverTimestamp(),
+              createdAt: serverTimestamp(),
+              updatedAt: serverTimestamp(),
             };
             
             addDoc(collection(firestore, 'dailyReports'), reportToImport);
@@ -201,7 +200,7 @@ export default function DailyReportPage() {
           toast({ title: "Import Successful", description: `Processed ${jsonData.length} records.` });
         }
       } catch (err) {
-        toast({ variant: 'destructive', title: "Import Failed", description: "Could not process file." });
+        toast({ variant: 'destructive', title: "Import Failed", description: "Could not process file. Ensure JSON fields are valid." });
       }
       e.target.value = '';
     };

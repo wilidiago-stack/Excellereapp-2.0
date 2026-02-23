@@ -4,7 +4,7 @@ import { useEffect } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format } from 'date-fns';
+import { format, startOfDay } from 'date-fns';
 import { useRouter } from 'next/navigation';
 import {
   CalendarIcon,
@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
-import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
@@ -108,10 +108,9 @@ const dailyReportSchema = z.object({
     bbsGemba: z.coerce.number().int().min(0).default(0),
     operationsStandDowns: z.coerce.number().int().min(0).default(0),
   }),
-  safetyEvents: z.array(safetyEventSchema).optional(),
-  manHours: z.array(manHourSchema).optional(),
-  dailyActivities: z.array(dailyActivitySchema).optional(),
-  notes: z.array(noteSchema).optional(),
+  manHours: z.array(manHourSchema).default([]),
+  dailyActivities: z.array(dailyActivitySchema).default([]),
+  notes: z.array(noteSchema).default([]),
 });
 
 type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
@@ -152,9 +151,10 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     resolver: zodResolver(dailyReportSchema),
     defaultValues: {
       date: new Date(),
-      username: '',
-      projectId: '',
-      weather: { city: '', conditions: '', highTemp: 50, lowTemp: 22, wind: 10 },
+      username: user?.displayName || '',
+      projectId: selectedProjectId || '',
+      shift: 'Day',
+      weather: { city: '', conditions: '', highTemp: 0, lowTemp: 0, wind: 0 },
       safetyStats: {
         recordableIncidents: 0,
         lightFirstAids: 0,
@@ -164,7 +164,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         bbsGemba: 0,
         operationsStandDowns: 0,
       },
-      safetyEvents: [],
       manHours: [],
       dailyActivities: [],
       notes: [],
@@ -174,8 +173,29 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 1) {
       const formattedData = {
-        ...initialData,
         date: initialData.date?.toDate ? initialData.date.toDate() : (initialData.date instanceof Date ? initialData.date : new Date()),
+        username: initialData.username || '',
+        projectId: initialData.projectId || '',
+        shift: initialData.shift || 'Day',
+        weather: {
+          city: initialData.weather?.city || '',
+          conditions: initialData.weather?.conditions || '',
+          highTemp: initialData.weather?.highTemp || 0,
+          lowTemp: initialData.weather?.lowTemp || 0,
+          wind: initialData.weather?.wind || 0,
+        },
+        safetyStats: {
+          recordableIncidents: initialData.safetyStats?.recordableIncidents || 0,
+          lightFirstAids: initialData.safetyStats?.lightFirstAids || 0,
+          safetyMeeting: initialData.safetyStats?.safetyMeeting || 0,
+          toolBoxTalks: initialData.safetyStats?.toolBoxTalks || 0,
+          admSiteOrientation: initialData.safetyStats?.admSiteOrientation || 0,
+          bbsGemba: initialData.safetyStats?.bbsGemba || 0,
+          operationsStandDowns: initialData.safetyStats?.operationsStandDowns || 0,
+        },
+        dailyActivities: initialData.dailyActivities || [],
+        manHours: initialData.manHours || [],
+        notes: initialData.notes || [],
       };
       form.reset(formattedData);
     } else {
@@ -228,33 +248,44 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const onSubmit = (data: DailyReportFormValues) => {
     if (!firestore || !user || !dailyReportsCollection) return;
 
-    // Clean data to avoid writing restricted fields like 'id' into the document body
-    const { id, ...cleanData } = data as any;
+    const payload = {
+      ...data,
+      date: startOfDay(data.date),
+      updatedAt: serverTimestamp(),
+    };
 
-    const payload = isEditMode 
-      ? { ...cleanData, updatedAt: new Date() }
-      : { ...cleanData, authorId: user.uid, createdAt: new Date() };
-
-    const operation = isEditMode
-      ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload)
-      : addDoc(dailyReportsCollection, payload);
-
-    operation
-      .then(() => {
-        toast({
-          title: isEditMode ? 'Report Updated' : 'Daily Report Created',
-          description: `Report for ${format(data.date, 'PPP')} has been saved.`,
+    if (isEditMode) {
+      const docRef = doc(firestore, 'dailyReports', initialData.id);
+      updateDoc(docRef, payload)
+        .then(() => {
+          toast({ title: 'Report Updated', description: `Changes for ${format(data.date, 'PPP')} saved.` });
+          router.push('/daily-report');
+        })
+        .catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: docRef.path,
+            operation: 'update',
+            requestResourceData: payload,
+          }));
         });
-        router.push('/daily-report');
+    } else {
+      addDoc(dailyReportsCollection, {
+        ...payload,
+        authorId: user.uid,
+        createdAt: serverTimestamp(),
       })
-      .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
-          path: isEditMode ? `dailyReports/${initialData.id}` : 'dailyReports',
-          operation: isEditMode ? 'update' : 'create',
-          requestResourceData: payload,
+        .then(() => {
+          toast({ title: 'Report Created', description: `Report for ${format(data.date, 'PPP')} submitted.` });
+          router.push('/daily-report');
+        })
+        .catch((error) => {
+          errorEmitter.emit('permission-error', new FirestorePermissionError({
+            path: dailyReportsCollection.path,
+            operation: 'create',
+            requestResourceData: payload,
+          }));
         });
-        errorEmitter.emit('permission-error', permissionError);
-      });
+    }
   };
 
   return (
