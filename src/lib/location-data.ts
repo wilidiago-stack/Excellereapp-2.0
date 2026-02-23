@@ -57,7 +57,7 @@ export const LOCATION_DATA: LocationData = {
       "South Dakota": ["Sioux Falls", "Rapid City", "Aberdeen", "Brookings"],
       "Tennessee": ["Nashville", "Memphis", "Knoxville", "Chattanooga"],
       "Texas": ["Houston", "San Antonio", "Dallas", "Austin", "Fort Worth"],
-      "Utah": ["Slc", "West Valley City", "Provo", "West Jordan"],
+      "Utah": ["SLC", "West Valley City", "Provo", "West Jordan"],
       "Vermont": ["Burlington", "South Burlington", "Rutland", "Barre"],
       "Virginia": ["Virginia Beach", "Norfolk", "Chesapeake", "Richmond"],
       "Washington": ["Seattle", "Spokane", "Tacoma", "Vancouver"],

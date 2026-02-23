@@ -7,10 +7,10 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { FolderKanban, HardHat, Users, Target, LayoutDashboard, UserCheck } from 'lucide-react';
+import { FolderKanban, HardHat, Users, Target, LayoutDashboard } from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
 import { useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
-import { collection, doc, query, where } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjectContext } from '@/context/project-context';
 import {
@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useMemo } from 'react';
-import { startOfDay, endOfDay } from 'date-fns';
 
 export default function Home() {
   const { user, role, assignedProjects } = useAuth();
@@ -46,34 +45,7 @@ export default function Home() {
   );
   const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
 
-  // Daily Headcount Logic
-  const todayStart = startOfDay(new Date());
-  const todayEnd = endOfDay(new Date());
-
-  const reportsQuery = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    let q = query(
-      collection(firestore, 'dailyReports'),
-      where('date', '>=', todayStart),
-      where('date', '<=', todayEnd)
-    );
-    if (selectedProjectId) {
-      q = query(q, where('projectId', '==', selectedProjectId));
-    }
-    return q;
-  }, [firestore, user?.uid, selectedProjectId]);
-
-  const { data: todayReports, isLoading: reportsLoading } = useCollection(reportsQuery);
-
-  const totalHeadcount = useMemo(() => {
-    if (!todayReports) return 0;
-    return todayReports.reduce((acc, report) => {
-      const reportHeadcount = report.manHours?.reduce((sum: number, mh: any) => sum + (Number(mh.headcount) || 0), 0) || 0;
-      return acc + reportHeadcount;
-    }, 0);
-  }, [todayReports]);
-
-  const loading = metadataLoading || projectsLoading || contractorsLoading || reportsLoading;
+  const loading = metadataLoading || projectsLoading || contractorsLoading;
 
   const filteredProjects = useMemo(() => {
     if (!projects) return [];
@@ -89,12 +61,12 @@ export default function Home() {
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Daily Headcount</CardTitle>
-            <UserCheck className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium text-slate-600">Total Users</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{totalHeadcount}</div>}
-            <div className="text-[10px] text-muted-foreground font-medium">Active personnel today</div>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{systemMetadata?.userCount || 0}</div>}
+            <div className="text-[10px] text-muted-foreground font-medium">System-wide directory</div>
           </CardContent>
         </Card>
         

@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
+import {onUserCreated, onUserDeleted} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -17,13 +17,15 @@ interface AuthEvent {
   };
 }
 
-export const setupInitialUserRole = onAuthUserCreate(async (event: AuthEvent) => {
+export const setupInitialUserRole = onUserCreated(async (event: AuthEvent) => {
   const {uid, email, displayName} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
   try {
-    const nameParts = (displayName || "").split(" ").filter((p) => p.length > 0);
+    const nameParts = (displayName || "").split(" ")
+      .filter((p) => p.length > 0);
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") :
+      (email ? "(from email)" : "User");
     const newUser = {
       firstName,
       lastName,
@@ -50,7 +52,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event: AuthEvent) =>
   }
 });
 
-export const cleanupUser = onAuthUserDelete(async (event: AuthEvent) => {
+export const cleanupUser = onUserDeleted(async (event: AuthEvent) => {
   const {uid} = event.data;
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");

@@ -104,7 +104,7 @@ export default function MonthlyReportPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
-        <div>
+        <div className="flex flex-col">
           <h1 className="text-xl font-bold tracking-tight">Monthly Reports</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <span>Strategic summaries.</span>

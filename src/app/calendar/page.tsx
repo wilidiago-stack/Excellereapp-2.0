@@ -52,7 +52,7 @@ export default function CalendarPage() {
   const renderHeader = () => {
     return (
       <div className="flex items-center justify-between mb-4">
-        <div>
+        <div className="flex flex-col">
           <h1 className="text-xl font-bold tracking-tight">Project Calendar</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <span>Milestones & Delivery.</span>
@@ -165,7 +165,7 @@ export default function CalendarPage() {
             <CardTitle className="text-sm font-bold flex items-center gap-2"><CalendarIcon className="h-4 w-4 text-primary" /> {format(selectedDate, 'PPP')}</CardTitle>
           </CardHeader>
           <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar">
-            {selectedDayEvents.length === 0 ? <div className="flex flex-col items-center justify-center py-10 opacity-50"><Clock className="h-8 w-8 mb-2 text-slate-300" /><p className="text-xs font-medium">No events</p></div> : (
+            {selectedDayEvents.length === 0 ? <div className="flex flex-col items-center justify-center py-10 opacity-50"><Clock className="h-8 w-8 mb-2 text-slate-300" /><div className="text-xs font-medium">No events</div></div> : (
               <div className="space-y-3">
                 {selectedDayEvents.map((event, i) => (
                   <div key={i} className="p-3 rounded-sm border border-slate-100 bg-slate-50 group hover:border-primary/30">

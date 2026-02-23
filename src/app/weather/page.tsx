@@ -86,7 +86,7 @@ export default function WeatherPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between mb-2">
-        <div>
+        <div className="flex flex-col">
           <h1 className="text-xl font-bold tracking-tight">Weather Service</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <span>Site conditions monitoring in Fahrenheit.</span>
@@ -126,7 +126,7 @@ export default function WeatherPage() {
             ) : filteredCities.length === 0 ? (
               <div className="text-center py-10 opacity-50">
                 <MapPin className="h-8 w-8 mx-auto mb-2 text-slate-300" />
-                <p className="text-xs font-bold text-slate-400">NO SITES FOUND</p>
+                <div className="text-xs font-bold text-slate-400 uppercase">NO SITES FOUND</div>
               </div>
             ) : (
               filteredCities.map((city) => (
@@ -152,7 +152,7 @@ export default function WeatherPage() {
           {error ? (
             <Card className="p-10 flex flex-col items-center justify-center text-center gap-4 bg-red-50 border-red-100">
               <AlertCircle className="h-10 w-10 text-red-500" />
-              <p className="text-sm font-bold text-red-700">{error}</p>
+              <div className="text-sm font-bold text-red-700">{error}</div>
               <Button size="sm" onClick={() => currentCity && fetchWeather(currentCity)}>Try Again</Button>
             </Card>
           ) : isWeatherLoading || !weatherData ? (
@@ -216,8 +216,8 @@ export default function WeatherPage() {
                       return (
                         <div key={i} className="flex items-center justify-between px-6 py-4 hover:bg-slate-50 transition-colors group">
                           <div className="w-24">
-                            <p className="text-xs font-black text-slate-700">{i === 0 ? 'TODAY' : format(parseISO(day.date), 'EEEE').toUpperCase()}</p>
-                            <p className="text-[10px] font-bold text-slate-400">{format(parseISO(day.date), 'MMM dd')}</p>
+                            <div className="text-xs font-black text-slate-700">{i === 0 ? 'TODAY' : format(parseISO(day.date), 'EEEE').toUpperCase()}</div>
+                            <div className="text-[10px] font-bold text-slate-400">{format(parseISO(day.date), 'MMM dd')}</div>
                           </div>
                           <div className="flex-1 flex items-center gap-4 px-4">
                             <div className="h-8 w-8 rounded-sm bg-slate-100 flex items-center justify-center transition-all group-hover:bg-white group-hover:shadow-sm">

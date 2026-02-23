@@ -1,10 +1,8 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // --- ROBUST ADMIN VALIDATION ---
-    // Priority check for the project owner to prevent locking.
     function isAdmin() {
       return request.auth != null && (
         request.auth.uid == "aPu3ZeoGaCY6MDxPk9wFFqwDZU33" ||
@@ -24,7 +22,6 @@ service cloud.firestore {
     // --- COLLECTION RULES ---
 
     match /dailyReports/{reportId} {
-      // Admins see all. Users see reports for projects they are assigned to.
       allow read: if isSignedIn() && (isAdmin() || (request.auth.token.assignedProjects != null && resource.data.projectId in request.auth.token.assignedProjects));
       allow create: if isSignedIn();
       allow update, delete: if isSignedIn() && (isAdmin() || resource.data.authorId == request.auth.uid);
