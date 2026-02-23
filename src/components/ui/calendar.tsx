@@ -27,20 +27,20 @@ function Calendar({
         nav: "space-x-1 flex items-center",
         button_previous: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute left-1 z-10"
         ),
         button_next: cn(
           buttonVariants({ variant: "outline" }),
-          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1"
+          "h-7 w-7 bg-transparent p-0 opacity-50 hover:opacity-100 absolute right-1 z-10"
         ),
         month_grid: "w-full border-collapse grid grid-cols-7 gap-1",
-        weekdays: "contents",
-        weekday: "text-muted-foreground rounded-md w-9 font-bold text-[0.7rem] uppercase text-center py-2",
-        week: "contents",
-        day: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20",
+        weekdays: "grid grid-cols-7 w-full",
+        weekday: "text-muted-foreground rounded-md w-full font-bold text-[0.7rem] uppercase text-center py-2",
+        week: "grid grid-cols-7 w-full mt-1",
+        day: "h-9 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
         day_button: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 transition-all hover:bg-primary/10 hover:text-primary rounded-sm"
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 transition-all hover:bg-primary/10 hover:text-primary rounded-sm mx-auto"
         ),
         selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground font-bold",
         today: "bg-accent text-accent-foreground font-black ring-1 ring-inset ring-primary/20",
@@ -51,8 +51,8 @@ function Calendar({
         ...classNames,
       }}
       components={{
-        Chevron: ({ ...props }) => {
-          if (props.orientation === 'left') return <ChevronLeft className="h-4 w-4" />
+        Chevron: ({ orientation }) => {
+          if (orientation === 'left') return <ChevronLeft className="h-4 w-4" />
           return <ChevronRight className="h-4 w-4" />
         }
       }}
