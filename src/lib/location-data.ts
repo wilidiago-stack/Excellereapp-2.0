@@ -80,7 +80,7 @@ export const LOCATION_DATA: LocationData = {
     states: {
       "Antioquia": ["Medellin", "Envigado", "Itagui"],
       "Cundinamarca": ["Bogota", "Soacha"],
-      "Valle del Cauca": ["Cali", "Palmira"],
+      "Valle del Cuaca": ["Cali", "Palmira"],
       "Atlantico": ["Barranquilla"],
       "Bolivar": ["Cartagena"],
     }

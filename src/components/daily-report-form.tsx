@@ -23,6 +23,7 @@ import { collection, addDoc, doc, updateDoc } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useProjectContext } from '@/context/project-context';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -122,6 +123,7 @@ interface DailyReportFormProps {
 export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const { user } = useAuth();
   const firestore = useFirestore();
+  const { selectedProjectId } = useProjectContext();
   const { toast } = useToast();
   const router = useRouter();
   const isEditMode = !!initialData;
@@ -175,10 +177,17 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         ...initialData,
         date: initialData.date?.toDate ? initialData.date.toDate() : (initialData.date instanceof Date ? initialData.date : new Date()),
       });
-    } else if (user && !form.getValues('username')) {
-      form.setValue('username', user.displayName || '');
+    } else {
+      // New report initialization
+      if (user && !form.getValues('username')) {
+        form.setValue('username', user.displayName || '');
+      }
+      // AUTO-SELECT PROJECT FROM DASHBOARD CONTEXT
+      if (selectedProjectId && !form.getValues('projectId')) {
+        form.setValue('projectId', selectedProjectId);
+      }
     }
-  }, [user, initialData, form]);
+  }, [user, initialData, form, selectedProjectId]);
 
   const {
     fields: dailyActivityFields,
@@ -196,8 +205,8 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     remove: removeNote,
   } = useFieldArray({ control: form.control, name: 'notes' });
 
-  const selectedProjectId = form.watch('projectId');
-  const selectedProject = (projectsData || []).find((p: any) => p.id === selectedProjectId);
+  const currentProjectId = form.watch('projectId');
+  const selectedProject = (projectsData || []).find((p: any) => p.id === currentProjectId);
 
   const locations = selectedProject?.workAreas?.sort() || [];
   const permitTypes = selectedProject?.workPermits?.sort().map((wp: string) => ({
