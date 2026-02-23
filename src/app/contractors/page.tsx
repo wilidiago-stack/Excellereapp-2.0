@@ -17,9 +17,9 @@ import {
   DropdownMenuTrigger,
   DropdownMenuContent,
 } from '@/components/ui/dropdown-menu';
-import { MoreHorizontal, PlusCircle } from 'lucide-react';
+import { MoreHorizontal, PlusCircle, HardHat } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, doc, deleteDoc } from 'firebase/firestore';
+import { collection, doc, deleteDoc, query, where } from 'firebase/firestore';
 import {
   Table,
   TableHeader,
@@ -42,16 +42,25 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { useProjectContext } from '@/context/project-context';
 
 export default function ContractorsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const { selectedProjectId } = useProjectContext();
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedContractor, setSelectedContractor] = useState<any>(null);
 
   const contractorsCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'contractors') : null),
-    [firestore]
+    () => {
+      if (!firestore) return null;
+      let ref = collection(firestore, 'contractors');
+      if (selectedProjectId) {
+        return query(ref, where('assignedProjects', 'array-contains', selectedProjectId));
+      }
+      return ref;
+    },
+    [firestore, selectedProjectId]
   );
   const { data: contractors, isLoading: loading } = useCollection(contractorsCollection);
 
@@ -84,12 +93,19 @@ export default function ContractorsPage() {
   };
 
   return (
-    <>
+    <div className="flex flex-col gap-4">
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <div>
+          <div className="flex flex-col gap-1">
             <CardTitle>Contractors</CardTitle>
-            <CardDescription>Manage your contractors here.</CardDescription>
+            <div className="text-sm text-muted-foreground flex items-center gap-2">
+              <span>Manage your site vendors.</span>
+              {selectedProjectId && (
+                <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20 font-bold uppercase">
+                  Project Filter Active
+                </Badge>
+              )}
+            </div>
           </div>
           <Button asChild>
             <Link href="/contractors/new">
@@ -120,8 +136,11 @@ export default function ContractorsPage() {
               )}
               {!loading && contractors?.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={4} className="h-24 text-center">
-                    No contractors found.
+                  <TableCell colSpan={4} className="h-32 text-center">
+                    <div className="flex flex-col items-center justify-center opacity-50">
+                      <HardHat className="h-8 w-8 mb-2" />
+                      <p className="text-xs font-medium">No contractors found for this view.</p>
+                    </div>
                   </TableCell>
                 </TableRow>
               )}
@@ -195,6 +214,6 @@ export default function ContractorsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </>
+    </div>
   );
 }

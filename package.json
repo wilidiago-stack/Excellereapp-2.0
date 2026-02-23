@@ -75,7 +75,6 @@
   "overrides": {
     "glob": "11.0.1",
     "minimatch": "10.2.1",
-    "cross-spawn": "7.0.6",
     "tmp": "0.2.3"
   },
   "engines": {

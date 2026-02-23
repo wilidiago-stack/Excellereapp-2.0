@@ -202,9 +202,10 @@ export default function WeatherPage() {
 
               <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden flex-1">
                 <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
-                  <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500 flex items-center gap-2">
-                    <CalendarDays className="h-3.5 w-3.5 text-[#46a395]" /> 7-Day Site Forecast
-                  </CardTitle>
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-3.5 w-3.5 text-[#46a395]" />
+                    <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">7-Day Site Forecast</CardTitle>
+                  </div>
                   <span className="text-[9px] font-black text-slate-300 uppercase">Unit: Imperial (F)</span>
                 </CardHeader>
                 <CardContent className="p-0">
