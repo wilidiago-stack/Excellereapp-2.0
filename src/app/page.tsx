@@ -98,7 +98,7 @@ export default function Home() {
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
               <Target className="h-4 w-4" /> Focused Project
-            </CardTitle>
+            </Target>
           </CardHeader>
           <CardContent>
             <Select 

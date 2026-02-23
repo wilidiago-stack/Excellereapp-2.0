@@ -26,6 +26,8 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
 } from '@/components/ui/dropdown-menu';
 import { Textarea } from '@/components/ui/textarea';
 import { useFirestore, useCollection, useAuth, useMemoFirebase } from '@/firebase';
@@ -35,6 +37,7 @@ import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useEffect } from 'react';
 import Link from 'next/link';
+import { Users as UsersIcon, ChevronDown } from 'lucide-react';
 
 const contractorSchema = z.object({
   name: z.string().min(1, 'Company name is required'),
@@ -68,6 +71,12 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
     [firestore]
   );
   const { data: projectsData } = useCollection(projectsCollection);
+
+  const usersCollection = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'users') : null),
+    [firestore]
+  );
+  const { data: usersData } = useCollection(usersCollection);
 
   const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name }));
 
@@ -141,10 +150,57 @@ export function ContractorForm({ initialData }: ContractorFormProps) {
           name="contactPerson"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Contact Person</FormLabel>
-              <FormControl>
-                <Input placeholder="e.g. John Smith" {...field} />
-              </FormControl>
+              <FormLabel>Contact Person(s)</FormLabel>
+              <div className="flex gap-2">
+                <FormControl className="flex-1">
+                  <Input placeholder="Manual entry or pick from list..." {...field} />
+                </FormControl>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" type="button" className="px-3 shrink-0 gap-2 h-10 rounded-md">
+                      <UsersIcon className="h-4 w-4" />
+                      <span className="hidden sm:inline text-xs font-bold uppercase tracking-wider">Pick Users</span>
+                      <ChevronDown className="h-3 w-3 opacity-50" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64 max-h-80 overflow-y-auto rounded-sm shadow-lg border-slate-200">
+                    <DropdownMenuLabel className="text-[10px] font-black uppercase text-slate-400 p-2">System Directory</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {usersData?.map((u: any) => {
+                      const fullName = `${u.firstName} ${u.lastName}`;
+                      const currentVal = field.value || '';
+                      const names = currentVal.split(',').map(s => s.trim()).filter(Boolean);
+                      const isSelected = names.includes(fullName);
+                      
+                      return (
+                        <DropdownMenuCheckboxItem
+                          key={u.id}
+                          checked={isSelected}
+                          onSelect={(e) => e.preventDefault()}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              if (!names.includes(fullName)) names.push(fullName);
+                            } else {
+                              const index = names.indexOf(fullName);
+                              if (index > -1) names.splice(index, 1);
+                            }
+                            field.onChange(names.join(', '));
+                          }}
+                          className="text-xs p-2 cursor-pointer"
+                        >
+                          <div className="flex flex-col gap-0.5">
+                            <span className="font-bold text-slate-700">{fullName}</span>
+                            <span className="text-[9px] text-slate-400 font-medium">{u.email}</span>
+                          </div>
+                        </DropdownMenuCheckboxItem>
+                      );
+                    })}
+                    {(!usersData || usersData.length === 0) && (
+                      <div className="p-4 text-center text-[10px] text-slate-400 italic">No users available</div>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
               <FormMessage />
             </FormItem>
           )}
