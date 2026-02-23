@@ -207,7 +207,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     }
   }, [user, initialData, form, selectedProjectId]);
 
-  // AUTO-WEATHER FETCHING LOGIC
   useEffect(() => {
     if (!watchedProjectId || isEditMode) return;
 
