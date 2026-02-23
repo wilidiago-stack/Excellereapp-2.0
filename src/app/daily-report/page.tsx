@@ -105,7 +105,7 @@ export default function DailyReportPage() {
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">Daily Reports</h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">Daily Reports</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
             <span>Track site conditions.</span>
             {selectedProjectId && (

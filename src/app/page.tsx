@@ -63,34 +63,34 @@ export default function Home() {
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Users</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Total Users</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{userCount}</div>}
-            <p className="text-xs text-muted-foreground">System-wide directory</p>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{userCount}</div>}
+            <div className="text-[10px] text-muted-foreground font-medium">System-wide directory</div>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">My Projects</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">My Projects</CardTitle>
             <FolderKanban className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{projectCount}</div>}
-            <p className="text-xs text-muted-foreground">Accessible portfolio</p>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{projectCount}</div>}
+            <div className="text-[10px] text-muted-foreground font-medium">Accessible portfolio</div>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Contractors</CardTitle>
+            <CardTitle className="text-sm font-medium text-slate-600">Contractors</CardTitle>
             <HardHat className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold">{contractorCount}</div>}
-            <p className="text-xs text-muted-foreground">Verified vendors</p>
+            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{contractorCount}</div>}
+            <div className="text-[10px] text-muted-foreground font-medium">Verified vendors</div>
           </CardContent>
         </Card>
 
@@ -117,9 +117,9 @@ export default function Home() {
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-[10px] text-muted-foreground mt-2 font-medium">
+            <div className="text-[10px] text-muted-foreground mt-2 font-medium">
               Modules will filter based on this selection.
-            </p>
+            </div>
           </CardContent>
         </Card>
       </div>
@@ -128,8 +128,8 @@ export default function Home() {
         <CardHeader className="flex flex-row items-center gap-2">
           <LayoutDashboard className="h-4 w-4 text-slate-400" />
           <div>
-            <CardTitle className="text-lg">Activity Overview</CardTitle>
-            <CardDescription>System performance trends.</CardDescription>
+            <CardTitle className="text-lg text-slate-800">Activity Overview</CardTitle>
+            <CardDescription className="text-xs">System performance trends.</CardDescription>
           </div>
         </CardHeader>
         <CardContent>

@@ -1,34 +1,31 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardHeader,
   CardTitle,
-  CardDescription,
   CardContent,
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
-  MoreHorizontal, 
   PlusCircle, 
   Users, 
   Search, 
   ShieldCheck, 
-  Clock, 
   Mail, 
   Phone, 
   Briefcase, 
   Shield, 
   Activity, 
   User as UserIcon,
-  ChevronRight,
-  ExternalLink,
   Edit,
   Trash2,
-  Settings
+  Settings,
+  FolderKanban,
+  ExternalLink
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase, useAuth } from '@/firebase';
 import { collection, doc, deleteDoc } from 'firebase/firestore';
@@ -58,21 +55,30 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<any>(null);
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Critical Optimization: Only attempt to fetch the collection if the user is an admin.
-  // This prevents "Missing or insufficient permissions" errors for non-admin users
-  // during fast navigation or session synchronization.
   const usersCollection = useMemoFirebase(
     () => (firestore && currentUser && role === 'admin' ? collection(firestore, 'users') : null),
     [firestore, currentUser?.uid, role]
   );
   const { data: users, isLoading: usersLoading } = useCollection(usersCollection);
 
+  const projectsCollection = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'projects') : null),
+    [firestore]
+  );
+  const { data: allProjects } = useCollection(projectsCollection);
+
+  const projectMap = useMemo(() => {
+    return (allProjects || []).reduce((acc: any, p: any) => {
+      acc[p.id] = p.name;
+      return acc;
+    }, {});
+  }, [allProjects]);
+
   const filteredUsers = users?.filter(u => 
     `${u.firstName} ${u.lastName}`.toLowerCase().includes(searchQuery.toLowerCase()) ||
     u.email?.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
 
-  // Sync selectedUser if users list updates
   useEffect(() => {
     if (selectedUser && users) {
       const updated = users.find(u => u.id === selectedUser.id);
@@ -94,11 +100,10 @@ export default function UsersPage() {
         setSelectedUser(null);
       })
       .catch((serverError) => {
-        const permissionError = new FirestorePermissionError({
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
           path: userDocRef.path,
           operation: 'delete',
-        });
-        errorEmitter.emit('permission-error', permissionError);
+        }));
         setShowDeleteDialog(false);
       });
   };
@@ -123,8 +128,8 @@ export default function UsersPage() {
     <div className="flex flex-col h-[calc(100vh-100px)] gap-2">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-bold tracking-tight">User Management</h1>
-          <p className="text-xs text-muted-foreground text-pretty">Administer system access, roles, and detailed permissions.</p>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">User Management</h1>
+          <div className="text-xs text-muted-foreground text-pretty">Administer system access, roles, and detailed permissions.</div>
         </div>
         <Button asChild size="sm" className="h-8 rounded-sm gap-2">
           <Link href="/users/new">
@@ -135,7 +140,6 @@ export default function UsersPage() {
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-        {/* Sidebar: User Selector & Search */}
         <Card className="w-full md:w-80 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col overflow-hidden">
           <CardHeader className="p-4 border-b bg-slate-50/50 space-y-4">
             <div className="relative">
@@ -201,7 +205,6 @@ export default function UsersPage() {
           </CardContent>
         </Card>
 
-        {/* Main Content: User Detailed View */}
         <div className="flex-1 min-w-0 overflow-y-auto no-scrollbar">
           {!selectedUser ? (
             <Card className="h-full rounded-sm border-slate-200 shadow-sm border-dashed flex flex-col items-center justify-center text-center p-8 bg-slate-50/20">
@@ -212,24 +215,9 @@ export default function UsersPage() {
               <p className="text-[11px] text-slate-500 max-w-xs text-balance">
                 Select a user from the directory to view their full profile, managed modules, and system permissions.
               </p>
-              <div className="grid grid-cols-3 gap-4 mt-8 w-full max-w-sm">
-                <div className="p-3 bg-white rounded-sm border border-slate-200 shadow-sm">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">Total</p>
-                  <p className="text-xl font-bold text-slate-700">{stats.total}</p>
-                </div>
-                <div className="p-3 bg-white rounded-sm border border-slate-200 shadow-sm">
-                  <p className="text-[10px] text-[#46a395] font-bold uppercase mb-1">Active</p>
-                  <p className="text-xl font-bold text-[#46a395]">{stats.active}</p>
-                </div>
-                <div className="p-3 bg-white rounded-sm border border-slate-200 shadow-sm">
-                  <p className="text-[10px] text-orange-400 font-bold uppercase mb-1">Review</p>
-                  <p className="text-xl font-bold text-orange-400">{stats.pending}</p>
-                </div>
-              </div>
             </Card>
           ) : (
             <div className="space-y-2 animate-in fade-in slide-in-from-right-2 duration-300">
-              {/* Header Profile Card */}
               <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden">
                 <div className="h-24 bg-slate-100 relative">
                    <div className="absolute bottom-0 left-6 translate-y-1/2 p-1 bg-white rounded-sm shadow-md border border-slate-200">
@@ -265,48 +253,33 @@ export default function UsersPage() {
                         </Badge>
                       </div>
                     </div>
-                    <div className="flex items-center gap-4 text-slate-500">
-                       <div className="flex flex-col items-end">
-                          <p className="text-[9px] font-bold uppercase text-slate-400">System ID</p>
-                          <p className="text-[10px] font-mono">{selectedUser.id.substring(0, 8)}...</p>
-                       </div>
-                    </div>
                   </div>
                 </CardContent>
               </Card>
 
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-2">
-                {/* Details Section */}
                 <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2">
                   <CardHeader className="p-4 border-b bg-slate-50/50">
-                    <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
+                    <CardTitle className="text-xs font-bold uppercase flex items-center gap-2 text-slate-600">
                       <UserIcon className="h-3.5 w-3.5 text-primary" /> Profile Information
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                          <Mail className="h-3 w-3" /> Email Address
-                        </label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Mail className="h-3 w-3" /> Email Address</label>
                         <p className="text-sm font-medium text-slate-700">{selectedUser.email}</p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                          <Phone className="h-3 w-3" /> Phone Number
-                        </label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Phone className="h-3 w-3" /> Phone Number</label>
                         <p className="text-sm font-medium text-slate-700">{selectedUser.phoneNumber || 'Not provided'}</p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                          <Briefcase className="h-3 w-3" /> Company
-                        </label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Briefcase className="h-3 w-3" /> Company</label>
                         <p className="text-sm font-medium text-slate-700">{selectedUser.company || 'External / Individual'}</p>
                       </div>
                       <div className="space-y-1">
-                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                          <Activity className="h-3 w-3" /> Position
-                        </label>
+                        <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Activity className="h-3 w-3" /> Position</label>
                         <p className="text-sm font-medium text-slate-700">{selectedUser.position || 'Not specified'}</p>
                       </div>
                     </div>
@@ -314,9 +287,24 @@ export default function UsersPage() {
                     <Separator className="my-6" />
 
                     <div className="space-y-4">
-                      <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5">
-                        <Shield className="h-3 w-3" /> Assigned Modules
-                      </label>
+                      <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><FolderKanban className="h-3 w-3" /> Assigned Projects</label>
+                      <div className="flex flex-wrap gap-1.5">
+                        {selectedUser.assignedProjects && selectedUser.assignedProjects.length > 0 ? (
+                          selectedUser.assignedProjects.map((pId: string) => (
+                            <Badge key={pId} variant="outline" className="text-[10px] font-semibold border-slate-200 rounded-sm px-2 py-0.5 bg-white text-slate-600">
+                              {projectMap[pId] || pId}
+                            </Badge>
+                          ))
+                        ) : (
+                          <div className="text-xs text-slate-400 italic">No projects assigned to this user.</div>
+                        )}
+                      </div>
+                    </div>
+
+                    <Separator className="my-6" />
+
+                    <div className="space-y-4">
+                      <label className="text-[10px] font-bold uppercase text-slate-400 flex items-center gap-1.5"><Shield className="h-3 w-3" /> Assigned Modules</label>
                       <div className="flex flex-wrap gap-1.5">
                         {selectedUser.assignedModules && selectedUser.assignedModules.length > 0 ? (
                           selectedUser.assignedModules.map((m: string) => (
@@ -325,17 +313,16 @@ export default function UsersPage() {
                             </Badge>
                           ))
                         ) : (
-                          <p className="text-xs text-slate-400 italic">No modules assigned to this user.</p>
+                          <div className="text-xs text-slate-400 italic">No modules assigned to this user.</div>
                         )}
                       </div>
                     </div>
                   </CardContent>
                 </Card>
 
-                {/* Sidebar Context Card */}
                 <Card className="rounded-sm border-slate-200 shadow-sm h-fit">
                   <CardHeader className="p-4 border-b bg-slate-50/50">
-                    <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
+                    <CardTitle className="text-xs font-bold uppercase flex items-center gap-2 text-slate-600">
                       <Settings className="h-3.5 w-3.5 text-primary" /> Account Metadata
                     </CardTitle>
                   </CardHeader>
@@ -347,19 +334,6 @@ export default function UsersPage() {
                         <span className="text-xs font-bold text-slate-700 capitalize">{selectedUser.role}</span>
                       </div>
                     </div>
-                    
-                    <div className="space-y-3 pt-2">
-                      <h4 className="text-[9px] font-bold uppercase text-slate-400 tracking-wider">Interface Settings</h4>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-600 font-medium">Pinned Shortcuts</span>
-                        <span className="text-[10px] font-mono bg-slate-100 px-1.5 py-0.5 rounded-sm">{selectedUser.pinnedShortcuts?.length || 0}</span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-[10px] text-slate-600 font-medium">Auto-Lock Session</span>
-                        <span className="text-[10px] text-slate-400">Enabled</span>
-                      </div>
-                    </div>
-
                     <Button variant="link" className="w-full text-[10px] h-auto p-0 text-primary justify-start gap-1" asChild>
                       <Link href="#">
                         <ExternalLink className="h-2.5 w-2.5" /> View access logs
