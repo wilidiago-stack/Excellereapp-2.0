@@ -20,7 +20,9 @@ import {
   Paperclip,
   CheckCircle2,
   AlertCircle,
-  Users as UsersIcon
+  Users as UsersIcon,
+  Printer,
+  FileDown
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -64,6 +66,10 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
     }
   };
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   const isLoading = reportLoading || projectsLoading || contractorsLoading;
 
   if (isLoading) {
@@ -82,7 +88,33 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
 
   return (
     <div className="flex flex-col gap-4 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between">
+      <style jsx global>{`
+        @media print {
+          header, aside, .no-print, button, .print-hidden {
+            display: none !important;
+          }
+          main {
+            padding: 0 !important;
+            margin: 0 !important;
+          }
+          .flex-col {
+            display: block !important;
+          }
+          .grid {
+            display: block !important;
+          }
+          .card {
+            border: 1px solid #e2e8f0 !important;
+            margin-bottom: 20px !important;
+            break-inside: avoid;
+          }
+          body {
+            background: white !important;
+          }
+        }
+      `}</style>
+
+      <div className="flex items-center justify-between no-print">
         <div className="flex items-center gap-4">
           <Button variant="outline" size="icon" className="h-8 w-8 rounded-sm" asChild>
             <Link href="/daily-report">
@@ -100,16 +132,21 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
             </div>
           </div>
         </div>
-        <Button asChild className="h-9 rounded-sm gap-2 bg-[#46a395] hover:bg-[#3d8c7f]">
-          <Link href={`/daily-report/${id}/edit`}>
-            <FileEdit className="h-4 w-4" /> Edit Report
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handlePrint} variant="outline" className="h-9 rounded-sm gap-2">
+            <Printer className="h-4 w-4" /> Download PDF
+          </Button>
+          <Button asChild className="h-9 rounded-sm gap-2 bg-[#46a395] hover:bg-[#3d8c7f]">
+            <Link href={`/daily-report/${id}/edit`}>
+              <FileEdit className="h-4 w-4" /> Edit Report
+            </Link>
+          </Button>
+        </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 print-content">
         {/* Project & Weather Summary */}
-        <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden lg:col-span-2">
+        <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden lg:col-span-2 card">
           <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <ClipboardList className="h-3.5 w-3.5 text-primary" /> Project Context
@@ -158,7 +195,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Safety Stats */}
-        <Card className="rounded-sm border-slate-200 shadow-sm flex flex-col">
+        <Card className="rounded-sm border-slate-200 shadow-sm flex flex-col card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <ShieldCheck className="h-3.5 w-3.5 text-[#46a395]" /> HSE Statistics
@@ -181,7 +218,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Activities & Permits */}
-        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-3">
+        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-3 card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <Clock className="h-3.5 w-3.5 text-primary" /> Daily Activities & Compliance
@@ -223,7 +260,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Man Hours */}
-        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2">
+        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2 card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <UsersIcon className="h-3.5 w-3.5 text-[#46a395]" /> Labor Summary
@@ -256,7 +293,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Observations */}
-        <Card className="rounded-sm border-slate-200 shadow-sm">
+        <Card className="rounded-sm border-slate-200 shadow-sm card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <Paperclip className="h-3.5 w-3.5 text-orange-400" /> Observations
