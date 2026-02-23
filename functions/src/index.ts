@@ -11,6 +11,9 @@ const db = admin.firestore();
 // Set global options for the function
 setGlobalOptions({maxInstances: 10});
 
+/**
+ * Interface representing the Auth Event Data for Identity triggers.
+ */
 interface AuthEvent {
   data: {
     uid: string;
@@ -32,8 +35,9 @@ export const setupInitialUserRole = onUserCreated(async (event: AuthEvent) => {
     const nameParts = (displayName || "").split(" ")
       .filter((p: string) => p.length > 0);
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") :
-      (email ? "(from email)" : "User");
+    const lastName = nameParts.length > 1
+      ? nameParts.slice(1).join(" ")
+      : (email ? "(from email)" : "User");
 
     const newUserDocument = {
       firstName,
@@ -91,7 +95,7 @@ export const cleanupUser = onUserDeleted(async (event: AuthEvent) => {
     await batch.commit();
     logger.info(`[cleanupUser] Cleanup complete for ${uid}.`);
   } catch (error) {
-    logger.error(`[cleanupUser] Error for ${uid}:`, error);
+    logger.error(`[cleanupUser] Error during cleanup for ${uid}:`, error);
   }
 });
 
