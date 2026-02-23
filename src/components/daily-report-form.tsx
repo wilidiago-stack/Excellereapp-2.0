@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useForm, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -15,7 +15,9 @@ import {
   ShieldCheck,
   Clock,
   MapPin,
-  ClipboardList
+  ClipboardList,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
@@ -24,6 +26,7 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useProjectContext } from '@/context/project-context';
+import { getRealWeather } from '@/ai/flows/get-weather-flow';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -119,6 +122,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const { toast } = useToast();
   const router = useRouter();
   const isEditMode = !!initialData?.id;
+  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
 
   const dailyReportsCollection = useMemoFirebase(
     () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
@@ -137,7 +141,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   );
   const { data: contractorsData } = useCollection(contractorsCollection);
 
-  const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name }));
+  const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name, city: p.city }));
   const contractors = (contractorsData || []).map((c: any) => ({ id: c.id, label: c.name }));
 
   const form = useForm<DailyReportFormValues>({
@@ -162,6 +166,8 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       notes: [],
     },
   });
+
+  const watchedProjectId = form.watch('projectId');
 
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 1) {
@@ -201,6 +207,31 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     }
   }, [user, initialData, form, selectedProjectId]);
 
+  // AUTO-WEATHER FETCHING LOGIC
+  useEffect(() => {
+    if (!watchedProjectId || isEditMode) return;
+
+    const project = (projectsData || []).find((p: any) => p.id === watchedProjectId);
+    if (project?.city) {
+      setIsWeatherLoading(true);
+      getRealWeather(project.city)
+        .then((data) => {
+          form.setValue('weather.city', data.city);
+          form.setValue('weather.conditions', data.conditions);
+          form.setValue('weather.highTemp', data.high);
+          form.setValue('weather.lowTemp', data.low);
+          form.setValue('weather.wind', data.wind);
+          toast({ title: 'Weather Updated', description: `Meteorology synced for ${data.city}.` });
+        })
+        .catch(() => {
+          console.error('Auto weather fetch failed');
+        })
+        .finally(() => {
+          setIsWeatherLoading(false);
+        });
+    }
+  }, [watchedProjectId, projectsData, isEditMode, form, toast]);
+
   const {
     fields: dailyActivityFields,
     append: appendDailyActivity,
@@ -217,8 +248,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     remove: removeNote,
   } = useFieldArray({ control: form.control, name: 'notes' });
 
-  const currentProjectId = form.watch('projectId');
-  const selectedProject = (projectsData || []).find((p: any) => p.id === currentProjectId);
+  const selectedProject = (projectsData || []).find((p: any) => p.id === watchedProjectId);
 
   const locations = selectedProject?.workAreas?.sort() || [];
   const permitTypes = selectedProject?.workPermits?.sort().map((wp: string) => ({
@@ -384,9 +414,16 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-2 text-orange-500">
-            <CloudSun className="h-5 w-5" />
-            <h3 className="text-sm font-bold uppercase tracking-tight">Weather Conditions</h3>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-orange-500">
+              <CloudSun className="h-5 w-5" />
+              <h3 className="text-sm font-bold uppercase tracking-tight">Weather Conditions</h3>
+            </div>
+            {isWeatherLoading && (
+              <div className="flex items-center gap-2 text-[10px] font-black uppercase text-orange-400 animate-pulse">
+                <RefreshCw className="h-3 w-3 animate-spin" /> Syncing meteorology...
+              </div>
+            )}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-sm border bg-slate-50/30">
             <FormField

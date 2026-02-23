@@ -15,6 +15,8 @@ const WeatherForecastSchema = z.object({
 const WeatherOutputSchema = z.object({
   city: z.string(),
   temp: z.number(),
+  high: z.number(),
+  low: z.number(),
   humidity: z.number(),
   wind: z.number(),
   conditions: z.string(),
@@ -40,6 +42,7 @@ const getRealWeatherFlow = ai.defineFlow(
       const data = await response.json();
 
       const current = data.current_condition[0];
+      const weatherToday = data.weather[0];
       const weatherDesc = current.weatherDesc[0].value;
       
       const forecast = data.weather.map((w: any) => ({
@@ -52,6 +55,8 @@ const getRealWeatherFlow = ai.defineFlow(
       return {
         city,
         temp: parseInt(current.temp_F),
+        high: parseInt(weatherToday.maxtempF),
+        low: parseInt(weatherToday.mintempF),
         humidity: parseInt(current.humidity),
         wind: parseInt(current.windspeedMiles),
         conditions: weatherDesc,
