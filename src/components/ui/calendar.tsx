@@ -20,8 +20,8 @@ function Calendar({
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{
-        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0",
-        month: "space-y-4",
+        months: "flex flex-col sm:flex-row space-y-4 sm:space-x-4 sm:space-y-0 items-center justify-center",
+        month: "space-y-4 w-full max-w-[280px]",
         month_caption: "flex justify-center pt-1 relative items-center mb-4",
         caption_label: "text-sm font-bold",
         nav: "space-x-1 flex items-center",
@@ -37,10 +37,10 @@ function Calendar({
         weekdays: "grid grid-cols-7 w-full mb-2",
         weekday: "text-muted-foreground rounded-md w-full font-bold text-[0.7rem] uppercase text-center py-2",
         week: "grid grid-cols-7 w-full mt-1",
-        day: "h-9 w-full text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center",
+        day: "h-9 w-9 text-center text-sm p-0 relative focus-within:relative focus-within:z-20 flex items-center justify-center mx-auto",
         day_button: cn(
           buttonVariants({ variant: "ghost" }),
-          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 transition-all hover:bg-primary/10 hover:text-primary rounded-sm mx-auto"
+          "h-9 w-9 p-0 font-normal aria-selected:opacity-100 transition-all hover:bg-primary/10 hover:text-primary rounded-sm"
         ),
         selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground font-bold",
         today: "bg-accent text-accent-foreground font-black ring-1 ring-inset ring-primary/20",
