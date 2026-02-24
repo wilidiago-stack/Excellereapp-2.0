@@ -15,8 +15,6 @@ setGlobalOptions({maxInstances: 10});
 export const setupInitialUserRole = identity.onAuthUserCreated(
   async (event: identity.AuthEvent) => {
     const {uid, email, displayName} = event.data;
-    logger.info(`[setupInitialUserRole] UID: ${uid}`);
-
     const userDocRef = db.doc(`users/${uid}`);
     const metadataRef = db.doc("system/metadata");
 
@@ -25,11 +23,9 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
       await db.runTransaction(async (transaction) => {
         const metadataDoc = await transaction.get(metadataRef);
         const data = metadataDoc.data();
-        const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
-
-        if (currentCount === 0) isFirstUser = true;
-
-        const newCount = currentCount + 1;
+        const count = metadataDoc.exists ? data?.userCount || 0 : 0;
+        if (count === 0) isFirstUser = true;
+        const newCount = count + 1;
         if (metadataDoc.exists) {
           transaction.update(metadataRef, {userCount: newCount});
         } else {
@@ -40,7 +36,6 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
       const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
       const fName = parts[0] || (email ? email.split("@")[0] : "New");
       const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
-
       const role = isFirstUser ? "admin" : "viewer";
       const modules = isFirstUser ? ["dashboard", "projects", "users"] : [];
 
@@ -61,8 +56,6 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
         assignedModules: modules,
         assignedProjects: [],
       });
-
-      logger.info(`[setupInitialUserRole] Done for ${uid}. Role: ${role}`);
     } catch (error) {
       logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
     }
@@ -77,7 +70,6 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
   async (event) => {
     const before = event.data?.before.data();
     const after = event.data?.after.data();
-
     if (!after) return;
 
     const rChanged = after.role !== before?.role;
@@ -89,8 +81,6 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
     if (!rChanged && !mChanged && !pChanged) return;
 
     const uid = event.params.userId;
-    logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
-
     try {
       await admin.auth().setCustomUserClaims(uid, {
         role: after.role || "viewer",
