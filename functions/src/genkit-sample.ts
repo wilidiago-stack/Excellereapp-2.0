@@ -9,14 +9,13 @@ const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
  * Initialize telemetry safely without triggering linting or type errors.
  * Dynamic import prevents the compiler from blocking on missing types.
  */
-import("@genkit-ai/firebase")
-  .then((m) => {
-    try {
-      m.enableFirebaseTelemetry();
-    } catch (e) {
-      // Telemetry initialization optional
-    }
-  })
+Promise.resolve().then(() => import("@genkit-ai/firebase")).then((m) => {
+  try {
+    m.enableFirebaseTelemetry();
+  } catch (e) {
+    // Telemetry initialization optional
+  }
+})
   .catch(() => {
     // Module might be missing in some build contexts
   });
@@ -31,10 +30,9 @@ const menuSuggestionFlow = ai.defineFlow({
   outputSchema: z.string(),
   streamSchema: z.string(),
 }, async (subject, {sendChunk}) => {
-  const prompt = `Suggest an item for the menu of a ${subject} restaurant`;
   const {response, stream} = ai.generateStream({
     model: googleAI.model("gemini-2.5-flash"),
-    prompt: prompt,
+    prompt: `Suggest an item for the menu of a ${subject} restaurant`,
     config: {temperature: 1},
   });
 

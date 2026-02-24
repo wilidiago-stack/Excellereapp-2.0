@@ -1,6 +1,6 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import * as auth from "firebase-functions/v2/auth";
-import * as firestore from "firebase-functions/v2/firestore";
+import {onUserCreated} from "firebase-functions/v2/auth";
+import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -14,7 +14,7 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = auth.onUserCreated(async (event) => {
+export const setupInitialUserRole = onUserCreated(async (event) => {
   const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -85,7 +85,7 @@ export const setupInitialUserRole = auth.onUserCreated(async (event) => {
 /**
  * Syncs changes from Firestore user document to Firebase Auth Custom Claims.
  */
-export const onUserRoleChange = firestore.onDocumentUpdated(
+export const onUserRoleChange = onDocumentUpdated(
   "users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
