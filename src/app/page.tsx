@@ -94,10 +94,12 @@ export default function Home() {
   );
   const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
 
-  // Quick Links Read (Fixed to use top-level collection)
+  // Quick Links Read (Project Specific)
   const quickLinksCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'quick_links') : null),
-    [firestore]
+    () => (firestore && selectedProjectId 
+      ? collection(firestore, 'projects', selectedProjectId, 'quick_links') 
+      : null),
+    [firestore, selectedProjectId]
   );
   const { data: quickLinks, isLoading: linksLoading } = useCollection(quickLinksCollection);
 
@@ -110,16 +112,19 @@ export default function Home() {
   }, [projects, role, assignedProjects]);
 
   const handleAddLink = async () => {
-    if (!firestore || !newLinkLabel || !newLinkUrl) return;
+    if (!firestore || !newLinkLabel || !newLinkUrl || !selectedProjectId) return;
     setIsSaving(true);
     
     const linkData = {
       label: newLinkLabel,
       url: newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`,
       createdAt: serverTimestamp(),
+      projectId: selectedProjectId,
     };
 
-    addDoc(collection(firestore, 'quick_links'), linkData)
+    const targetRef = collection(firestore, 'projects', selectedProjectId, 'quick_links');
+
+    addDoc(targetRef, linkData)
       .then(() => {
         toast({ title: "Link Created", description: "Quick access button added." });
         setNewLinkLabel('');
@@ -128,7 +133,7 @@ export default function Home() {
       })
       .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'quick_links',
+          path: targetRef.path,
           operation: 'create',
           requestResourceData: linkData,
         }));
@@ -137,8 +142,8 @@ export default function Home() {
   };
 
   const handleDeleteLink = (id: string) => {
-    if (!firestore || !isAdmin) return;
-    const linkRef = doc(firestore, 'quick_links', id);
+    if (!firestore || !isAdmin || !selectedProjectId) return;
+    const linkRef = doc(firestore, 'projects', selectedProjectId, 'quick_links', id);
     deleteDoc(linkRef).catch(err => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: linkRef.path,
@@ -229,7 +234,7 @@ export default function Home() {
             <LinkIcon className="h-4 w-4 text-[#46a395]" />
             <CardTitle className="text-sm font-bold uppercase tracking-tight">Quick Access Links</CardTitle>
           </div>
-          {isAdmin && (
+          {isAdmin && selectedProjectId && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold uppercase rounded-sm border-[#46a395] text-[#46a395] hover:bg-[#46a395] hover:text-white transition-all gap-1">
@@ -262,32 +267,39 @@ export default function Home() {
           )}
         </CardHeader>
         <CardContent className="p-4">
-          <div className="flex flex-wrap gap-2">
-            {linksLoading ? [1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-32 rounded-sm" />) : quickLinks?.length === 0 ? (
-              <div className="w-full py-6 text-center text-[10px] font-bold uppercase text-slate-400 italic border border-dashed rounded-sm">
-                No active quick links
-              </div>
-            ) : (
-              quickLinks?.map((link: any) => (
-                <div key={link.id} className="relative group">
-                  <Button asChild variant="outline" className="h-10 px-4 rounded-sm border-slate-200 hover:border-[#46a395] hover:bg-[#46a395]/5 hover:text-[#46a395] transition-all gap-2 pr-8 group">
-                    <a href={link.url} target="_blank" rel="noopener noreferrer">
-                      <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-                      <span className="text-xs font-bold">{link.label}</span>
-                    </a>
-                  </Button>
-                  {isAdmin && (
-                    <button 
-                      onClick={() => handleDeleteLink(link.id)}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
-                  )}
+          {!selectedProjectId ? (
+            <div className="w-full py-10 flex flex-col items-center justify-center border border-dashed rounded-sm bg-slate-50/50">
+              <FolderKanban className="h-8 w-8 text-slate-200 mb-2" />
+              <p className="text-[10px] font-bold uppercase text-slate-400">Select a project to view specific links</p>
+            </div>
+          ) : (
+            <div className="flex flex-wrap gap-2">
+              {linksLoading ? [1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-32 rounded-sm" />) : quickLinks?.length === 0 ? (
+                <div className="w-full py-6 text-center text-[10px] font-bold uppercase text-slate-400 italic border border-dashed rounded-sm">
+                  No project-specific links
                 </div>
-              ))
-            )}
-          </div>
+              ) : (
+                quickLinks?.map((link: any) => (
+                  <div key={link.id} className="relative group">
+                    <Button asChild variant="outline" className="h-10 px-4 rounded-sm border-slate-200 hover:border-[#46a395] hover:bg-[#46a395]/5 hover:text-[#46a395] transition-all gap-2 pr-8 group">
+                      <a href={link.url} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                        <span className="text-xs font-bold">{link.label}</span>
+                      </a>
+                    </Button>
+                    {isAdmin && (
+                      <button 
+                        onClick={() => handleDeleteLink(link.id)}
+                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    )}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

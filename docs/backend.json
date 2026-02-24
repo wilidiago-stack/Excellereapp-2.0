@@ -28,7 +28,8 @@
       "properties": {
         "label": { "type": "string" },
         "url": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "projectId": { "type": "string" }
       },
       "required": ["label", "url"]
     }
@@ -43,7 +44,7 @@
   },
   "firestore": {
     "/system/metadata": { "schema": "object", "description": "Global counters and system state." },
-    "/quick_links/{linkId}": { "schema": "QuickLink", "description": "Customizable dashboard buttons." },
+    "/projects/{projectId}/quick_links/{linkId}": { "schema": "QuickLink", "description": "Project-specific dashboard buttons." },
     "/users/{userId}": { "schema": "UserProfile", "description": "User profile and permission set." },
     "/projects/{projectId}": { "schema": "object", "description": "Construction projects." },
     "/contractors/{contractorId}": { "schema": "object", "description": "Vendor directory." },
