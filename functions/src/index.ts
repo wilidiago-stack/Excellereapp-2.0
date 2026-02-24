@@ -1,4 +1,3 @@
-
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreated} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
@@ -78,7 +77,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
 });
 
 /**
- * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
+ * Syncs changes from the Firestore user document to Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
