@@ -37,7 +37,7 @@ export const APP_MODULES: AppModule[] = [
   { id: 'calendar', label: 'Calendar', href: '/calendar', icon: CalendarDays, defaultVisibility: 'all' },
   { id: 'map', label: 'Map', href: '/map', icon: MapIcon, defaultVisibility: 'all' },
   { id: 'capex', label: 'CapEx', href: '#', icon: DollarSign, defaultVisibility: 'all' },
-  { id: 'reports-analytics', label: 'Report/Analytics', href: '#', icon: BarChart2, defaultVisibility: 'all' },
+  { id: 'reports-analytics', label: 'Report/Analytics', href: '/reports-analytics', icon: BarChart2, defaultVisibility: 'all' },
   { id: 'schedule', label: 'Schedule', href: '#', icon: Clock, defaultVisibility: 'all' },
   { id: 'weather', label: 'Weather', href: '/weather', icon: CloudSun, defaultVisibility: 'all' },
 ];
