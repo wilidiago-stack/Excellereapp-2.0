@@ -17,11 +17,9 @@ import {
   MapPin,
   ClipboardList,
   Loader2,
-  RefreshCw,
   Mic,
   MicOff,
-  Sparkles,
-  Wand2
+  Sparkles
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
@@ -67,7 +65,6 @@ import {
 } from '@/components/ui/table';
 import { Separator } from './ui/separator';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 
 const manHourSchema = z.object({
   contractorId: z.string().min(1, 'Please select a contractor'),
@@ -130,7 +127,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
-  const [transcript, setTranscript] = useState('');
 
   const dailyReportsCollection = useMemoFirebase(
     () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
@@ -149,8 +145,15 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   );
   const { data: contractorsData } = useCollection(contractorsCollection);
 
-  const projects = (projectsData || []).map((p: any) => ({ id: p.id, label: p.name, city: p.city }));
-  const contractors = (contractorsData || []).map((c: any) => ({ id: c.id, label: c.name }));
+  const projects = (projectsData || []).map((p: any) => ({ 
+    id: p.id, 
+    label: p.name, 
+    city: p.city 
+  }));
+  const contractors = (contractorsData || []).map((c: any) => ({ 
+    id: c.id, 
+    label: c.name 
+  }));
 
   const form = useForm<DailyReportFormValues>({
     resolver: zodResolver(dailyReportSchema),
@@ -176,6 +179,35 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   });
 
   const watchedProjectId = form.watch('projectId');
+
+  // AUTOMATIC WEATHER CONSULTATION
+  useEffect(() => {
+    if (!watchedProjectId || isEditMode) return;
+
+    const selectedProject = projectsData?.find((p: any) => p.id === watchedProjectId);
+    if (selectedProject?.city) {
+      const fetchAutoWeather = async () => {
+        setIsWeatherLoading(true);
+        try {
+          const data = await getRealWeather(selectedProject.city);
+          form.setValue('weather.city', data.city);
+          form.setValue('weather.conditions', data.conditions);
+          form.setValue('weather.highTemp', data.high);
+          form.setValue('weather.lowTemp', data.low);
+          form.setValue('weather.wind', data.wind);
+          toast({ 
+            title: 'Weather Synced', 
+            description: `Conditions for ${data.city} updated automatically.` 
+          });
+        } catch (err) {
+          console.warn('Weather auto-sync failed');
+        } finally {
+          setIsWeatherLoading(false);
+        }
+      };
+      fetchAutoWeather();
+    }
+  }, [watchedProjectId, projectsData, isEditMode, form, toast]);
 
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 1) {
@@ -246,7 +278,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
       const result = event.results[0][0].transcript;
-      setTranscript(result);
       processTranscript(result);
     };
     recognition.onerror = () => setIsListening(false);
@@ -259,7 +290,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     try {
       const extraction = await processReportVoice(text);
       
-      // Auto-fill weather
       if (extraction.weather) {
         if (extraction.weather.conditions) form.setValue('weather.conditions', extraction.weather.conditions);
         if (extraction.weather.highTemp) form.setValue('weather.highTemp', extraction.weather.highTemp);
@@ -267,14 +297,12 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         if (extraction.weather.wind) form.setValue('weather.wind', extraction.weather.wind);
       }
 
-      // Auto-fill safety
       if (extraction.safetyStats) {
         Object.entries(extraction.safetyStats).forEach(([key, val]) => {
           form.setValue(`safetyStats.${key}` as any, val);
         });
       }
 
-      // Auto-fill man hours
       if (extraction.manHours) {
         extraction.manHours.forEach(mh => {
           const contractor = contractors.find(c => c.label.toLowerCase().includes(mh.contractorName.toLowerCase()));
@@ -284,7 +312,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         });
       }
 
-      // Auto-fill activities
       if (extraction.activities) {
         extraction.activities.forEach(act => {
           const contractor = contractors.find(c => c.label.toLowerCase().includes(act.contractorName.toLowerCase()));
@@ -297,7 +324,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         });
       }
 
-      // Auto-fill notes
       if (extraction.notes) {
         extraction.notes.forEach(note => {
           appendNote({ note, status: 'open' });
@@ -317,7 +343,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     const payload = { ...data, date: startOfDay(data.date), updatedAt: serverTimestamp() };
     const op = isEditMode ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload) : addDoc(dailyReportsCollection, { ...payload, authorId: user.uid, createdAt: serverTimestamp() });
     op.then(() => { toast({ title: 'Report Saved', description: 'Daily report has been processed successfully.' }); router.push('/daily-report'); })
-      .catch(error => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: isEditMode ? `dailyReports/${initialData.id}` : dailyReportsCollection.path, operation: isEditMode ? 'update' : 'create', requestResourceData: payload })));
+      .catch(error => errorEmitter.emit('permission-error', new FirestorePermissionError({ path: isEditMode ? `dailyReports/${initialData.id}` : dailyReportsCollection.path, operation: 'write', requestResourceData: payload })));
   };
 
   const totalGeneralManHours = (form.watch('manHours') || []).reduce((acc, curr) => acc + (curr.headcount || 0) * (curr.hours || 0), 0);
@@ -326,7 +352,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 relative">
         
-        {/* VOICE ASSISTANT FLOATING PANEL */}
         <div className="fixed bottom-10 right-10 z-50 group">
           <Card className="p-4 shadow-2xl border-primary/20 bg-white/95 backdrop-blur-md flex flex-col items-center gap-3 animate-in slide-in-from-bottom-4">
             <div className="flex items-center gap-2 mb-1">
@@ -387,7 +412,13 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         </div>
 
         <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2"><div className="flex items-center gap-2 text-orange-500"><CloudSun className="h-5 w-5" /><h3 className="text-sm font-bold uppercase tracking-tight">Weather Conditions</h3></div></div>
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center gap-2 text-orange-500">
+              {isWeatherLoading ? <Loader2 className="h-5 w-5 animate-spin" /> : <CloudSun className="h-5 w-5" />}
+              <h3 className="text-sm font-bold uppercase tracking-tight">Weather Conditions</h3>
+              {isWeatherLoading && <Badge variant="outline" className="text-[8px] animate-pulse">Syncing...</Badge>}
+            </div>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-sm border bg-slate-50/30">
             <FormField control={form.control} name="weather.city" render={({ field }) => ( <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Site Location</FormLabel><FormControl><Input placeholder="e.g. Cedar Rapids" {...field} className="h-9 rounded-sm text-xs" /></FormControl><FormMessage /></FormItem> )} />
             <FormField control={form.control} name="weather.conditions" render={({ field }) => ( <FormItem><FormLabel className="text-[10px] font-bold uppercase text-slate-500">Sky State</FormLabel><FormControl><Input placeholder="e.g. Overcast" {...field} className="h-9 rounded-sm text-xs" /></FormControl><FormMessage /></FormItem> )} />
@@ -400,7 +431,15 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-primary"><ShieldCheck className="h-5 w-5" /><h3 className="text-sm font-bold uppercase tracking-tight">HSE Safety Metrics</h3></div>
           <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 p-4 rounded-sm border bg-slate-50/10 shadow-sm">
-            {[ { name: 'recordableIncidents', label: 'Incidents' }, { name: 'lightFirstAids', label: 'First Aid' }, { name: 'safetyMeeting', label: 'Meetings' }, { name: 'toolBoxTalks', label: 'TBT Talks' }, { name: 'admSiteOrientation', label: 'Orientations' }, { name: 'bbsGemba', label: 'Gemba BBS' }, { name: 'operationsStandDowns', label: 'Stand Downs' }, ].map((stat) => (
+            {[ 
+              { name: 'recordableIncidents', label: 'Incidents' }, 
+              { name: 'lightFirstAids', label: 'First Aid' }, 
+              { name: 'safetyMeeting', label: 'Meetings' }, 
+              { name: 'toolBoxTalks', label: 'TBT Talks' }, 
+              { name: 'admSiteOrientation', label: 'Orientations' }, 
+              { name: 'bbsGemba', label: 'Gemba BBS' }, 
+              { name: 'operationsStandDowns', label: 'Stand Downs' }, 
+            ].map((stat) => (
               <FormField key={stat.name} control={form.control} name={`safetyStats.${stat.name}` as any} render={({ field }) => ( <FormItem className="space-y-1"><FormLabel className="text-[9px] font-bold uppercase text-slate-400 line-clamp-1">{stat.label}</FormLabel><FormControl><Input type="number" {...field} className="h-8 rounded-sm text-center font-bold text-xs" /></FormControl><FormMessage /></FormItem> )} />
             ))}
           </div>

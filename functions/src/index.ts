@@ -4,13 +4,20 @@ import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
+// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
+// Set global options for the function
 setGlobalOptions({maxInstances: 10});
 
+/**
+ * Triggered on new user creation in Firebase Authentication.
+ */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const {uid, email, displayName} = event.data;
+  logger.info(`[setupInitialUserRole] UID: ${uid}`);
+
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -19,9 +26,9 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
       const data = metadataDoc.data();
-      const count = metadataDoc.exists ? data?.userCount || 0 : 0;
-      if (count === 0) isFirstUser = true;
-      const newCount = count + 1;
+      const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
+      if (currentCount === 0) isFirstUser = true;
+      const newCount = currentCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, {userCount: newCount});
       } else {
@@ -30,11 +37,10 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     });
 
     const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
-    const fName = parts[0] || (email ? email.split("@")[0] : "New");
-    const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
+    const firstName = parts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
-
-    const modules = isFirstUser ? [
+    const defaultModules = isFirstUser ? [
       "dashboard",
       "projects",
       "users",
@@ -50,21 +56,21 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       "reports-analytics",
     ] : [];
 
-    const newUser = {
-      firstName: fName,
-      lastName: lName,
+    const newUserDocument = {
+      firstName,
+      lastName,
       email: email || "",
       role: role,
       status: "active",
-      assignedModules: modules,
+      assignedModules: defaultModules,
       assignedProjects: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    await userDocRef.set(newUser);
+    await userDocRef.set(newUserDocument);
     await admin.auth().setCustomUserClaims(uid, {
       role: role,
-      assignedModules: modules,
+      assignedModules: defaultModules,
       assignedProjects: [],
     });
   } catch (error) {
@@ -72,30 +78,31 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   }
 });
 
-export const onUserRoleChange = onDocumentUpdated(
-  "users/{userId}",
+/**
+ * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
+ */
+export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
-    const before = event.data?.before.data();
-    const after = event.data?.after.data();
-    if (!after) return;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    if (!afterData) return;
 
-    const rChanged = after.role !== before?.role;
-    const mChanged = JSON.stringify(after.assignedModules) !==
-      JSON.stringify(before?.assignedModules);
-    const pChanged = JSON.stringify(after.assignedProjects) !==
-      JSON.stringify(before?.assignedProjects);
+    const rChanged = afterData.role !== beforeData?.role;
+    const mChanged = JSON.stringify(afterData.assignedModules) !==
+      JSON.stringify(beforeData?.assignedModules);
+    const pChanged = JSON.stringify(afterData.assignedProjects) !==
+      JSON.stringify(beforeData?.assignedProjects);
 
     if (!rChanged && !mChanged && !pChanged) return;
-
     const uid = event.params.userId;
+
     try {
       await admin.auth().setCustomUserClaims(uid, {
-        role: after.role || "viewer",
-        assignedModules: after.assignedModules || [],
-        assignedProjects: after.assignedProjects || [],
+        role: afterData.role || "viewer",
+        assignedModules: afterData.assignedModules || [],
+        assignedProjects: afterData.assignedProjects || [],
       });
     } catch (error) {
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
-  },
-);
+  });
