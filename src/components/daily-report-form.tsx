@@ -203,7 +203,8 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
           form.setValue('weather.wind', data.wind);
           toast({ 
             title: 'Weather Synced', 
-            description: `Conditions for ${data.city} updated automatically.` 
+            description: `Conditions for ${data.city} updated automatically.`,
+            duration: 3000,
           });
         } catch (err) {
           console.warn('Weather auto-sync failed');
@@ -336,7 +337,11 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         });
       }
 
-      toast({ title: 'AI Processing Complete', description: 'Form has been partially filled from your dictation.' });
+      toast({ 
+        title: 'AI Processing Complete', 
+        description: 'Form has been partially filled from your dictation.',
+        duration: 3000,
+      });
     } catch (err) {
       toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to extract data from voice.' });
     } finally {
