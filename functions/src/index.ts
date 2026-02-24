@@ -9,7 +9,9 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Set global options for the function
-setGlobalOptions({maxInstances: 10});
+setGlobalOptions({
+  maxInstances: 10,
+});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
@@ -27,12 +29,18 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const metadataDoc = await transaction.get(metadataRef);
       const data = metadataDoc.data();
       const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
-      if (currentCount === 0) isFirstUser = true;
+      if (currentCount === 0) {
+        isFirstUser = true;
+      }
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
-        transaction.update(metadataRef, {userCount: newCount});
+        transaction.update(metadataRef, {
+          userCount: newCount,
+        });
       } else {
-        transaction.set(metadataRef, {userCount: newCount});
+        transaction.set(metadataRef, {
+          userCount: newCount,
+        });
       }
     });
 
@@ -41,9 +49,18 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
     const defaultModules = isFirstUser ? [
-      "dashboard", "projects", "users", "contractors",
-      "daily-report", "monthly-report", "safety-events",
-      "project-team", "documents", "calendar", "map", "weather",
+      "dashboard",
+      "projects",
+      "users",
+      "contractors",
+      "daily-report",
+      "monthly-report",
+      "safety-events",
+      "project-team",
+      "documents",
+      "calendar",
+      "map",
+      "weather",
       "reports-analytics",
     ] : [];
 
@@ -72,11 +89,14 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 /**
  * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
  */
-export const onUserRoleChange = onDocumentUpdated("users/{userId}",
+export const onUserRoleChange = onDocumentUpdated(
+  "users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
-    if (!afterData) return;
+    if (!afterData) {
+      return;
+    }
 
     const rChanged = afterData.role !== beforeData?.role;
     const mChanged = JSON.stringify(afterData.assignedModules) !==
@@ -84,7 +104,9 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
     const pChanged = JSON.stringify(afterData.assignedProjects) !==
       JSON.stringify(beforeData?.assignedProjects);
 
-    if (!rChanged && !mChanged && !pChanged) return;
+    if (!rChanged && !mChanged && !pChanged) {
+      return;
+    }
     const uid = event.params.userId;
 
     try {
@@ -96,4 +118,5 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
     } catch (error) {
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
-  });
+  },
+);

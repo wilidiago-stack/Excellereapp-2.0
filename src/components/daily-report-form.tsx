@@ -179,8 +179,8 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         bbsGemba: 0,
         operationsStandDowns: 0,
       },
-      manHours: [],
-      dailyActivities: [],
+      manHours: [{ contractorId: '', headcount: 0, hours: 0 }],
+      dailyActivities: [{ contractorId: '', activity: '', location: '', permits: [] }],
       notes: [],
     },
   });
