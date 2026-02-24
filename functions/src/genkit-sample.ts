@@ -6,18 +6,16 @@ import {defineSecret} from "firebase-functions/params";
 const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
 
 /**
- * Initialize telemetry safely.
+ * Initialize telemetry safely using dynamic imports.
  */
 async function startTelemetry() {
   try {
-    // Dynamic load to avoid build-time type errors
-    const modulePath = "@genkit-ai/firebase";
-    const m = await import(modulePath);
+    const m = await import("@genkit-ai/firebase");
     if (m && typeof m.enableFirebaseTelemetry === "function") {
       m.enableFirebaseTelemetry();
     }
   } catch (e) {
-    // Optional
+    // Telemetry initialization is optional
   }
 }
 
@@ -34,7 +32,7 @@ const menuSuggestionFlow = ai.defineFlow({
   streamSchema: z.string(),
 }, async (subject, {sendChunk}) => {
   const {response, stream} = ai.generateStream({
-    model: googleAI.model("gemini-2.5-flash"),
+    model: googleAI.model("gemini-2.5-flash-lite"),
     prompt: `Suggest an item for the menu of a ${subject} restaurant`,
     config: {temperature: 1},
   });

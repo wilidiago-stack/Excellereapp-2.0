@@ -1,14 +1,12 @@
 import {genkit, z} from "genkit";
-import {vertexAI} from "@genkit-ai/google-genai";
+import {googleAI} from "@genkit-ai/google-genai";
 import {onCallGenkit} from "firebase-functions/https";
 import {defineSecret} from "firebase-functions/params";
-import {enableFirebaseTelemetry} from "@genkit-ai/firebase";
 
 const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
-enableFirebaseTelemetry();
 
 const ai = genkit({
-  plugins: [vertexAI({location: "global"})],
+  plugins: [googleAI()],
 });
 
 const menuSuggestionFlow = ai.defineFlow({
@@ -19,7 +17,7 @@ const menuSuggestionFlow = ai.defineFlow({
 }, async (subject, {sendChunk}) => {
   const prompt = `Suggest an item for the menu of a ${subject} restaurant`;
   const {response, stream} = ai.generateStream({
-    model: vertexAI.model("gemini-2.5-flash"),
+    model: googleAI.model("gemini-2.5-flash-lite"),
     prompt: prompt,
     config: {temperature: 1},
   });
