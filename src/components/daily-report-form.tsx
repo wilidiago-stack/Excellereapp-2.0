@@ -358,13 +358,13 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 relative">
         
-        {/* RE-DESIGNED MINIMALIST VOICE ASSISTANT */}
+        {/* GEMINI-INSPIRED VOICE ASSISTANT */}
         <div className="fixed bottom-6 right-6 z-50 group">
           <div className="flex flex-col items-end gap-2">
             {(isListening || isAIProcessing) && (
               <div className={cn(
                 "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm border animate-in fade-in slide-in-from-right-2",
-                isListening ? "bg-red-50 text-red-500 border-red-100" : "bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20"
+                isListening ? "bg-red-50 text-red-500 border-red-100" : "bg-[#4285F4]/10 text-[#4285F4] border-[#4285F4]/20"
               )}>
                 {isListening ? "Recording Audio..." : "Gemini is Thinking..."}
               </div>
@@ -381,6 +381,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
                     disabled={isAIProcessing}
                     className={cn(
                       "h-12 w-12 rounded-full shadow-xl transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/20",
+                      !isListening && !isAIProcessing && "bg-gradient-to-br from-[#1BA1E3] via-[#9168C0] to-[#D05CA4] hover:shadow-[#9168C0]/40",
                       isListening && "animate-pulse shadow-red-200"
                     )}
                   >
@@ -399,7 +400,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="left" className="bg-slate-900 text-white border-none text-[10px] font-bold uppercase">
-                  {isListening ? "Stop and Process" : "Smart Voice Assistant"}
+                  {isListening ? "Stop and Process" : "Gemini Voice Assistant"}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
