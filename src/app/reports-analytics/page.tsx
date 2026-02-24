@@ -11,8 +11,6 @@ import {
   MousePointer2,
   ChevronRight,
   Info,
-  Layers,
-  PieChart as PieChartIcon,
   Loader2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -34,7 +32,10 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { 
+  ChartContainer,
+  ChartTooltip,
   ChartTooltipContent,
+  type ChartConfig
 } from '@/components/ui/chart';
 import { 
   Bar, 
@@ -48,7 +49,6 @@ import {
   Cell, 
   AreaChart, 
   Area,
-  Tooltip,
   LineChart,
   Line
 } from 'recharts';
@@ -57,6 +57,21 @@ import { format } from 'date-fns';
 
 type VizModel = 'project-pulse' | 'safety-matrix' | 'labor-dynamics';
 type ChartType = 'bar' | 'area' | 'pie' | 'line';
+
+const chartConfig = {
+  value: {
+    label: "Projects",
+    color: "#46a395",
+  },
+  severity: {
+    label: "Risk Level",
+    color: "#ef4444",
+  },
+  hours: {
+    label: "Man Hours",
+    color: "#FF9800",
+  },
+} satisfies ChartConfig;
 
 export default function AnalyticsPage() {
   const firestore = useFirestore();
@@ -142,90 +157,86 @@ export default function AnalyticsPage() {
       );
     }
 
-    if (activeModel === 'project-pulse') {
-      if (chartType === 'pie') {
-        return (
-          <ResponsiveContainer width="100%" height={350}>
-            <PieChart>
-              <Pie
-                data={projectStatusData}
-                cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
-                paddingAngle={5}
-                dataKey="value"
-              >
-                {projectStatusData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Pie>
-              <Tooltip />
-            </PieChart>
-          </ResponsiveContainer>
-        );
-      }
-      return (
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={projectStatusData}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="name" axisLine={false} tickLine={false} className="text-[10px] font-bold" />
-            <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
-            <Tooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="value" fill="#46a395" radius={[4, 4, 0, 0]} />
-          </BarChart>
-        </ResponsiveContainer>
-      );
-    }
+    return (
+      <ChartContainer config={chartConfig} className="h-[350px] w-full">
+        <ResponsiveContainer width="100%" height="100%">
+          {(() => {
+            if (activeModel === 'project-pulse') {
+              if (chartType === 'pie') {
+                return (
+                  <PieChart>
+                    <Pie
+                      data={projectStatusData}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={60}
+                      outerRadius={100}
+                      paddingAngle={5}
+                      dataKey="value"
+                    >
+                      {projectStatusData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                  </PieChart>
+                );
+              }
+              return (
+                <BarChart data={projectStatusData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} className="text-[10px] font-bold" />
+                  <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              );
+            }
 
-    if (activeModel === 'safety-matrix') {
-      const data = safetyTrendData;
-      return (
-        <ResponsiveContainer width="100%" height={350}>
-          <AreaChart data={data}>
-            <defs>
-              <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
-              </linearGradient>
-            </defs>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
-            <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
-            <Tooltip content={<ChartTooltipContent />} />
-            <Area type="monotone" dataKey="severity" stroke="#ef4444" fillOpacity={1} fill="url(#colorRisk)" strokeWidth={3} />
-          </AreaChart>
-        </ResponsiveContainer>
-      );
-    }
+            if (activeModel === 'safety-matrix') {
+              return (
+                <AreaChart data={safetyTrendData}>
+                  <defs>
+                    <linearGradient id="colorRisk" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2}/>
+                      <stop offset="95%" stopColor="#ef4444" stopOpacity={0}/>
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
+                  <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Area type="monotone" dataKey="severity" stroke="var(--color-severity)" fillOpacity={1} fill="url(#colorRisk)" strokeWidth={3} />
+                </AreaChart>
+              );
+            }
 
-    if (activeModel === 'labor-dynamics') {
-      const data = laborTrendData;
-      if (chartType === 'line') {
-        return (
-          <ResponsiveContainer width="100%" height={350}>
-            <LineChart data={data}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-              <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
-              <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
-              <Tooltip content={<ChartTooltipContent />} />
-              <Line type="stepAfter" dataKey="hours" stroke="#FF9800" strokeWidth={4} dot={{ r: 6, fill: '#FF9800' }} />
-            </LineChart>
-          </ResponsiveContainer>
-        );
-      }
-      return (
-        <ResponsiveContainer width="100%" height={350}>
-          <BarChart data={data}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-            <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
-            <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
-            <Tooltip content={<ChartTooltipContent />} />
-            <Bar dataKey="hours" fill="#FF9800" radius={[4, 4, 0, 0]} />
-          </BarChart>
+            if (activeModel === 'labor-dynamics') {
+              if (chartType === 'line') {
+                return (
+                  <LineChart data={laborTrendData}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
+                    <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
+                    <ChartTooltip content={<ChartTooltipContent />} />
+                    <Line type="stepAfter" dataKey="hours" stroke="var(--color-hours)" strokeWidth={4} dot={{ r: 6, fill: '#FF9800' }} />
+                  </LineChart>
+                );
+              }
+              return (
+                <BarChart data={laborTrendData}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                  <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
+                  <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
+                  <ChartTooltip content={<ChartTooltipContent />} />
+                  <Bar dataKey="hours" fill="var(--color-hours)" radius={[4, 4, 0, 0]} />
+                </BarChart>
+              );
+            }
+          })()}
         </ResponsiveContainer>
-      );
-    }
+      </ChartContainer>
+    );
   };
 
   return (
