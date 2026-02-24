@@ -14,7 +14,7 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = auth.onUserCreated(
+export const setupInitialUserRole = auth.onAuthUserCreate(
   async (event: auth.AuthEvent) => {
     const {uid, email, displayName} = event.data;
     logger.info(`[setupInitialUserRole] UID: ${uid}`);
