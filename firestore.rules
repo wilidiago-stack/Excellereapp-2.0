@@ -12,7 +12,7 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Fetches the current user's profile document
+    // Fetches the current user's profile document from the database
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -47,7 +47,8 @@ service cloud.firestore {
     /**
      * Users management.
      * Users can read their own profile.
-     * Only admins can manage the full directory.
+     * Admins manage the full directory.
+     * PMs can list users for assignments.
      */
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -58,22 +59,46 @@ service cloud.firestore {
     }
 
     /**
-     * Projects and Sub-resources.
-     * Admin & PM: Full Control.
-     * Viewer: Read Only.
+     * Operational Collections:
+     * projects, contractors, dailyReports, monthlyReports, safetyEvents.
      */
     
-    // Generic rule for operative collections
-    match /{collectionName}/{docId} {
+    // Explicit match for main operative modules
+    match /projects/{docId} {
       allow read: if isSignedIn();
       allow write: if canWrite();
       
+      // Handle project sub-collections (like documents metadata)
       match /{allSubpaths=**} {
         allow read: if isSignedIn();
         allow write: if canWrite();
       }
     }
 
+    match /contractors/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /dailyReports/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /monthlyReports/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /safetyEvents/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    /**
+     * Time Tracking Logic:
+     * Users log their own, Admins/PMs control everything.
+     */
     match /time_entries/{entryId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();

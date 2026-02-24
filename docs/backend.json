@@ -31,6 +31,11 @@
     }
   },
   "firestore": {
-    "rules_strategy": "RBAC (Role-Based Access Control) via Auth Custom Claims. Admin and Project Manager have Write/Delete access. Viewer is restricted to Read-Only."
+    "/system/metadata": { "schema": "object", "description": "Global counters and system state." },
+    "/users/{userId}": { "schema": "UserProfile", "description": "User profile and permission set." },
+    "/projects/{projectId}": { "schema": "object", "description": "Construction projects." },
+    "/contractors/{contractorId}": { "schema": "object", "description": "Vendor directory." },
+    "/dailyReports/{reportId}": { "schema": "object", "description": "Field operation logs." },
+    "/safetyEvents/{eventId}": { "schema": "object", "description": "HSE incident and observation records." }
   }
 }
