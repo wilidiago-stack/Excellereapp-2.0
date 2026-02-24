@@ -94,7 +94,7 @@ export const onUserRoleChange = onDocumentUpdated(
   "users/{userId}",
   async (event: FirestoreEvent<
     Change<QueryDocumentSnapshot> | undefined
-  >) => {
+  > ) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 

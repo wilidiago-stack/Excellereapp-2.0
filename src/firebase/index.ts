@@ -15,16 +15,13 @@ export function initializeFirebase() {
   if (!getApps().length) {
     let firebaseApp;
     try {
-      firebaseApp = initializeApp();
+      firebaseApp = initializeApp(firebaseConfig);
     } catch (e) {
-      if (process.env.NODE_ENV === "production") {
-        console.warn('Fallback a objeto de configuración manual.', e);
-      }
       firebaseApp = initializeApp(firebaseConfig);
     }
     
     if (typeof window !== "undefined") {
-      // Activación de reCAPTCHA Enterprise
+      // Activación de reCAPTCHA Enterprise vía App Check
       initializeAppCheck(firebaseApp, {
         provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
