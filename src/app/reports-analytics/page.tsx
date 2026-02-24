@@ -12,7 +12,8 @@ import {
   ChevronRight,
   Info,
   Layers,
-  PieChart as PieChartIcon
+  PieChart as PieChartIcon,
+  Loader2
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -33,8 +34,6 @@ import {
   SelectValue 
 } from '@/components/ui/select';
 import { 
-  ChartContainer, 
-  ChartTooltip, 
   ChartTooltipContent,
 } from '@/components/ui/chart';
 import { 
@@ -54,7 +53,6 @@ import {
   Line
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 
 type VizModel = 'project-pulse' | 'safety-matrix' | 'labor-dynamics';
@@ -108,7 +106,7 @@ export default function AnalyticsPage() {
       .map(e => ({
         date: e.date?.toDate ? format(e.date.toDate(), 'MMM dd') : 'N/A',
         severity: e.severity === 'Critical' ? 4 : e.severity === 'High' ? 3 : e.severity === 'Medium' ? 2 : 1,
-        type: e.type
+        type: e.type,
       }));
   }, [safetyEvents]);
 
@@ -126,21 +124,23 @@ export default function AnalyticsPage() {
         return {
           date: r.date?.toDate ? format(r.date.toDate(), 'MMM dd') : 'N/A',
           hours: totalHrs,
-          incidents: r.safetyStats?.recordableIncidents || 0
+          incidents: r.safetyStats?.recordableIncidents || 0,
         };
       });
   }, [dailyReports]);
 
   const COLORS = ['#46a395', '#FF9800', '#64748b', '#ef4444', '#3b82f6'];
 
-  const chartConfig = {
-    value: { label: "Value", color: "#46a395" },
-    hours: { label: "Total Man-Hours", color: "#FF9800" },
-    severity: { label: "Risk Level", color: "#ef4444" }
-  };
+  const isLoading = projectsLoading || safetyLoading || reportsLoading;
 
   const renderChart = () => {
-    if (isLoading) return <div className="h-[350px] w-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-[#46a395]" /></div>;
+    if (isLoading) {
+      return (
+        <div className="h-[350px] w-full flex items-center justify-center">
+          <Loader2 className="h-8 w-8 animate-spin text-[#46a395]" />
+        </div>
+      );
+    }
 
     if (activeModel === 'project-pulse') {
       if (chartType === 'pie') {
@@ -227,8 +227,6 @@ export default function AnalyticsPage() {
       );
     }
   };
-
-  const isLoading = projectsLoading || safetyLoading || reportsLoading;
 
   return (
     <div className="flex flex-col h-[calc(100vh-100px)] gap-4 animate-in fade-in duration-700">
