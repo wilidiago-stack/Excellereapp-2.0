@@ -82,7 +82,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 });
 
 /**
- * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
+ * Syncs changes from Firestore user document to Firebase Auth Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated(
   "users/{userId}",
