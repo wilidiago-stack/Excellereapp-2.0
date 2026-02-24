@@ -303,13 +303,13 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex items-center justify-center py-12">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50/50 p-4">
+      <Card className="w-full max-w-md shadow-lg border-slate-200">
         <Tabs defaultValue="email" className="w-full">
-          <CardHeader>
-            <CardTitle>Sign In</CardTitle>
+          <CardHeader className="text-center">
+            <CardTitle className="text-2xl font-bold tracking-tight">Sign In</CardTitle>
             <CardDescription>
-              Choose your preferred sign-in method below.
+              Access your project management dashboard.
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -319,6 +319,7 @@ export default function LoginPage() {
                 variant="outline"
                 onClick={handleGoogleSignIn}
                 disabled={loading}
+                className="rounded-sm font-semibold"
               >
                 <GoogleIcon className="mr-2 h-4 w-4" />
                 Google
@@ -327,6 +328,7 @@ export default function LoginPage() {
                 variant="outline"
                 onClick={handleMicrosoftSignIn}
                 disabled={loading}
+                className="rounded-sm font-semibold"
               >
                 <MicrosoftIcon className="mr-2 h-4 w-4" />
                 Microsoft
@@ -340,9 +342,9 @@ export default function LoginPage() {
                 <span className="bg-card px-2 text-muted-foreground">Or</span>
               </div>
             </div>
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="email">Email</TabsTrigger>
-              <TabsTrigger value="phone">Phone</TabsTrigger>
+            <TabsList className="grid w-full grid-cols-2 rounded-sm bg-slate-100 p-1">
+              <TabsTrigger value="email" className="rounded-sm text-xs font-bold uppercase">Email</TabsTrigger>
+              <TabsTrigger value="phone" className="rounded-sm text-xs font-bold uppercase">Phone</TabsTrigger>
             </TabsList>
           </CardContent>
 
@@ -355,12 +357,13 @@ export default function LoginPage() {
                     name="email"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Email Address</FormLabel>
                         <FormControl>
                           <Input
                             type="email"
                             placeholder="john.doe@example.com"
                             {...field}
+                            className="h-10 rounded-sm border-slate-200"
                           />
                         </FormControl>
                         <FormMessage />
@@ -372,12 +375,13 @@ export default function LoginPage() {
                     name="password"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Password</FormLabel>
+                        <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Password</FormLabel>
                         <FormControl>
                           <Input
                             type="password"
                             placeholder="••••••••"
                             {...field}
+                            className="h-10 rounded-sm border-slate-200"
                           />
                         </FormControl>
                         <FormMessage />
@@ -386,7 +390,7 @@ export default function LoginPage() {
                   />
                 </CardContent>
                 <CardFooter className="flex flex-col gap-4">
-                  <Button type="submit" className="w-full" disabled={loading}>
+                  <Button type="submit" className="w-full rounded-sm font-bold uppercase tracking-wider" disabled={loading}>
                     {loading ? 'Signing In...' : 'Sign In with Email'}
                   </Button>
                 </CardFooter>
@@ -398,24 +402,26 @@ export default function LoginPage() {
             <CardContent className="space-y-4">
               {step === 'enter-phone' ? (
                 <div className="space-y-2">
-                  <Label htmlFor="phone">Phone Number</Label>
+                  <Label htmlFor="phone" className="text-[10px] font-bold uppercase text-slate-500">Phone Number</Label>
                   <Input
                     id="phone"
                     type="tel"
                     placeholder="+1 123 456 7890"
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
+                    className="h-10 rounded-sm border-slate-200"
                   />
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="otp">Verification Code</Label>
+                  <Label htmlFor="otp" className="text-[10px] font-bold uppercase text-slate-500">Verification Code</Label>
                   <Input
                     id="otp"
                     type="text"
                     placeholder="123456"
                     value={otp}
                     onChange={(e) => setOtp(e.target.value)}
+                    className="h-10 rounded-sm border-slate-200 text-center text-lg tracking-widest font-black"
                   />
                 </div>
               )}
@@ -425,7 +431,7 @@ export default function LoginPage() {
               {step === 'enter-phone' ? (
                 <Button
                   onClick={handleSendCode}
-                  className="w-full"
+                  className="w-full rounded-sm font-bold uppercase"
                   disabled={loading}
                 >
                   {loading ? 'Sending...' : 'Send Verification Code'}
@@ -434,7 +440,7 @@ export default function LoginPage() {
                 <>
                   <Button
                     onClick={handleVerifyOtp}
-                    className="w-full"
+                    className="w-full rounded-sm font-bold uppercase"
                     disabled={loading}
                   >
                     {loading ? 'Verifying...' : 'Verify & Sign In'}
@@ -443,6 +449,7 @@ export default function LoginPage() {
                     variant="link"
                     size="sm"
                     onClick={() => setStep('enter-phone')}
+                    className="text-xs"
                   >
                     Back to phone number
                   </Button>
@@ -451,10 +458,10 @@ export default function LoginPage() {
             </CardFooter>
           </TabsContent>
         </Tabs>
-        <CardFooter className="flex-col gap-4 border-t pt-6">
-          <div className="text-sm text-center text-muted-foreground">
+        <CardFooter className="flex-col gap-4 border-t pt-6 bg-slate-50/50">
+          <div className="text-xs text-center text-muted-foreground">
             Don't have an account?{' '}
-            <Link href="/sign-up" className="text-primary hover:underline">
+            <Link href="/sign-up" className="text-primary font-bold hover:underline">
               Sign up now
             </Link>
           </div>
