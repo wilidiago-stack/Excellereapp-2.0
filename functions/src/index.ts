@@ -13,7 +13,7 @@ setGlobalOptions({maxInstances: 10});
  * Registra el rol inicial y claims al crear un usuario.
  */
 export const setupInitialUserRole = identity.onAuthUserCreated(
-  async (event: identity.AuthEvent) => {
+  async (event) => {
     const {uid, email, displayName} = event.data;
     const userDocRef = db.doc(`users/${uid}`);
     const metadataRef = db.doc("system/metadata");
@@ -33,7 +33,8 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
         }
       });
 
-      const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+      const parts = displayName?.split(" ").filter((p: string) =>
+        p.length > 0) || [];
       const fName = parts[0] || (email ? email.split("@")[0] : "New");
       const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
       const role = isFirstUser ? "admin" : "viewer";
