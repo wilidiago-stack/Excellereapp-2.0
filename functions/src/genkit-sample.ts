@@ -6,17 +6,18 @@ import {defineSecret} from "firebase-functions/params";
 const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
 
 /**
- * Initialize telemetry safely without triggering linting or type errors.
+ * Initialize telemetry safely.
  */
 async function startTelemetry() {
   try {
-    // Dynamic import to handle potential missing types during build
-    const m = await import("@genkit-ai/firebase");
+    // Dynamic load to avoid build-time type errors
+    const modulePath = "@genkit-ai/firebase";
+    const m = await import(modulePath);
     if (m && typeof m.enableFirebaseTelemetry === "function") {
       m.enableFirebaseTelemetry();
     }
   } catch (e) {
-    // Telemetry initialization is optional
+    // Optional
   }
 }
 

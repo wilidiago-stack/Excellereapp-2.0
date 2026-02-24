@@ -104,11 +104,13 @@ export const onUserRoleChange = onDocumentUpdated(
 
     const roleChanged = afterData.role !== beforeData?.role;
 
-    const modulesChanged = JSON.stringify(afterData.assignedModules) !==
-      JSON.stringify(beforeData?.assignedModules);
+    const mBefore = JSON.stringify(beforeData?.assignedModules || []);
+    const mAfter = JSON.stringify(afterData.assignedModules || []);
+    const modulesChanged = mBefore !== mAfter;
 
-    const projectsChanged = JSON.stringify(afterData.assignedProjects) !==
-      JSON.stringify(beforeData?.assignedProjects);
+    const pBefore = JSON.stringify(beforeData?.assignedProjects || []);
+    const pAfter = JSON.stringify(afterData.assignedProjects || []);
+    const projectsChanged = pBefore !== pAfter;
 
     if (!roleChanged && !modulesChanged && !projectsChanged) return;
 
