@@ -42,9 +42,9 @@ export function MainHeader() {
   
   const isAdmin = role === 'admin';
 
-  // Voice Recognition Logic
   const startListening = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || 
+      (window as any).webkitSpeechRecognition;
     
     if (!SpeechRecognition) {
       toast({
@@ -71,7 +71,10 @@ export function MainHeader() {
     };
 
     recognition.onerror = (event: any) => {
-      console.error('Speech recognition error:', event.error);
+      // Avoid console.error to prevent Next.js dev error overlay
+      if (event.error !== 'aborted') {
+        console.warn('Speech recognition warning:', event.error);
+      }
       setIsListening(false);
     };
 
@@ -206,7 +209,6 @@ export function MainHeader() {
           </button>
         </div>
 
-        {/* SEARCH RESULTS DROPDOWN */}
         {isSearchOpen && searchQuery.trim().length >= 2 && (
           <div className="absolute top-11 left-4 right-4 bg-white rounded-sm border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
             <div className="p-2 bg-slate-50 border-b flex items-center justify-between">
