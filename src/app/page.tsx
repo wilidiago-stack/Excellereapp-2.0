@@ -19,9 +19,10 @@ import {
   Plus,
   Trash2,
   Link as LinkIcon,
-  Loader2
+  Loader2,
+  BarChart3,
+  Sparkles
 } from 'lucide-react';
-import { OverviewChart } from '@/components/overview-chart';
 import { 
   useFirestore, 
   useDoc, 
@@ -93,9 +94,9 @@ export default function Home() {
   );
   const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
 
-  // Quick Links Read
+  // Quick Links Read (Fixed to use top-level collection)
   const quickLinksCollection = useMemoFirebase(
-    () => (firestore ? collection(firestore, 'system', 'quick_links') : null),
+    () => (firestore ? collection(firestore, 'quick_links') : null),
     [firestore]
   );
   const { data: quickLinks, isLoading: linksLoading } = useCollection(quickLinksCollection);
@@ -118,7 +119,7 @@ export default function Home() {
       createdAt: serverTimestamp(),
     };
 
-    addDoc(collection(firestore, 'system', 'quick_links'), linkData)
+    addDoc(collection(firestore, 'quick_links'), linkData)
       .then(() => {
         toast({ title: "Link Created", description: "Quick access button added." });
         setNewLinkLabel('');
@@ -127,7 +128,7 @@ export default function Home() {
       })
       .catch((err) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
-          path: 'system/quick_links',
+          path: 'quick_links',
           operation: 'create',
           requestResourceData: linkData,
         }));
@@ -137,7 +138,7 @@ export default function Home() {
 
   const handleDeleteLink = (id: string) => {
     if (!firestore || !isAdmin) return;
-    const linkRef = doc(firestore, 'system', 'quick_links', id);
+    const linkRef = doc(firestore, 'quick_links', id);
     deleteDoc(linkRef).catch(err => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
         path: linkRef.path,
@@ -205,7 +206,20 @@ export default function Home() {
           </div>
         </CardHeader>
         <CardContent>
-          <OverviewChart />
+          <div className="flex flex-col items-center justify-center py-20 bg-slate-50/50 rounded-sm border border-dashed border-slate-200">
+            <div className="relative mb-4">
+              <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center text-primary animate-pulse">
+                <BarChart3 className="h-8 w-8" />
+              </div>
+              <Sparkles className="h-5 w-5 text-orange-400 absolute -top-1 -right-1 animate-bounce" />
+            </div>
+            <h3 className="text-sm font-bold text-slate-700 uppercase tracking-wider mb-1">
+              Analytics Under Construction
+            </h3>
+            <p className="text-xs text-slate-500 text-center max-w-xs px-4">
+              We are currently working on these charts to provide you with real-time project insights and metrics.
+            </p>
+          </div>
         </CardContent>
       </Card>
 

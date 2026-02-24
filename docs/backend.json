@@ -43,7 +43,7 @@
   },
   "firestore": {
     "/system/metadata": { "schema": "object", "description": "Global counters and system state." },
-    "/system/quick_links/{linkId}": { "schema": "QuickLink", "description": "Customizable dashboard buttons." },
+    "/quick_links/{linkId}": { "schema": "QuickLink", "description": "Customizable dashboard buttons." },
     "/users/{userId}": { "schema": "UserProfile", "description": "User profile and permission set." },
     "/projects/{projectId}": { "schema": "object", "description": "Construction projects." },
     "/contractors/{contractorId}": { "schema": "object", "description": "Vendor directory." },

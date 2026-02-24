@@ -32,7 +32,7 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /system/quick_links/{linkId} {
+    match /quick_links/{linkId} {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
