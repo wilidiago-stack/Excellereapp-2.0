@@ -3,15 +3,16 @@ service firebase.storage {
   match /b/{bucket}/o {
     
     /**
-     * Helper functions for verified authentication.
+     * Función básica para verificar si el usuario tiene una sesión activa.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * Token Verification:
-     * Firebase Storage rules depend on verified Custom Claims.
+     * VERIFICACIÓN DE TOKEN:
+     * Esta función extrae el rol directamente del Token de Identificación (JWT)
+     * verificado por los servidores de Google. No puede ser falsificado.
      */
     function hasRole(roleName) {
       return isSignedIn() && request.auth.token.role == roleName;
@@ -25,19 +26,19 @@ service firebase.storage {
       return hasRole('project_manager');
     }
 
-    /** Write access only for Admin and PM */
+    /** 
+     * Solo permite escribir (subir/borrar) si el token contiene 
+     * el sello de Administrador o Project Manager.
+     */
     function canWrite() {
       return isAdmin() || isManager();
     }
 
     match /{allPaths=**} {
-      /** Any authenticated user can read (Viewers included) */
+      /** Lectura permitida para todo el personal autenticado (incluye Viewers) */
       allow read: if isSignedIn();
       
-      /** 
-       * Only users with verified Admin or PM roles in their TOKEN 
-       * can upload or delete.
-       */
+      /** Escritura restringida estrictamente a roles verificados en el Token */
       allow write: if canWrite();
     }
   }
