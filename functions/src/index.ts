@@ -36,7 +36,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       }
     });
 
-    const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+    const parts = displayName?.split(" ").filter((p: string) => p.length > 0) || [];
     const firstName = parts[0] || (email ? email.split("@")[0] : "New");
     const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";

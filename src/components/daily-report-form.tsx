@@ -65,6 +65,7 @@ import {
 } from '@/components/ui/table';
 import { Separator } from './ui/separator';
 import { Card } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 
 const manHourSchema = z.object({
   contractorId: z.string().min(1, 'Please select a contractor'),
@@ -180,7 +181,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
 
   const watchedProjectId = form.watch('projectId');
 
-  // AUTOMATIC WEATHER CONSULTATION
   useEffect(() => {
     if (!watchedProjectId || isEditMode) return;
 
