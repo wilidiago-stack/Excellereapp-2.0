@@ -11,8 +11,6 @@ import {
 } from '@/firebase';
 import { 
   collection, 
-  query, 
-  where, 
   addDoc, 
   serverTimestamp, 
   doc, 
@@ -25,7 +23,6 @@ import { Input } from '@/components/ui/input';
 import { 
   FileText, 
   Upload, 
-  Plus, 
   Search, 
   Trash2, 
   Download, 
@@ -60,7 +57,7 @@ export default function DocumentsPage() {
   const { selectedProjectId } = useProjectContext();
   const firestore = useFirestore();
   const storage = useStorage();
-  const { user, role, assignedProjects } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
@@ -68,11 +65,10 @@ export default function DocumentsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Lógica de permisos de ingeniería
+  // Ingeniería de permisos alineada con storage.rules
   const isAdmin = role === 'admin';
   const isPM = role === 'project_manager';
-  const isAssigned = assignedProjects?.includes(selectedProjectId || '');
-  const canUpload = isAdmin || (isPM && isAssigned);
+  const canWrite = isAdmin || isPM;
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -118,20 +114,19 @@ export default function DocumentsPage() {
         uploadedByName: user.displayName || user.email,
         uploadDate: serverTimestamp(),
         projectId: selectedProjectId,
-        projectOwnerId: activeProject?.ownerId || user.uid,
       };
 
       await addDoc(docsCollection!, docData);
 
-      toast({ title: 'Document Uploaded', description: `${selectedFile.name} added to project.` });
+      toast({ title: 'Document Uploaded', description: `${selectedFile.name} added.` });
       setUploadDialogOpen(false);
       setSelectedFile(null);
     } catch (error: any) {
       console.error('Upload failed:', error);
       toast({ 
         variant: 'destructive', 
-        title: 'Unauthorized Access', 
-        description: 'Your permissions do not allow writing to this project storage.' 
+        title: 'Upload Rejected', 
+        description: 'Server denied write access. Please refresh your session.' 
       });
     } finally {
       setIsUploading(false);
@@ -139,12 +134,12 @@ export default function DocumentsPage() {
   };
 
   const handleDelete = async (docId: string, fileName: string) => {
-    if (!firestore || !selectedProjectId || !canUpload) return;
+    if (!firestore || !selectedProjectId || !canWrite) return;
     
     const docRef = doc(firestore, 'projects', selectedProjectId, 'documents', docId);
     deleteDoc(docRef)
       .then(() => {
-        toast({ title: 'Document Removed', description: `${fileName} has been deleted.` });
+        toast({ title: 'Removed', description: `${fileName} deleted.` });
       })
       .catch((error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -168,7 +163,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Project Documents</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>Centralized blueprint and file repository.</span>
+            <span>Central Blueprint Repository.</span>
             {selectedProjectId && (
               <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] font-black uppercase">
                 {activeProject?.name || 'Project Filter Active'}
@@ -177,7 +172,7 @@ export default function DocumentsPage() {
           </div>
         </div>
         
-        {canUpload ? (
+        {canWrite ? (
           <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
@@ -222,9 +217,9 @@ export default function DocumentsPage() {
             </DialogContent>
           </Dialog>
         ) : (
-          <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-100 rounded-sm text-orange-600">
+          <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 rounded-sm text-slate-500">
             <ShieldAlert className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Read Only Mode</span>
+            <span className="text-[10px] font-bold uppercase tracking-tight">Read Only (Viewer)</span>
           </div>
         )}
       </div>
@@ -232,8 +227,8 @@ export default function DocumentsPage() {
       {!selectedProjectId ? (
         <Card className="border-dashed py-20 flex flex-col items-center justify-center text-center bg-slate-50/20">
           <Files className="h-12 w-12 text-slate-200 mb-4" />
-          <h2 className="text-sm font-bold text-slate-600">Select a project first</h2>
-          <p className="text-xs text-slate-400 mt-1 max-w-xs">Documents are filtered by the project context selected in the Dashboard.</p>
+          <h2 className="text-sm font-bold text-slate-600">Select a project context</h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-xs">Use the Dashboard project filter to browse documents.</p>
         </Card>
       ) : (
         <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
@@ -242,7 +237,7 @@ export default function DocumentsPage() {
               <div className="relative">
                 <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
                 <Input 
-                  placeholder="Find files..." 
+                  placeholder="Filter files..." 
                   className="pl-8 h-9 bg-white border-slate-200 text-xs" 
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -250,15 +245,12 @@ export default function DocumentsPage() {
               </div>
             </CardHeader>
             <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
-              <div className="space-y-3">
-                <h4 className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Project Storage</h4>
-                <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-3.5 w-3.5 text-primary" />
-                    <span className="text-xs font-medium">Documents</span>
-                  </div>
-                  <span className="text-xs font-bold">{filteredDocs.length}</span>
+              <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-3.5 w-3.5 text-primary" />
+                  <span className="text-xs font-medium">Visible Assets</span>
                 </div>
+                <span className="text-xs font-bold">{filteredDocs.length}</span>
               </div>
             </CardContent>
           </Card>
@@ -268,21 +260,21 @@ export default function DocumentsPage() {
               <Table>
                 <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
                   <TableRow className="hover:bg-transparent border-b-slate-200">
-                    <TableHead className="text-[11px] font-bold h-10 px-6">File Name</TableHead>
+                    <TableHead className="text-[11px] font-bold h-10 px-6">File Reference</TableHead>
                     <TableHead className="text-[11px] font-bold h-10">Type</TableHead>
                     <TableHead className="text-[11px] font-bold h-10">Size</TableHead>
-                    <TableHead className="text-[11px] font-bold h-10">Uploaded By</TableHead>
+                    <TableHead className="text-[11px] font-bold h-10">Sync Date</TableHead>
                     <TableHead className="h-10 w-24"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    [1, 2, 3].map(i => <TableRow key={i}><TableCell colSpan={5}><Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-200" /></TableCell></TableRow>)
+                    [1, 2].map(i => <TableRow key={i}><TableCell colSpan={5}><Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-200" /></TableCell></TableRow>)
                   ) : filteredDocs.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-slate-400">No documents found for this project.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-slate-400">No blueprints available.</TableCell></TableRow>
                   ) : (
                     filteredDocs.map((doc: any) => (
-                      <TableRow key={doc.id} className="hover:bg-slate-50/50 border-b-slate-100 group transition-colors">
+                      <TableRow key={doc.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
                         <TableCell className="py-2.5 px-6">
                           <div className="flex items-center gap-2">
                             <FileText className="h-3.5 w-3.5 text-slate-400" />
@@ -290,21 +282,22 @@ export default function DocumentsPage() {
                           </div>
                         </TableCell>
                         <TableCell className="py-2.5">
-                          <Badge variant="outline" className="text-[9px] h-4 rounded-sm uppercase bg-white">{doc.fileType?.split('/')[1] || 'FILE'}</Badge>
+                          <Badge variant="outline" className="text-[9px] h-4 rounded-sm uppercase bg-white">
+                            {doc.fileType?.split('/')[1] || 'DATA'}
+                          </Badge>
                         </TableCell>
                         <TableCell className="py-2.5 text-xs text-slate-500">{formatFileSize(doc.fileSize)}</TableCell>
                         <TableCell className="py-2.5">
-                          <div className="flex flex-col">
-                            <span className="text-[10px] font-bold text-slate-600">{doc.uploadedByName || 'Unknown'}</span>
-                            <span className="text-[9px] text-slate-400">{doc.uploadDate?.toDate ? format(doc.uploadDate.toDate(), 'MMM dd, yyyy') : 'N/A'}</span>
-                          </div>
+                          <span className="text-[10px] font-bold text-slate-400 uppercase">
+                            {doc.uploadDate?.toDate ? format(doc.uploadDate.toDate(), 'MMM dd, yy') : 'N/A'}
+                          </span>
                         </TableCell>
                         <TableCell className="py-2.5 text-right pr-6">
                           <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm" asChild>
                               <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"><Download className="h-3.5 w-3.5" /></a>
                             </Button>
-                            {canUpload && (
+                            {canWrite && (
                               <Button 
                                 variant="ghost" 
                                 size="icon" 

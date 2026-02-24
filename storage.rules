@@ -20,22 +20,16 @@ service firebase.storage {
       return isSignedIn() && getRole() == 'project_manager';
     }
 
-    /** Verifica si el proyecto está en la lista de permitidos del token */
-    function isAssignedToProject(projectId) {
-      return isSignedIn() && (
-        isAdmin() || 
-        (request.auth.token.assignedProjects != null && 
-         projectId in request.auth.token.assignedProjects)
-      );
-    }
-
-    /** Reglas granulares por proyecto */
+    /** Lógica de permisos por rol solicitada:
+     *  - Admin y PM: Full Access (subir, borrar, mirar)
+     *  - Viewer: Read Only (solo mirar)
+     */
     match /projects/{projectId}/{allPaths=**} {
-      // Lectura permitida si está asignado
-      allow read: if isAssignedToProject(projectId);
+      // Todos los usuarios autenticados pueden ver (incluye Viewers)
+      allow read: if isSignedIn();
       
-      // Escritura permitida para Admin o PM asignado
-      allow write: if isAdmin() || (isManager() && isAssignedToProject(projectId));
+      // Solo Admin y Project Manager pueden subir o borrar
+      allow write, delete: if isAdmin() || isManager();
     }
 
     /** Fallback de seguridad global */
