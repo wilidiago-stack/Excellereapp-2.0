@@ -3,15 +3,15 @@
 import { useState, useMemo } from 'react';
 import { 
   BarChart3, 
-  TrendingUp, 
-  ShieldAlert, 
   Activity, 
   Download,
   Filter,
   MousePointer2,
   ChevronRight,
   Info,
-  Loader2
+  Loader2,
+  ShieldAlert,
+  Target
 } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
@@ -60,7 +60,7 @@ type ChartType = 'bar' | 'area' | 'pie' | 'line';
 
 const chartConfig = {
   value: {
-    label: "Projects",
+    label: "Metric",
     color: "#46a395",
   },
   severity: {
@@ -86,6 +86,11 @@ export default function AnalyticsPage() {
   );
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsRef);
 
+  const activeProject = useMemo(() => {
+    if (!projects || !selectedProjectId) return null;
+    return projects.find(p => p.id === selectedProjectId);
+  }, [projects, selectedProjectId]);
+
   const safetyRef = useMemoFirebase(() => {
     if (!firestore) return null;
     let ref = collection(firestore, 'safetyEvents');
@@ -105,12 +110,13 @@ export default function AnalyticsPage() {
   // DATA PROCESSING: Project Pulse
   const projectStatusData = useMemo(() => {
     if (!projects) return [];
-    const counts = projects.reduce((acc: any, p) => {
+    const source = selectedProjectId ? projects.filter(p => p.id === selectedProjectId) : projects;
+    const counts = source.reduce((acc: any, p) => {
       acc[p.status] = (acc[p.status] || 0) + 1;
       return acc;
     }, {});
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [projects]);
+  }, [projects, selectedProjectId]);
 
   // DATA PROCESSING: Safety Matrix
   const safetyTrendData = useMemo(() => {
@@ -247,7 +253,9 @@ export default function AnalyticsPage() {
             <Activity className="h-6 w-6 text-[#46a395]" /> 
             Intelligence Hub
           </h1>
-          <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-widest mt-1">Operational Analytics & KPI Dashboard</p>
+          <p className="text-[11px] text-muted-foreground uppercase font-bold tracking-widest mt-1">
+            Operational Analytics & Contextual Dashboard
+          </p>
         </div>
         
         <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-sm border border-slate-200 shadow-sm">
@@ -309,7 +317,7 @@ export default function AnalyticsPage() {
                   <Info className="h-3 w-3" /> Model Insight
                 </h4>
                 <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                  {activeModel === 'project-pulse' && "Analyzing global distribution of work orders across portfolio states."}
+                  {activeModel === 'project-pulse' && "Analyzing project status distribution within the selected scope."}
                   {activeModel === 'safety-matrix' && "Monitoring recordable incident frequency vs temporal site progression."}
                   {activeModel === 'labor-dynamics' && "Tracking of cumulative man-hours reported in daily field logs."}
                 </p>
@@ -317,11 +325,11 @@ export default function AnalyticsPage() {
 
               <div className="p-3 bg-[#46a395]/5 rounded-sm border border-[#46a395]/10">
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-[10px] font-bold text-slate-600 uppercase">Context Filter</span>
+                  <span className="text-[10px] font-bold text-slate-600 uppercase">Focus Context</span>
                   <MousePointer2 className="h-3 w-3 text-[#46a395]" />
                 </div>
                 <Badge variant="outline" className="w-full justify-center py-1.5 rounded-sm bg-white border-primary/20 text-primary font-black text-[9px] uppercase">
-                  {selectedProjectId ? "Active Project Only" : "Global System View"}
+                  {selectedProjectId ? "Single Project Focus" : "Global System View"}
                 </Badge>
               </div>
             </div>
@@ -371,11 +379,15 @@ export default function AnalyticsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-auto">
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
           <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
-            <BarChart3 className="h-24 w-24" />
+            <Target className="h-24 w-24" />
           </div>
-          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Portfolio Volume</p>
-          <h3 className="text-3xl font-black mt-1">{projects?.length || 0} Projects</h3>
-          <p className="text-[9px] mt-2 font-bold opacity-70">Active engagements in system</p>
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Selected Context</p>
+          <h3 className="text-xl font-black mt-1 truncate">
+            {activeProject ? activeProject.name : "Global Portfolio"}
+          </h3>
+          <p className="text-[9px] mt-2 font-bold opacity-70">
+            {activeProject ? "Active project monitoring" : `${projects?.length || 0} Projects in system`}
+          </p>
         </Card>
 
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-white overflow-hidden relative group cursor-default border-l-4 border-l-[#FF9800]">
