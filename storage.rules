@@ -3,16 +3,15 @@ service firebase.storage {
   match /b/{bucket}/o {
     
     /**
-     * Función básica para verificar si el usuario tiene una sesión activa.
+     * Verifica si el usuario tiene una sesión activa en Firebase.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * VERIFICACIÓN DE TOKEN:
-     * Esta función extrae el rol directamente del Token de Identificación (JWT)
-     * verificado por los servidores de Google. No puede ser falsificado.
+     * Valida el rol del usuario directamente desde los Custom Claims del Token (JWT).
+     * Este valor es asignado por las Cloud Functions y verificado por Google.
      */
     function hasRole(roleName) {
       return isSignedIn() && request.auth.token.role == roleName;
@@ -27,18 +26,22 @@ service firebase.storage {
     }
 
     /** 
-     * Solo permite escribir (subir/borrar) si el token contiene 
-     * el sello de Administrador o Project Manager.
+     * Define quién tiene permiso para alterar el contenido del bucket.
+     * Se otorga acceso total de escritura a Administradores y Project Managers.
      */
     function canWrite() {
       return isAdmin() || isManager();
     }
 
     match /{allPaths=**} {
-      /** Lectura permitida para todo el personal autenticado (incluye Viewers) */
+      /** 
+       * Visualización: Permitida para todo el personal autenticado (incluye Viewers).
+       */
       allow read: if isSignedIn();
       
-      /** Escritura restringida estrictamente a roles verificados en el Token */
+      /** 
+       * Gestión (Subir, Modificar, Eliminar): Restringida a roles de gestión verificados.
+       */
       allow write: if canWrite();
     }
   }
