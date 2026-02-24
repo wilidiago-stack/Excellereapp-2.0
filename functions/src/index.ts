@@ -1,6 +1,6 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onUserCreated} from "firebase-functions/v2/auth";
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
+import * as auth from "firebase-functions/v2/auth";
+import * as firestore from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -14,88 +14,94 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onUserCreated(async (event) => {
-  const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] UID: ${uid}`);
+export const setupInitialUserRole = auth.onUserCreated(
+  async (event: auth.AuthEvent) => {
+    const {uid, email, displayName} = event.data;
+    logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
-  const userDocRef = db.doc(`users/${uid}`);
-  const metadataRef = db.doc("system/metadata");
+    const userDocRef = db.doc(`users/${uid}`);
+    const metadataRef = db.doc("system/metadata");
 
-  try {
-    let isFirstUser = false;
-    await db.runTransaction(async (transaction) => {
-      const metadataDoc = await transaction.get(metadataRef);
-      const currentCount = metadataDoc.exists ?
-        metadataDoc.data()?.userCount || 0 : 0;
+    try {
+      let isFirstUser = false;
+      await db.runTransaction(async (transaction) => {
+        const metadataDoc = await transaction.get(metadataRef);
+        const currentCount = metadataDoc.exists ?
+          metadataDoc.data()?.userCount || 0 : 0;
 
-      if (currentCount === 0) {
-        isFirstUser = true;
-      }
+        if (currentCount === 0) {
+          isFirstUser = true;
+        }
 
-      const newCount = currentCount + 1;
-      if (metadataDoc.exists) {
-        transaction.update(metadataRef, {userCount: newCount});
-      } else {
-        transaction.set(metadataRef, {userCount: newCount});
-      }
-    });
+        const newCount = currentCount + 1;
+        if (metadataDoc.exists) {
+          transaction.update(metadataRef, {userCount: newCount});
+        } else {
+          transaction.set(metadataRef, {userCount: newCount});
+        }
+      });
 
-    const nameParts = displayName?.split(" ")
-      .filter((p: string) => p.length > 0) || [];
-    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ?
-      nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
+      const nameParts = displayName?.split(" ")
+        .filter((p: string) => p.length > 0) || [];
+      const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+      const lastName = nameParts.length > 1 ?
+        nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
 
-    const role = isFirstUser ? "admin" : "viewer";
+      const role = isFirstUser ? "admin" : "viewer";
 
-    const defaultModules = isFirstUser ? [
-      "dashboard", "projects", "users", "contractors",
-      "daily-report", "monthly-report", "safety-events",
-      "project-team", "documents", "calendar", "map", "weather",
-    ] : [];
+      const defaultModules = isFirstUser ? [
+        "dashboard", "projects", "users", "contractors",
+        "daily-report", "monthly-report", "safety-events",
+        "project-team", "documents", "calendar", "map", "weather",
+      ] : [];
 
-    const newUserDocument = {
-      firstName,
-      lastName,
-      email: email || "",
-      role: role,
-      status: "active",
-      assignedModules: defaultModules,
-      assignedProjects: [],
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+      const newUserDocument = {
+        firstName,
+        lastName,
+        email: email || "",
+        role: role,
+        status: "active",
+        assignedModules: defaultModules,
+        assignedProjects: [],
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      };
 
-    await userDocRef.set(newUserDocument);
+      await userDocRef.set(newUserDocument);
 
-    // CRITICAL: Set initial claims immediately including assignedProjects
-    await admin.auth().setCustomUserClaims(uid, {
-      role: role,
-      assignedModules: defaultModules,
-      assignedProjects: [],
-    });
+      // CRITICAL: Set initial claims immediately
+      await admin.auth().setCustomUserClaims(uid, {
+        role: role,
+        assignedModules: defaultModules,
+        assignedProjects: [],
+      });
 
-    logger.info(
-      `[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`
-    );
-  } catch (error) {
-    logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
+      logger.info(
+        `[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`
+      );
+    } catch (error) {
+      logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
+    }
   }
-});
+);
 
 /**
- * Syncs changes from Firestore user document to Firebase Auth Custom Claims.
+ * Syncs changes from Firestore user document to Custom Claims.
  */
-export const onUserRoleChange = onDocumentUpdated(
+export const onUserRoleChange = firestore.onDocumentUpdated(
   "users/{userId}",
-  async (event) => {
+  async (event: firestore.FirestoreEvent<
+    firestore.Change<firestore.QueryDocumentSnapshot> | undefined
+  >) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
     if (!afterData) return;
 
     const roleChanged = afterData.role !== beforeData?.role;
+
     const modulesChanged = JSON.stringify(afterData.assignedModules) !==
       JSON.stringify(beforeData?.assignedModules);
+
     const projectsChanged = JSON.stringify(afterData.assignedProjects) !==
       JSON.stringify(beforeData?.assignedProjects);
 
@@ -105,7 +111,7 @@ export const onUserRoleChange = onDocumentUpdated(
     logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
 
     try {
-      // Sync all critical security fields to the Auth Token
+      // Sync critical security fields to the Auth Token
       await admin.auth().setCustomUserClaims(uid, {
         role: afterData.role || "viewer",
         assignedModules: afterData.assignedModules || [],
