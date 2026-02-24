@@ -1,5 +1,6 @@
+
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreate} from "firebase-functions/v2/auth";
+import {onAuthUserCreated} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -16,7 +17,7 @@ setGlobalOptions({
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onAuthUserCreate(async (event) => {
+export const setupInitialUserRole = onAuthUserCreated(async (event) => {
   const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -119,3 +120,5 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
   });
+
+export {menuSuggestion} from "./genkit-sample";
