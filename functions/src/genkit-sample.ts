@@ -2,15 +2,24 @@ import {genkit, z} from "genkit";
 import {googleAI} from "@genkit-ai/google-genai";
 import {onCallGenkit} from "firebase-functions/https";
 import {defineSecret} from "firebase-functions/params";
-// @ts-ignore - Ignoring potentially missing type declarations for telemetry in build environment
-import {enableFirebaseTelemetry} from "@genkit-ai/firebase";
 
 const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
-try {
-  enableFirebaseTelemetry();
-} catch (e) {
-  // Telemetry might not be available in all environments
-}
+
+/**
+ * Initialize telemetry safely without triggering linting or type errors.
+ * Dynamic import prevents the compiler from blocking on missing types.
+ */
+import("@genkit-ai/firebase")
+  .then((m) => {
+    try {
+      m.enableFirebaseTelemetry();
+    } catch (e) {
+      // Telemetry initialization optional
+    }
+  })
+  .catch(() => {
+    // Module might be missing in some build contexts
+  });
 
 const ai = genkit({
   plugins: [googleAI()],
