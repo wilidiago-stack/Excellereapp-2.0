@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreate} from "firebase-functions/v2/auth";
+import {onUserCreated} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -14,7 +14,7 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onAuthUserCreate(async (event) => {
+export const setupInitialUserRole = onUserCreated(async (event) => {
   const {uid, email, displayName} = event.data;
   logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -40,7 +40,8 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       }
     });
 
-    const nameParts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+    const nameParts = displayName?.split(" ")
+      .filter((p: string) => p.length > 0) || [];
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
     const lastName = nameParts.length > 1 ?
       nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
