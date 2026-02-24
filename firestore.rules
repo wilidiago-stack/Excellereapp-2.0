@@ -4,15 +4,21 @@ service cloud.firestore {
 
     /**
      * Helper functions for role-based access control.
-     * Roles are stored in the authentication token claims.
+     * Consults the designated role directly from the user's Firestore document
+     * to ensure real-time permission enforcement.
      */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function hasRole(role) {
-      return isSignedIn() && request.auth.token.role == role;
+    // Fetches the current user's profile document
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(roleName) {
+      return isSignedIn() && getUserData().role == roleName;
     }
 
     function isAdmin() {
@@ -52,7 +58,7 @@ service cloud.firestore {
     }
 
     /**
-     * Projects and Sub-resources (Daily Reports, Monthly Reports, Safety Events, Contractors).
+     * Projects and Sub-resources.
      * Admin & PM: Full Control.
      * Viewer: Read Only.
      */
@@ -62,48 +68,15 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow write: if canWrite();
       
-      // Allow recursive access for subcollections like /projects/{id}/documents/{doc}
       match /{allSubpaths=**} {
         allow read: if isSignedIn();
         allow write: if canWrite();
       }
     }
 
-    /** Specific paths for clarity and additional constraints */
-    
-    match /projects/{projectId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-
-      match /documents/{documentId} {
-        allow read: if isSignedIn();
-        allow write: if canWrite();
-      }
-    }
-
-    match /dailyReports/{reportId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /monthlyReports/{reportId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /safetyEvents/{eventId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /contractors/{contractorId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
     match /time_entries/{entryId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn(); // All users log hours
+      allow create: if isSignedIn();
       allow update, delete: if canWrite() || (resource.data.userId == request.auth.uid);
     }
 
