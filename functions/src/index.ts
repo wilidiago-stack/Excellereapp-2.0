@@ -106,5 +106,3 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
     }
   },
 );
-
-export {menuSuggestion} from "./genkit-sample";
