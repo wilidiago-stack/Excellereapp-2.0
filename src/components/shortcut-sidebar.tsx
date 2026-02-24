@@ -1,24 +1,12 @@
-
 'use client';
 
 import { 
   Plus, 
-  PlusCircle, 
-  UserPlus, 
-  FileText, 
-  Sparkles, 
+  Pin, 
+  PinOff, 
   HelpCircle,
-  FolderKanban,
-  Users,
-  HardHat,
-  CalendarDays,
-  Home,
-  Pin,
-  PinOff,
-  Map,
-  CloudSun,
   Loader2,
-  ShieldAlert
+  ChevronRight
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -43,28 +31,9 @@ import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { ACTION_REGISTRY } from '@/lib/registry';
 
 const DEFAULT_SHORTCUTS = ['dashboard', 'project-new', 'daily-report-new', 'safety-event-new'];
-
-const ACTION_REGISTRY = [
-  { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, moduleId: 'dashboard', moduleName: 'System' },
-  { id: 'project-new', label: 'New Project', href: '/projects/new', icon: PlusCircle, moduleId: 'projects', moduleName: 'Projects' },
-  { id: 'projects-list', label: 'Project List', href: '/projects', icon: FolderKanban, moduleId: 'projects', moduleName: 'Projects' },
-  { id: 'user-new', label: 'New User', href: '/users/new', icon: UserPlus, moduleId: 'users', moduleName: 'Users' },
-  { id: 'users-list', label: 'User List', href: '/users', icon: Users, moduleId: 'users', moduleName: 'Users' },
-  { id: 'contractor-new', label: 'New Contractor', href: '/contractors/new', icon: HardHat, moduleId: 'contractors', moduleName: 'Contractors' },
-  { id: 'contractors-list', label: 'Contractor List', href: '/contractors', icon: HardHat, moduleId: 'contractors', moduleName: 'Contractors' },
-  { id: 'daily-report-new', label: 'New Daily Report', href: '/daily-report/new', icon: FileText, moduleId: 'daily-report', moduleName: 'Reports' },
-  { id: 'daily-report-list', label: 'Daily Reports', href: '/daily-report', icon: FileText, moduleId: 'daily-report', moduleName: 'Reports' },
-  { id: 'monthly-report-new', label: 'New Monthly Report', href: '/monthly-report/new', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
-  { id: 'monthly-report-list', label: 'Monthly Reports', href: '/monthly-report', icon: CalendarDays, moduleId: 'monthly-report', moduleName: 'Reports' },
-  { id: 'safety-event-new', label: 'New Safety Event', href: '/safety-events/new', icon: ShieldAlert, moduleId: 'safety-events', moduleName: 'Safety' },
-  { id: 'safety-events-list', label: 'Safety Events', href: '/safety-events', icon: ShieldAlert, moduleId: 'safety-events', moduleName: 'Safety' },
-  { id: 'calendar-view', label: 'Calendar', href: '/calendar', icon: CalendarDays, moduleId: 'calendar', moduleName: 'Tools' },
-  { id: 'map-view', label: 'Project Map', href: '/map', icon: Map, moduleId: 'map', moduleName: 'Tools' },
-  { id: 'weather-view', label: 'Weather', href: '/weather', icon: CloudSun, moduleId: 'weather', moduleName: 'Tools' },
-  { id: 'ai-assistant', label: 'AI Assistant', href: '#', icon: Sparkles, moduleId: 'dashboard', moduleName: 'Tools' },
-];
 
 export function ShortcutSidebar() {
   const { user, role, assignedModules, loading: authLoading } = useAuth();
@@ -88,7 +57,8 @@ export function ShortcutSidebar() {
   const availableActions = useMemo(() => {
     return ACTION_REGISTRY.filter(action => {
       if (isAdmin) return true;
-      return assignedModules?.includes(action.moduleId) || action.moduleId === 'dashboard' || ['weather', 'calendar', 'map', 'safety-events'].includes(action.moduleId);
+      return assignedModules?.includes(action.moduleId) || 
+        ['weather', 'calendar', 'map', 'safety-events', 'reports-analytics', 'dashboard'].includes(action.moduleId);
     });
   }, [isAdmin, assignedModules]);
 

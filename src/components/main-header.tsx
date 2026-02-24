@@ -1,7 +1,8 @@
-
 'use client';
 
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,27 +18,64 @@ import {
   Menu,
   Bell,
   Search,
+  ChevronRight,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { APP_MODULES } from '@/lib/modules';
 import { Input } from '@/components/ui/input';
+import { ACTION_REGISTRY, type AppAction } from '@/lib/registry';
+import { cn } from '@/lib/utils';
 
 export function MainHeader() {
   const { role, assignedModules } = useAuth();
+  const router = useRouter();
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<AppAction[]>([]);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = role === 'admin';
 
-  // Strict visibility logic:
-  // 1. If user is Admin, they see everything by default (safety fallback).
-  // 2. Otherwise, they ONLY see what is in their 'assignedModules' list.
+  useEffect(() => {
+    if (searchQuery.trim().length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    const results = ACTION_REGISTRY.filter(action => {
+      const hasPermission = isAdmin || assignedModules?.includes(action.moduleId) || 
+        ['weather', 'calendar', 'map', 'safety-events', 'reports-analytics'].includes(action.moduleId);
+      
+      if (!hasPermission) return false;
+
+      const searchContent = `${action.label} ${action.moduleName} ${action.description}`.toLowerCase();
+      return searchContent.includes(searchQuery.toLowerCase());
+    }).slice(0, 6);
+
+    setSearchResults(results);
+  }, [searchQuery, isAdmin, assignedModules]);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleActionClick = (href: string) => {
+    router.push(href);
+    setSearchQuery('');
+    setIsSearchOpen(false);
+  };
+
   const menuItems = APP_MODULES.map(module => {
     const isAssigned = assignedModules && assignedModules.includes(module.id);
     const show = isAdmin || isAssigned;
-
-    return {
-      ...module,
-      show
-    };
+    return { ...module, show };
   });
 
   const secondaryMenuItems = [
@@ -97,15 +135,63 @@ export function MainHeader() {
         </Link>
       </div>
 
-      <div className="flex-1 flex justify-center px-4 max-w-xl mx-auto">
+      <div className="flex-1 flex justify-center px-4 max-w-xl mx-auto relative" ref={searchRef}>
         <div className="relative w-full hidden sm:block">
           <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input
             type="search"
-            placeholder="Quick search... (AI powered soon)"
+            placeholder="Search modules and actions..."
             className="w-full pl-9 h-9 bg-slate-100/50 border-none rounded-full focus-visible:ring-1 focus-visible:ring-[#46a395]"
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setIsSearchOpen(true);
+            }}
+            onFocus={() => setIsSearchOpen(true)}
           />
         </div>
+
+        {/* SEARCH RESULTS DROPDOWN */}
+        {isSearchOpen && searchQuery.trim().length >= 2 && (
+          <div className="absolute top-11 left-4 right-4 bg-white rounded-sm border border-slate-200 shadow-xl z-50 overflow-hidden animate-in fade-in slide-in-from-top-1 duration-200">
+            <div className="p-2 bg-slate-50 border-b flex items-center justify-between">
+              <span className="text-[9px] font-black uppercase text-slate-400 px-2 tracking-widest">Global Action Results</span>
+              <Sparkles className="h-3 w-3 text-[#46a395]" />
+            </div>
+            <div className="max-h-80 overflow-y-auto no-scrollbar">
+              {searchResults.length === 0 ? (
+                <div className="p-8 text-center">
+                  <p className="text-xs text-slate-400 italic">No matches found for "{searchQuery}"</p>
+                </div>
+              ) : (
+                <div className="p-1">
+                  {searchResults.map((action) => (
+                    <button
+                      key={action.id}
+                      onClick={() => handleActionClick(action.href)}
+                      className="w-full flex items-center gap-3 p-3 rounded-sm hover:bg-slate-50 transition-colors group text-left"
+                    >
+                      <div className="h-9 w-9 rounded-sm bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-white group-hover:shadow-sm transition-all border border-transparent group-hover:border-slate-100">
+                        <action.icon className="h-4.5 w-4.5" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-700">{action.label}</span>
+                          <span className="text-[9px] font-black uppercase text-slate-300 group-hover:text-[#46a395] transition-colors">{action.moduleName}</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 truncate">{action.description}</p>
+                      </div>
+                      <ChevronRight className="h-3 w-3 text-slate-200 group-hover:text-slate-400 transition-all" />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <div className="p-2 border-t bg-slate-50/50 flex items-center justify-center">
+              <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">Enter query to refine search results</span>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

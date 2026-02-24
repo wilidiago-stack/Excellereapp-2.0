@@ -4,18 +4,18 @@ import * as firestore from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Initialize Firebase Admin SDK
+// Initialize Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
-// Set global options for the function
+// Set global options
 setGlobalOptions({maxInstances: 10});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
 export const setupInitialUserRole = identity.onAuthUserCreated(
-  async (event) => {
+  async (event: any) => {
     const {uid, email, displayName} = event.data;
     logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -43,24 +43,25 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
 
       const parts = displayName?.split(" ").filter((p: string) =>
         p.length > 0) || [];
-      const firstName = parts[0] || (email ? email.split("@")[0] : "New");
-      const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
+      const fName = parts[0] || (email ? email.split("@")[0] : "New");
+      const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
 
       const role = isFirstUser ? "admin" : "viewer";
 
-      const defaultModules = isFirstUser ? [
+      const mods = isFirstUser ? [
         "dashboard", "projects", "users", "contractors",
         "daily-report", "monthly-report", "safety-events",
         "project-team", "documents", "calendar", "map", "weather",
+        "reports-analytics",
       ] : [];
 
       const newUserDocument = {
-        firstName,
-        lastName,
+        firstName: fName,
+        lastName: lName,
         email: email || "",
         role: role,
         status: "active",
-        assignedModules: defaultModules,
+        assignedModules: mods,
         assignedProjects: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
@@ -69,12 +70,11 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
 
       await admin.auth().setCustomUserClaims(uid, {
         role: role,
-        assignedModules: defaultModules,
+        assignedModules: mods,
         assignedProjects: [],
       });
 
       logger.info(`[setupInitialUserRole] Complete for ${uid}. Role: ${role}`);
-
     } catch (error) {
       logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
     }
@@ -86,19 +86,19 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
  */
 export const onUserRoleChange = firestore.onDocumentUpdated(
   "users/{userId}",
-  async (event) => {
+  async (event: any) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
     if (!afterData) return;
 
-    const roleChanged = afterData.role !== beforeData?.role;
-    const modulesChanged = JSON.stringify(afterData.assignedModules) !==
-                           JSON.stringify(beforeData?.assignedModules);
-    const projectsChanged = JSON.stringify(afterData.assignedProjects) !==
-                            JSON.stringify(beforeData?.assignedProjects);
+    const rChanged = afterData.role !== beforeData?.role;
+    const mChanged = JSON.stringify(afterData.assignedModules) !==
+                     JSON.stringify(beforeData?.assignedModules);
+    const pChanged = JSON.stringify(afterData.assignedProjects) !==
+                     JSON.stringify(beforeData?.assignedProjects);
 
-    if (!roleChanged && !modulesChanged && !projectsChanged) return;
+    if (!rChanged && !mChanged && !pChanged) return;
 
     const uid = event.params.userId;
     logger.info(`[onUserRoleChange] Syncing claims for ${uid}`);
