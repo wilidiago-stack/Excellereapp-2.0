@@ -71,7 +71,6 @@ export function MainHeader() {
     };
 
     recognition.onerror = (event: any) => {
-      // Avoid console.error to prevent Next.js dev error overlay
       if (event.error !== 'aborted') {
         console.warn('Speech recognition warning:', event.error);
       }
@@ -201,11 +200,13 @@ export function MainHeader() {
             type="button"
             onClick={startListening}
             className={cn(
-              "absolute right-3 top-2 transition-colors",
-              isListening ? "text-red-500 animate-pulse" : "text-slate-400 hover:text-[#46a395]"
+              "absolute right-2 top-1.5 h-6 w-6 rounded-full flex items-center justify-center transition-all duration-300",
+              isListening 
+                ? "bg-red-500 text-white animate-pulse" 
+                : "bg-gradient-to-br from-[#1BA1E3] via-[#9168C0] to-[#D05CA4] text-white shadow-sm hover:scale-110 active:scale-95"
             )}
           >
-            {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+            {isListening ? <MicOff className="h-3.5 w-3.5" /> : <Mic className="h-3.5 w-3.5" />}
           </button>
         </div>
 
