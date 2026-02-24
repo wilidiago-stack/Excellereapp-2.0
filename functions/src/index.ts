@@ -10,15 +10,13 @@ import type {
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
-// Set global options for the function
 setGlobalOptions({maxInstances: 10});
 
 /**
- * Triggered on new user creation in Firebase Authentication.
+ * Registra el rol inicial y claims al crear un usuario.
  */
 export const setupInitialUserRole = onAuthUserCreated(
   async (event: AuthEvent) => {
@@ -74,7 +72,6 @@ export const setupInitialUserRole = onAuthUserCreated(
 
       await userDocRef.set(newUserDocument);
 
-      // CRITICAL: Set initial claims immediately
       await admin.auth().setCustomUserClaims(uid, {
         role: role,
         assignedModules: defaultModules,
@@ -91,7 +88,7 @@ export const setupInitialUserRole = onAuthUserCreated(
 );
 
 /**
- * Syncs changes from Firestore user document to Custom Claims.
+ * Sincroniza cambios de Firestore a Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated(
   "users/{userId}",

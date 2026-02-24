@@ -5,10 +5,12 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
-import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
+import { 
+  initializeAppCheck, 
+  ReCaptchaEnterpriseProvider 
+} from 'firebase/app-check';
+import { RECAPTCHA_SITE_KEY } from './app-check-config';
 
-// IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
   if (!getApps().length) {
     let firebaseApp;
@@ -16,15 +18,15 @@ export function initializeFirebase() {
       firebaseApp = initializeApp();
     } catch (e) {
       if (process.env.NODE_ENV === "production") {
-        console.warn('Automatic initialization failed. Falling back to firebase config object.', e);
+        console.warn('Fallback a objeto de configuración manual.', e);
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
     
-    // Initialize App Check only on the client side
     if (typeof window !== "undefined") {
+      // Activación de reCAPTCHA Enterprise
       initializeAppCheck(firebaseApp, {
-        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+        provider: new ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),
         isTokenAutoRefreshEnabled: true,
       });
     }

@@ -2,17 +2,14 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    /** Verifica sesión activa */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Verifica que el email esté confirmado */
     function isVerified() {
       return request.auth.token.email_verified == true;
     }
 
-    /** Valida el rol desde los Custom Claims */
     function getRole() {
       return request.auth.token.role;
     }
@@ -25,20 +22,11 @@ service firebase.storage {
       return isSignedIn() && isVerified() && getRole() == 'project_manager';
     }
 
-    /** 
-     * Acceso por Proyecto:
-     * - Admin y PM: Full Access (mira, sube, borra)
-     * - Viewer (verificado): Read Only
-     */
     match /projects/{projectId}/{allPaths=**} {
-      // Lectura permitida para todos los usuarios verificados
       allow read: if isSignedIn() && isVerified();
-      
-      // Escritura y borrado solo para perfiles de gestión verificados
       allow write, delete: if isAdmin() || isManager();
     }
 
-    /** Fallback global: Verificados únicamente */
     match /{allPaths=**} {
       allow read: if isSignedIn() && isVerified();
       allow write: if isAdmin();
