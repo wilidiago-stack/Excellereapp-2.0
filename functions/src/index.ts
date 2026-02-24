@@ -1,6 +1,6 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreated} from "firebase-functions/v2/auth";
-import type {AuthEvent} from "firebase-functions/v2/auth";
+import {onAuthUserCreated} from "firebase-functions/v2/identity";
+import type {AuthEvent} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import type {
   FirestoreEvent,
