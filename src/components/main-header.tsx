@@ -19,23 +19,68 @@ import {
   Bell,
   Search,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Mic,
+  MicOff
 } from 'lucide-react';
 import { useAuth } from '@/firebase';
 import { APP_MODULES } from '@/lib/modules';
 import { Input } from '@/components/ui/input';
 import { ACTION_REGISTRY, type AppAction } from '@/lib/registry';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/hooks/use-toast';
 
 export function MainHeader() {
   const { role, assignedModules } = useAuth();
   const router = useRouter();
+  const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<AppAction[]>([]);
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [isListening, setIsListening] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   
   const isAdmin = role === 'admin';
+
+  // Voice Recognition Logic
+  const startListening = () => {
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    
+    if (!SpeechRecognition) {
+      toast({
+        variant: 'destructive',
+        title: 'Not Supported',
+        description: 'Voice recognition is not supported in this browser.',
+      });
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'en-US';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+
+    recognition.onstart = () => {
+      setIsListening(true);
+    };
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setSearchQuery(transcript);
+      setIsSearchOpen(true);
+    };
+
+    recognition.onerror = (event: any) => {
+      console.error('Speech recognition error:', event.error);
+      setIsListening(false);
+    };
+
+    recognition.onend = () => {
+      setIsListening(false);
+    };
+
+    recognition.start();
+  };
 
   useEffect(() => {
     if (searchQuery.trim().length < 2) {
@@ -49,7 +94,7 @@ export function MainHeader() {
       
       if (!hasPermission) return false;
 
-      const searchContent = `${action.label} ${action.moduleName} ${action.description}`.toLowerCase();
+      const searchContent = `${action.label} ${action.moduleName} ${action.description} ${action.moduleId}`.toLowerCase();
       return searchContent.includes(searchQuery.toLowerCase());
     }).slice(0, 6);
 
@@ -141,7 +186,7 @@ export function MainHeader() {
           <Input
             type="search"
             placeholder="Search modules and actions..."
-            className="w-full pl-9 h-9 bg-slate-100/50 border-none rounded-full focus-visible:ring-1 focus-visible:ring-[#46a395]"
+            className="w-full pl-9 pr-10 h-9 bg-slate-100/50 border-none rounded-full focus-visible:ring-1 focus-visible:ring-[#46a395]"
             value={searchQuery}
             onChange={(e) => {
               setSearchQuery(e.target.value);
@@ -149,6 +194,16 @@ export function MainHeader() {
             }}
             onFocus={() => setIsSearchOpen(true)}
           />
+          <button 
+            type="button"
+            onClick={startListening}
+            className={cn(
+              "absolute right-3 top-2 transition-colors",
+              isListening ? "text-red-500 animate-pulse" : "text-slate-400 hover:text-[#46a395]"
+            )}
+          >
+            {isListening ? <MicOff className="h-4.5 w-4.5" /> : <Mic className="h-4.5 w-4.5" />}
+          </button>
         </div>
 
         {/* SEARCH RESULTS DROPDOWN */}
