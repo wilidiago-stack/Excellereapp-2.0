@@ -10,7 +10,9 @@ admin.initializeApp();
 const db = admin.firestore();
 
 // Set global options for the function
-setGlobalOptions({maxInstances: 10});
+setGlobalOptions({
+  maxInstances: 10,
+});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
@@ -31,9 +33,13 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       if (currentCount === 0) isFirstUser = true;
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
-        transaction.update(metadataRef, {userCount: newCount});
+        transaction.update(metadataRef, {
+          userCount: newCount,
+        });
       } else {
-        transaction.set(metadataRef, {userCount: newCount});
+        transaction.set(metadataRef, {
+          userCount: newCount,
+        });
       }
     });
 
@@ -41,11 +47,20 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     const fName = parts[0] || (email ? email.split("@")[0] : "New");
     const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
-    
+
     const modules = isFirstUser ? [
-      "dashboard", "projects", "users", "contractors",
-      "daily-report", "monthly-report", "safety-events",
-      "project-team", "documents", "calendar", "map", "weather",
+      "dashboard",
+      "projects",
+      "users",
+      "contractors",
+      "daily-report",
+      "monthly-report",
+      "safety-events",
+      "project-team",
+      "documents",
+      "calendar",
+      "map",
+      "weather",
       "reports-analytics",
     ] : [];
 

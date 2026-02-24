@@ -94,7 +94,7 @@ export default function Home() {
   );
   const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
 
-  // Quick Links Read (Project Specific)
+  // Quick Links Read (Project Specific Subcollection)
   const quickLinksCollection = useMemoFirebase(
     () => (firestore && selectedProjectId 
       ? collection(firestore, 'projects', selectedProjectId, 'quick_links') 
@@ -228,11 +228,16 @@ export default function Home() {
         </CardContent>
       </Card>
 
-      <Card className="rounded-sm border-slate-200 shadow-sm">
+      <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden">
         <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
           <div className="flex items-center gap-2">
-            <LinkIcon className="h-4 w-4 text-[#46a395]" />
-            <CardTitle className="text-sm font-bold uppercase tracking-tight">Quick Access Links</CardTitle>
+            <div className="h-8 w-8 rounded-sm bg-[#46a395]/10 flex items-center justify-center">
+              <LinkIcon className="h-4 w-4 text-[#46a395]" />
+            </div>
+            <div>
+              <CardTitle className="text-sm font-bold uppercase tracking-tight">Quick Access Links</CardTitle>
+              <p className="text-[9px] text-slate-400 font-bold uppercase">Project-specific resources</p>
+            </div>
           </div>
           {isAdmin && selectedProjectId && (
             <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
@@ -266,33 +271,44 @@ export default function Home() {
             </Dialog>
           )}
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="p-4 bg-slate-50/20">
           {!selectedProjectId ? (
-            <div className="w-full py-10 flex flex-col items-center justify-center border border-dashed rounded-sm bg-slate-50/50">
-              <FolderKanban className="h-8 w-8 text-slate-200 mb-2" />
-              <p className="text-[10px] font-bold uppercase text-slate-400">Select a project to view specific links</p>
+            <div className="w-full py-12 flex flex-col items-center justify-center border border-dashed rounded-sm bg-white/50">
+              <FolderKanban className="h-10 w-10 text-slate-200 mb-2" />
+              <p className="text-[10px] font-bold uppercase text-slate-400">Select a project context above to manage links</p>
             </div>
           ) : (
-            <div className="flex flex-wrap gap-2">
-              {linksLoading ? [1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-32 rounded-sm" />) : quickLinks?.length === 0 ? (
-                <div className="w-full py-6 text-center text-[10px] font-bold uppercase text-slate-400 italic border border-dashed rounded-sm">
-                  No project-specific links
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+              {linksLoading ? [1, 2, 3, 4].map(i => <Skeleton key={i} className="h-16 w-full rounded-sm" />) : quickLinks?.length === 0 ? (
+                <div className="col-span-full py-10 text-center text-[10px] font-bold uppercase text-slate-400 italic border border-dashed rounded-sm bg-white/50">
+                  No project-specific links created yet
                 </div>
               ) : (
                 quickLinks?.map((link: any) => (
                   <div key={link.id} className="relative group">
-                    <Button asChild variant="outline" className="h-10 px-4 rounded-sm border-slate-200 hover:border-[#46a395] hover:bg-[#46a395]/5 hover:text-[#46a395] transition-all gap-2 pr-8 group">
-                      <a href={link.url} target="_blank" rel="noopener noreferrer">
-                        <ExternalLink className="h-3.5 w-3.5 opacity-50" />
-                        <span className="text-xs font-bold">{link.label}</span>
-                      </a>
-                    </Button>
+                    <a 
+                      href={link.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 p-3 bg-white border border-slate-200 rounded-sm shadow-sm hover:shadow-md hover:border-[#46a395] transition-all group relative overflow-hidden before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-[#46a395]/30 hover:before:bg-[#46a395] hover:-translate-y-0.5"
+                    >
+                      <div className="h-8 w-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 group-hover:bg-[#46a395]/10 group-hover:text-[#46a395] transition-colors">
+                        <ExternalLink className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs font-black text-slate-700 block truncate group-hover:text-[#46a395] transition-colors">{link.label}</span>
+                        <span className="text-[8px] text-slate-400 font-bold uppercase truncate block opacity-0 group-hover:opacity-100 transition-opacity">Open Resource</span>
+                      </div>
+                    </a>
                     {isAdmin && (
                       <button 
-                        onClick={() => handleDeleteLink(link.id)}
-                        className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          handleDeleteLink(link.id);
+                        }}
+                        className="absolute -right-1 -top-1 h-6 w-6 rounded-full bg-white border border-slate-100 text-slate-300 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all hover:bg-red-500 hover:text-white hover:border-red-500 shadow-sm z-10 scale-75 group-hover:scale-100"
                       >
-                        <Trash2 className="h-3.5 w-3.5" />
+                        <Trash2 className="h-3 w-3" />
                       </button>
                     )}
                   </div>
