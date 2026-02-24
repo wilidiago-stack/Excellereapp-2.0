@@ -66,7 +66,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            const tokenResult = await getIdTokenResult(firebaseUser);
+            // Force refresh if the user just signed in to get latest custom claims
+            const tokenResult = await getIdTokenResult(firebaseUser, true);
             setAuthState(prev => ({
               ...prev,
               user: firebaseUser,

@@ -45,7 +45,9 @@ export function UserNav() {
 
   const handleViewToken = async () => {
     if (user) {
-      setVisibleClaims(claims);
+      // Get fresh token info
+      const tokenResult = await getIdTokenResult(user);
+      setVisibleClaims(tokenResult.claims);
       setIsTokenDialogOpen(true);
     }
   };
