@@ -25,12 +25,13 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     let isFirstUser = false;
     await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
-      const currentCount = metadataDoc.exists ? metadataDoc.data()?.userCount || 0 : 0;
-      
+      const currentCount = metadataDoc.exists ?
+        metadataDoc.data()?.userCount || 0 : 0;
+
       if (currentCount === 0) {
         isFirstUser = true;
       }
-      
+
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, {userCount: newCount});
@@ -41,14 +42,15 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
     const nameParts = displayName?.split(" ").filter((p) => p.length > 0) || [];
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
-    
+    const lastName = nameParts.length > 1 ?
+      nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
+
     const role = isFirstUser ? "admin" : "viewer";
-    
+
     const defaultModules = isFirstUser ? [
-      "dashboard", "projects", "users", "contractors", 
-      "daily-report", "monthly-report", "safety-events", 
-      "project-team", "documents", "calendar", "map", "weather"
+      "dashboard", "projects", "users", "contractors",
+      "daily-report", "monthly-report", "safety-events",
+      "project-team", "documents", "calendar", "map", "weather",
     ] : [];
 
     const newUserDocument = {
@@ -65,7 +67,6 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     await userDocRef.set(newUserDocument);
 
     // CRITICAL: Set initial claims immediately including assignedProjects
-    // This provides the 'source of truth' for the token
     await admin.auth().setCustomUserClaims(uid, {
       role: role,
       assignedModules: defaultModules,
@@ -73,7 +74,6 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     });
 
     logger.info(`[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`);
-
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
   }
@@ -82,32 +82,33 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 /**
  * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
  */
-export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event) => {
-  const beforeData = event.data?.before.data();
-  const afterData = event.data?.after.data();
+export const onUserRoleChange = onDocumentUpdated("users/{userId}",
+  async (event) => {
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
 
-  if (!afterData) return;
+    if (!afterData) return;
 
-  // We detect changes in ANY security field
-  const roleChanged = afterData.role !== beforeData?.role;
-  const modulesChanged = JSON.stringify(afterData.assignedModules) !== JSON.stringify(beforeData?.assignedModules);
-  const projectsChanged = JSON.stringify(afterData.assignedProjects) !== JSON.stringify(beforeData?.assignedProjects);
+    const roleChanged = afterData.role !== beforeData?.role;
+    const modulesChanged = JSON.stringify(afterData.assignedModules) !==
+      JSON.stringify(beforeData?.assignedModules);
+    const projectsChanged = JSON.stringify(afterData.assignedProjects) !==
+      JSON.stringify(beforeData?.assignedProjects);
 
-  if (!roleChanged && !modulesChanged && !projectsChanged) return;
-  
-  const uid = event.params.userId;
-  logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
+    if (!roleChanged && !modulesChanged && !projectsChanged) return;
 
-  try {
-    // Sync all critical security fields to the Auth Token
-    // This is what the React app will look for to trigger its own refresh
-    await admin.auth().setCustomUserClaims(uid, {
-      role: afterData.role || "viewer",
-      assignedModules: afterData.assignedModules || [],
-      assignedProjects: afterData.assignedProjects || [],
-    });
-    logger.info(`[onUserRoleChange] Claims synced for ${uid}.`);
-  } catch (error) {
-    logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);
-  }
-});
+    const uid = event.params.userId;
+    logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
+
+    try {
+      // Sync all critical security fields to the Auth Token
+      await admin.auth().setCustomUserClaims(uid, {
+        role: afterData.role || "viewer",
+        assignedModules: afterData.assignedModules || [],
+        assignedProjects: afterData.assignedProjects || [],
+      });
+      logger.info(`[onUserRoleChange] Claims synced for ${uid}.`);
+    } catch (error) {
+      logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);
+    }
+  });
