@@ -24,12 +24,10 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
       let isFirstUser = false;
       await db.runTransaction(async (transaction) => {
         const metadataDoc = await transaction.get(metadataRef);
-        const currentCount = metadataDoc.exists ?
-          metadataDoc.data()?.userCount || 0 : 0;
+        const data = metadataDoc.data();
+        const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
 
-        if (currentCount === 0) {
-          isFirstUser = true;
-        }
+        if (currentCount === 0) isFirstUser = true;
 
         const newCount = currentCount + 1;
         if (metadataDoc.exists) {
@@ -39,42 +37,32 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
         }
       });
 
-      const nameParts = displayName?.split(" ")
-        .filter((p: string) => p.length > 0) || [];
-      const fName = nameParts[0] || (email ? email.split("@")[0] : "New");
-      const lName = nameParts.length > 1 ?
-        nameParts.slice(1).join(" ") : (email ? "(email)" : "User");
+      const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+      const fName = parts[0] || (email ? email.split("@")[0] : "New");
+      const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
 
       const role = isFirstUser ? "admin" : "viewer";
+      const modules = isFirstUser ? ["dashboard", "projects", "users"] : [];
 
-      const defaultModules = isFirstUser ? [
-        "dashboard", "projects", "users", "contractors",
-        "daily-report", "monthly-report", "safety-events",
-        "project-team", "documents", "calendar", "map", "weather",
-      ] : [];
-
-      const newUserDocument = {
+      const newUser = {
         firstName: fName,
         lastName: lName,
         email: email || "",
         role: role,
         status: "active",
-        assignedModules: defaultModules,
+        assignedModules: modules,
         assignedProjects: [],
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       };
 
-      await userDocRef.set(newUserDocument);
-
+      await userDocRef.set(newUser);
       await admin.auth().setCustomUserClaims(uid, {
         role: role,
-        assignedModules: defaultModules,
+        assignedModules: modules,
         assignedProjects: [],
       });
 
-      logger.info(
-        `[setupInitialUserRole] Setup for ${uid} complete. Role: ${role}`
-      );
+      logger.info(`[setupInitialUserRole] Done for ${uid}. Role: ${role}`);
     } catch (error) {
       logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
     }
@@ -86,22 +74,17 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
  */
 export const onUserRoleChange = firestore.onDocumentUpdated(
   "users/{userId}",
-  async (event: firestore.FirestoreEvent<
-    firestore.Change<firestore.QueryDocumentSnapshot> | undefined
-  > ) => {
-    const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
+  async (event) => {
+    const before = event.data?.before.data();
+    const after = event.data?.after.data();
 
-    if (!afterData) return;
+    if (!after) return;
 
-    const rChanged = afterData.role !== beforeData?.role;
-    const mB = JSON.stringify(beforeData?.assignedModules || []);
-    const mA = JSON.stringify(afterData.assignedModules || []);
-    const pB = JSON.stringify(beforeData?.assignedProjects || []);
-    const pA = JSON.stringify(afterData.assignedProjects || []);
-
-    const mChanged = mB !== mA;
-    const pChanged = pB !== pA;
+    const rChanged = after.role !== before?.role;
+    const mChanged = JSON.stringify(after.assignedModules) !== 
+                     JSON.stringify(before?.assignedModules);
+    const pChanged = JSON.stringify(after.assignedProjects) !== 
+                     JSON.stringify(before?.assignedProjects);
 
     if (!rChanged && !mChanged && !pChanged) return;
 
@@ -110,9 +93,9 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
 
     try {
       await admin.auth().setCustomUserClaims(uid, {
-        role: afterData.role || "viewer",
-        assignedModules: afterData.assignedModules || [],
-        assignedProjects: afterData.assignedProjects || [],
+        role: after.role || "viewer",
+        assignedModules: after.assignedModules || [],
+        assignedProjects: after.assignedProjects || [],
       });
     } catch (error) {
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);

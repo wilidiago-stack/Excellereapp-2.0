@@ -6,7 +6,7 @@ import {defineSecret} from "firebase-functions/params";
 const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
 
 /**
- * Inicializa telemetría de forma segura para CommonJS.
+ * Inicializa telemetría de forma segura.
  */
 async function startTelemetry() {
   try {
@@ -16,7 +16,7 @@ async function startTelemetry() {
       m.enableFirebaseTelemetry();
     }
   } catch (e) {
-    // Telemetría opcional o no encontrada
+    // Telemetría opcional
   }
 }
 
@@ -28,7 +28,7 @@ const ai = genkit({
 
 const menuSuggestionFlow = ai.defineFlow({
   name: "menuSuggestionFlow",
-  inputSchema: z.string().describe("Restaurant theme").default("seafood"),
+  inputSchema: z.string().describe("Theme").default("seafood"),
   outputSchema: z.string(),
   streamSchema: z.string(),
 }, async (subject, {sendChunk}) => {
