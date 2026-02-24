@@ -1,12 +1,6 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreated} from "firebase-functions/v2/identity";
-import type {AuthEvent} from "firebase-functions/v2/identity";
-import {onDocumentUpdated} from "firebase-functions/v2/firestore";
-import type {
-  FirestoreEvent,
-  Change,
-  QueryDocumentSnapshot,
-} from "firebase-functions/v2/firestore";
+import * as identity from "firebase-functions/v2/identity";
+import * as firestore from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
@@ -18,8 +12,8 @@ setGlobalOptions({maxInstances: 10});
 /**
  * Registra el rol inicial y claims al crear un usuario.
  */
-export const setupInitialUserRole = onAuthUserCreated(
-  async (event: AuthEvent) => {
+export const setupInitialUserRole = identity.onAuthUserCreated(
+  async (event: identity.AuthEvent) => {
     const {uid, email, displayName} = event.data;
     logger.info(`[setupInitialUserRole] UID: ${uid}`);
 
@@ -90,10 +84,10 @@ export const setupInitialUserRole = onAuthUserCreated(
 /**
  * Sincroniza cambios de Firestore a Custom Claims.
  */
-export const onUserRoleChange = onDocumentUpdated(
+export const onUserRoleChange = firestore.onDocumentUpdated(
   "users/{userId}",
-  async (event: FirestoreEvent<
-    Change<QueryDocumentSnapshot> | undefined
+  async (event: firestore.FirestoreEvent<
+    firestore.Change<firestore.QueryDocumentSnapshot> | undefined
   > ) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
