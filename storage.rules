@@ -1,8 +1,27 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    
+    /**
+     * Helper functions to check roles from the auth token.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function canUpload() {
+      return isSignedIn() && (
+        request.auth.token.role == 'admin' || 
+        request.auth.token.role == 'project_manager'
+      );
+    }
+
     match /{allPaths=**} {
-      allow read, write: if request.auth != null;
+      /** Viewers can only read files */
+      allow read: if isSignedIn();
+      
+      /** Only Admin and Project Manager can upload or delete files */
+      allow write: if canUpload();
     }
   }
 }

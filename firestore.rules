@@ -3,108 +3,113 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * Core Philosophy: Access control is based on authentication state, 
-     * specific document ownership, and custom role-based claims.
+     * Helper functions for role-based access control.
+     * Roles are stored in the authentication token claims.
      */
-
-    // --- Helper Functions ---
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Checks if the user has the 'admin' role in their custom claims. */
-    function isAdmin() {
-      return isSignedIn() && request.auth.token.role == 'admin';
+    function hasRole(role) {
+      return isSignedIn() && request.auth.token.role == role;
     }
 
-    /** Checks if the authenticated user's UID matches the provided userId. */
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isManager() {
+      return hasRole('project_manager');
+    }
+
+    /** Total access for Admin and Project Manager */
+    function canWrite() {
+      return isAdmin() || isManager();
     }
 
     // --- Collection Rules ---
 
     /**
-     * System metadata is readable by all authenticated users to show total stats.
+     * System metadata is readable by all authenticated users.
      */
     match /system/metadata {
       allow read: if isSignedIn();
-      allow write: if false; // Managed by Cloud Functions
+      allow write: if isAdmin();
     }
 
     /**
-     * Users can always read and update their own profiles.
-     * Administrators can manage all profiles.
+     * Users management.
+     * Users can read their own profile.
+     * Only admins can manage the full directory.
      */
     match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow list: if isAdmin();
-      allow create: if isSignedIn(); 
-      allow update: if isOwner(userId) || isAdmin();
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin() || isManager();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (request.auth.uid == userId);
       allow delete: if isAdmin();
     }
 
     /**
-     * Projects are visible to all internal staff.
-     * Creation and management is restricted to authenticated users.
+     * Projects and Sub-resources (Daily Reports, Monthly Reports, Safety Events, Contractors).
+     * Admin & PM: Full Control.
+     * Viewer: Read Only.
      */
-    match /projects/{projectId} {
+    
+    // Generic rule for operative collections
+    match /{collectionName}/{docId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin());
-      allow delete: if isAdmin();
-
-      /** Subcollection for documents. Inherits project-level read access. */
-      match /documents/{documentId} {
-        allow read, write: if isSignedIn();
+      allow write: if canWrite();
+      
+      // Allow recursive access for subcollections like /projects/{id}/documents/{doc}
+      match /{allSubpaths=**} {
+        allow read: if isSignedIn();
+        allow write: if canWrite();
       }
     }
 
-    /**
-     * Site records and operational logs.
-     */
-    match /contractors/{contractorId} {
+    /** Specific paths for clarity and additional constraints */
+    
+    match /projects/{projectId} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if canWrite();
+
+      match /documents/{documentId} {
+        allow read: if isSignedIn();
+        allow write: if canWrite();
+      }
     }
 
     match /dailyReports/{reportId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+      allow write: if canWrite();
     }
 
     match /monthlyReports/{reportId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+      allow write: if canWrite();
     }
 
     match /safetyEvents/{eventId} {
       allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if isAdmin() || (resource != null && resource.data.authorId == request.auth.uid);
+      allow write: if canWrite();
     }
 
-    /**
-     * Time tracking entries. Users manage their own time. 
-     * Admins can view and manage everyone's time for payroll/approval.
-     */
+    match /contractors/{contractorId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
     match /time_entries/{entryId} {
-      allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update, delete: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
+      allow read: if isSignedIn();
+      allow create: if isSignedIn(); // All users log hours
+      allow update, delete: if canWrite() || (resource.data.userId == request.auth.uid);
     }
 
     match /weekly_submissions/{submissionId} {
-      allow read: if isAdmin() || (resource != null && resource.data.userId == request.auth.uid);
-      allow write: if isAdmin() || (isSignedIn() && (submissionId.startsWith(request.auth.uid)));
-    }
-
-    // Compatibility for legacy frontend versions
-    match /user_profiles/{userId} {
-      allow read, write: if isOwner(userId) || isAdmin();
+      allow read: if isSignedIn();
+      allow write: if canWrite() || submissionId.startsWith(request.auth.uid);
     }
   }
 }
