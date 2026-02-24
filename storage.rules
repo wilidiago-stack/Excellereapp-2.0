@@ -3,27 +3,42 @@ service firebase.storage {
   match /b/{bucket}/o {
     
     /**
-     * Helper functions to check authentication.
+     * Helper functions for verified authentication.
      */
     function isSignedIn() {
       return request.auth != null;
     }
 
     /**
-     * Storage security rules rely on Auth Custom Claims. 
-     * Since claims can take time to propagate, we allow write access 
-     * to all authenticated users for the prototype phase to ensure 
-     * the project management workflow is not interrupted.
+     * Token Verification:
+     * Firebase Storage rules depend on verified Custom Claims.
      */
+    function hasRole(roleName) {
+      return isSignedIn() && request.auth.token.role == roleName;
+    }
+
+    function isAdmin() {
+      return hasRole('admin');
+    }
+
+    function isManager() {
+      return hasRole('project_manager');
+    }
+
+    /** Write access only for Admin and PM */
+    function canWrite() {
+      return isAdmin() || isManager();
+    }
+
     match /{allPaths=**} {
-      /** Viewers and higher roles can read files */
+      /** Any authenticated user can read (Viewers included) */
       allow read: if isSignedIn();
       
       /** 
-       * Allow upload/delete for authenticated users. 
-       * In production, this would check request.auth.token.role == 'admin'
+       * Only users with verified Admin or PM roles in their TOKEN 
+       * can upload or delete.
        */
-      allow write: if isSignedIn();
+      allow write: if canWrite();
     }
   }
 }

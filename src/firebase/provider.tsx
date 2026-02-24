@@ -4,7 +4,7 @@ import React, { DependencyList, createContext, useContext, ReactNode, useMemo, u
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -19,7 +19,6 @@ interface UserAuthState {
   claims: any | null;
   isUserLoading: boolean;
   userError: Error | null;
-  // Live profile data from Firestore to avoid Auth Token lag
   dbProfile: any | null;
 }
 
@@ -55,6 +54,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     dbProfile: null,
   });
 
+  // 1. Initial Auth State and Token Load
   useEffect(() => {
     if (!auth) {
       setAuthState(prev => ({ ...prev, isUserLoading: false, userError: new Error("Auth service not provided.") }));
@@ -66,7 +66,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            // Get initial token result
             const tokenResult = await getIdTokenResult(firebaseUser);
             setAuthState(prev => ({
               ...prev,
@@ -102,7 +101,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribeAuth();
   }, [auth]);
 
-  // Real-time synchronization with the Firestore User document
+  // 2. Real-time DB Profile Synchronization
   useEffect(() => {
     if (!firestore || !authState.user) {
       setAuthState(prev => ({ ...prev, dbProfile: null }));
@@ -120,28 +119,36 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         }
       },
       (error) => {
-        console.warn("Live profile sync failed. Relying on Auth claims.", error);
+        console.warn("Live profile sync error:", error);
       }
     );
 
     return () => unsubscribeDoc();
   }, [firestore, authState.user?.uid]);
 
-  // AUTO-REFRESH TOKEN LOGIC
-  // If we have a role in the DB but NOT in the token claims, force a refresh once.
+  // 3. Proactive Token Refresh Logic
+  // This ensures that when DB data changes, the Token (claims) catch up immediately.
   useEffect(() => {
     const user = authState.user;
-    const dbRole = authState.dbProfile?.role;
-    const tokenRole = authState.claims?.role;
+    if (!user || !authState.dbProfile) return;
 
-    if (user && dbRole && !tokenRole) {
+    const dbRole = authState.dbProfile.role;
+    const tokenRole = authState.claims?.role;
+    
+    const dbModules = JSON.stringify(authState.dbProfile.assignedModules || []);
+    const tokenModules = JSON.stringify(authState.claims?.assignedModules || []);
+
+    const dbProjects = JSON.stringify(authState.dbProfile.assignedProjects || []);
+    const tokenProjects = JSON.stringify(authState.claims?.assignedProjects || []);
+
+    // If there is any discrepancy between DB and Token, force a token refresh
+    if (dbRole !== tokenRole || dbModules !== tokenModules || dbProjects !== tokenProjects) {
+      console.log("[Auth] Security discrepancy detected. Refreshing ID Token...");
       getIdTokenResult(user, true).then(tokenResult => {
-        if (tokenResult.claims.role) {
-          setAuthState(prev => ({ ...prev, claims: tokenResult.claims }));
-        }
-      }).catch(err => console.error("Auto-token refresh failed:", err));
+        setAuthState(prev => ({ ...prev, claims: tokenResult.claims }));
+      }).catch(err => console.error("[Auth] Token refresh failed:", err));
     }
-  }, [authState.user, authState.dbProfile?.role, authState.claims?.role]);
+  }, [authState.user, authState.dbProfile, authState.claims]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
@@ -174,7 +181,7 @@ export const useFirebase = (): FirebaseContextState => {
 export const useAuth = (): AuthState => {
   const { user, claims, isUserLoading, userError, dbProfile } = useFirebase();
   
-  // Prefer live data from Firestore (dbProfile) over cached data in Auth claims
+  // Prefer real-time DB data for UI, fallback to claims for initial state
   const role = dbProfile?.role || claims?.role || null;
   const assignedModules = dbProfile?.assignedModules || claims?.assignedModules || null;
   const assignedProjects = dbProfile?.assignedProjects || claims?.assignedProjects || null;
@@ -210,18 +217,11 @@ export const useStorage = (): any => {
   return storage;
 };
 
-export const useFirebaseApp = (): FirebaseApp => {
-  const { firebaseApp } = useFirebase();
-  if (!firebaseApp) throw new Error('Firebase App not available');
-  return firebaseApp;
-};
-
-type MemoFirebase <T> = T & {__memo?: boolean};
-
-export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | (MemoFirebase<T>) {
+export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T {
   const memoized = useMemo(factory, deps);
-  if(typeof memoized !== 'object' || memoized === null) return memoized;
-  (memoized as MemoFirebase<T>).__memo = true;
+  if(typeof memoized === 'object' && memoized !== null) {
+    (memoized as any).__memo = true;
+  }
   return memoized;
 }
 
