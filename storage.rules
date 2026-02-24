@@ -2,47 +2,46 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    /**
-     * Verifica si el usuario tiene una sesión activa en Firebase.
-     */
+    /** Verifica si el usuario tiene una sesión activa */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Valida el rol del usuario directamente desde los Custom Claims del Token (JWT).
-     * Este valor es asignado por las Cloud Functions y verificado por Google.
-     */
-    function hasRole(roleName) {
-      return isSignedIn() && request.auth.token.role == roleName;
+    /** Valida el rol desde los Custom Claims del Token */
+    function getRole() {
+      return request.auth.token.role;
     }
 
     function isAdmin() {
-      return hasRole('admin');
+      return isSignedIn() && getRole() == 'admin';
     }
 
     function isManager() {
-      return hasRole('project_manager');
+      return isSignedIn() && getRole() == 'project_manager';
     }
 
-    /** 
-     * Define quién tiene permiso para alterar el contenido del bucket.
-     * Se otorga acceso total de escritura a Administradores y Project Managers.
-     */
-    function canWrite() {
-      return isAdmin() || isManager();
+    /** Verifica si el proyecto está en la lista de permitidos del token */
+    function isAssignedToProject(projectId) {
+      return isSignedIn() && (
+        isAdmin() || 
+        (request.auth.token.assignedProjects != null && 
+         projectId in request.auth.token.assignedProjects)
+      );
     }
 
-    match /{allPaths=**} {
-      /** 
-       * Visualización: Permitida para todo el personal autenticado (incluye Viewers).
-       */
-      allow read: if isSignedIn();
+    /** Reglas granulares por proyecto */
+    match /projects/{projectId}/{allPaths=**} {
+      // Lectura permitida si está asignado
+      allow read: if isAssignedToProject(projectId);
       
-      /** 
-       * Gestión (Subir, Modificar, Eliminar): Restringida a roles de gestión verificados.
-       */
-      allow write: if canWrite();
+      // Escritura permitida para Admin o PM asignado
+      allow write: if isAdmin() || (isManager() && isAssignedToProject(projectId));
+    }
+
+    /** Fallback de seguridad global */
+    match /{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
     }
   }
 }

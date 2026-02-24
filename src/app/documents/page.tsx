@@ -2,8 +2,22 @@
 
 import { useState } from 'react';
 import { useProjectContext } from '@/context/project-context';
-import { useFirestore, useCollection, useMemoFirebase, useAuth, useStorage } from '@/firebase';
-import { collection, query, where, addDoc, serverTimestamp, doc, deleteDoc } from 'firebase/firestore';
+import { 
+  useFirestore, 
+  useCollection, 
+  useMemoFirebase, 
+  useAuth, 
+  useStorage 
+} from '@/firebase';
+import { 
+  collection, 
+  query, 
+  where, 
+  addDoc, 
+  serverTimestamp, 
+  doc, 
+  deleteDoc 
+} from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +31,8 @@ import {
   Download, 
   Loader2, 
   Files,
-  FileCheck
+  FileCheck,
+  ShieldAlert
 } from 'lucide-react';
 import { 
   Table, 
@@ -45,13 +60,19 @@ export default function DocumentsPage() {
   const { selectedProjectId } = useProjectContext();
   const firestore = useFirestore();
   const storage = useStorage();
-  const { user } = useAuth();
+  const { user, role, assignedProjects } = useAuth();
   const { toast } = useToast();
   
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
+  // Lógica de permisos de ingeniería
+  const isAdmin = role === 'admin';
+  const isPM = role === 'project_manager';
+  const isAssigned = assignedProjects?.includes(selectedProjectId || '');
+  const canUpload = isAdmin || (isPM && isAssigned);
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -107,14 +128,18 @@ export default function DocumentsPage() {
       setSelectedFile(null);
     } catch (error: any) {
       console.error('Upload failed:', error);
-      toast({ variant: 'destructive', title: 'Upload Failed', description: error.message });
+      toast({ 
+        variant: 'destructive', 
+        title: 'Unauthorized Access', 
+        description: 'Your permissions do not allow writing to this project storage.' 
+      });
     } finally {
       setIsUploading(false);
     }
   };
 
   const handleDelete = async (docId: string, fileName: string) => {
-    if (!firestore || !selectedProjectId) return;
+    if (!firestore || !selectedProjectId || !canUpload) return;
     
     const docRef = doc(firestore, 'projects', selectedProjectId, 'documents', docId);
     deleteDoc(docRef)
@@ -151,49 +176,57 @@ export default function DocumentsPage() {
             )}
           </div>
         </div>
-        <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-          <DialogTrigger asChild>
-            <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
-              <Upload className="h-3.5 w-3.5" /> Upload File
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="rounded-sm">
-            <DialogHeader>
-              <DialogTitle>Upload Document</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="grid w-full items-center gap-1.5">
-                <label className="text-xs font-bold text-slate-500 uppercase">Select File</label>
-                <Input 
-                  type="file" 
-                  onChange={handleFileChange} 
-                  className="h-10 border-slate-200 text-xs pt-2"
-                />
-              </div>
-              {selectedFile && (
-                <div className="p-3 bg-slate-50 rounded-sm border border-slate-100 flex items-center gap-3">
-                  <FileCheck className="h-5 w-5 text-[#46a395]" />
-                  <div>
-                    <p className="text-xs font-bold text-slate-700">{selectedFile.name}</p>
-                    <p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p>
-                  </div>
-                </div>
-              )}
-            </div>
-            <DialogFooter>
-              <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-              <Button 
-                size="sm" 
-                onClick={handleUpload} 
-                disabled={!selectedFile || isUploading}
-                className="gap-2"
-              >
-                {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                Confirm Upload
+        
+        {canUpload ? (
+          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
+                <Upload className="h-3.5 w-3.5" /> Upload File
               </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent className="rounded-sm">
+              <DialogHeader>
+                <DialogTitle>Upload Document</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="grid w-full items-center gap-1.5">
+                  <label className="text-xs font-bold text-slate-500 uppercase">Select File</label>
+                  <Input 
+                    type="file" 
+                    onChange={handleFileChange} 
+                    className="h-10 border-slate-200 text-xs pt-2"
+                  />
+                </div>
+                {selectedFile && (
+                  <div className="p-3 bg-slate-50 rounded-sm border border-slate-100 flex items-center gap-3">
+                    <FileCheck className="h-5 w-5 text-[#46a395]" />
+                    <div>
+                      <p className="text-xs font-bold text-slate-700">{selectedFile.name}</p>
+                      <p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <DialogFooter>
+                <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+                <Button 
+                  size="sm" 
+                  onClick={handleUpload} 
+                  disabled={!selectedFile || isUploading}
+                  className="gap-2"
+                >
+                  {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                  Confirm Upload
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        ) : (
+          <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-100 rounded-sm text-orange-600">
+            <ShieldAlert className="h-3.5 w-3.5" />
+            <span className="text-[10px] font-bold uppercase tracking-tight">Read Only Mode</span>
+          </div>
+        )}
       </div>
 
       {!selectedProjectId ? (
@@ -271,14 +304,16 @@ export default function DocumentsPage() {
                             <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm" asChild>
                               <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"><Download className="h-3.5 w-3.5" /></a>
                             </Button>
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              className="h-7 w-7 rounded-sm text-destructive hover:bg-destructive/10"
-                              onClick={() => handleDelete(doc.id, doc.name)}
-                            >
-                              <Trash2 className="h-3.5 w-3.5" />
-                            </Button>
+                            {canUpload && (
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-7 w-7 rounded-sm text-destructive hover:bg-destructive/10"
+                                onClick={() => handleDelete(doc.id, doc.name)}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </Button>
+                            )}
                           </div>
                         </TableCell>
                       </TableRow>
