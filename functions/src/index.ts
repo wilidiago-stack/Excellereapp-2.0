@@ -5,11 +5,9 @@ import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
-// Set global options for the function
 setGlobalOptions({
   maxInstances: 10,
 });
@@ -19,8 +17,6 @@ setGlobalOptions({
  */
 export const setupInitialUserRole = onAuthUserCreated(async (event) => {
   const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] UID: ${uid}`);
-
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -30,18 +26,12 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
       const metadataDoc = await transaction.get(metadataRef);
       const data = metadataDoc.data();
       const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
-      if (currentCount === 0) {
-        isFirstUser = true;
-      }
+      if (currentCount === 0) isFirstUser = true;
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
-        transaction.update(metadataRef, {
-          userCount: newCount,
-        });
+        transaction.update(metadataRef, {userCount: newCount});
       } else {
-        transaction.set(metadataRef, {
-          userCount: newCount,
-        });
+        transaction.set(metadataRef, {userCount: newCount});
       }
     });
 
@@ -49,7 +39,6 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
     const fName = parts[0] || (email ? email.split("@")[0] : "New");
     const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
-
     const modules = isFirstUser ? [
       "dashboard",
       "projects",
@@ -95,9 +84,7 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
-    if (!afterData) {
-      return;
-    }
+    if (!afterData) return;
 
     const rChanged = afterData.role !== beforeData?.role;
     const mChanged = JSON.stringify(afterData.assignedModules) !==
@@ -105,9 +92,7 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
     const pChanged = JSON.stringify(afterData.assignedProjects) !==
       JSON.stringify(beforeData?.assignedProjects);
 
-    if (!rChanged && !mChanged && !pChanged) {
-      return;
-    }
+    if (!rChanged && !mChanged && !pChanged) return;
     const uid = event.params.userId;
 
     try {
