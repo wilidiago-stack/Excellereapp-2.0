@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreate, onAuthUserDelete} from "firebase-functions/v2/auth";
+import {onAuthUserCreate} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -64,7 +64,8 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
     await userDocRef.set(newUserDocument);
 
-    // CRITICAL: Set initial claims immediately
+    // CRITICAL: Set initial claims immediately including assignedProjects
+    // This provides the 'source of truth' for the token
     await admin.auth().setCustomUserClaims(uid, {
       role: role,
       assignedModules: defaultModules,
@@ -87,6 +88,7 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
 
   if (!afterData) return;
 
+  // We detect changes in ANY security field
   const roleChanged = afterData.role !== beforeData?.role;
   const modulesChanged = JSON.stringify(afterData.assignedModules) !== JSON.stringify(beforeData?.assignedModules);
   const projectsChanged = JSON.stringify(afterData.assignedProjects) !== JSON.stringify(beforeData?.assignedProjects);
@@ -94,15 +96,17 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
   if (!roleChanged && !modulesChanged && !projectsChanged) return;
   
   const uid = event.params.userId;
-  logger.info(`[onUserRoleChange] Syncing claims for ${uid}. Role: ${afterData.role}`);
+  logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
 
   try {
     // Sync all critical security fields to the Auth Token
+    // This is what the React app will look for to trigger its own refresh
     await admin.auth().setCustomUserClaims(uid, {
       role: afterData.role || "viewer",
       assignedModules: afterData.assignedModules || [],
       assignedProjects: afterData.assignedProjects || [],
     });
+    logger.info(`[onUserRoleChange] Claims synced for ${uid}.`);
   } catch (error) {
     logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);
   }
