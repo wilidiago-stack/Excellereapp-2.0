@@ -7,9 +7,21 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
-import { FolderKanban, HardHat, Users, Target, LayoutDashboard } from 'lucide-react';
+import { 
+  FolderKanban, 
+  HardHat, 
+  Users, 
+  Target, 
+  LayoutDashboard 
+} from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
-import { useFirestore, useDoc, useCollection, useMemoFirebase, useAuth } from '@/firebase';
+import { 
+  useFirestore, 
+  useDoc, 
+  useCollection, 
+  useMemoFirebase, 
+  useAuth 
+} from '@/firebase';
 import { collection, doc } from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjectContext } from '@/context/project-context';
@@ -59,54 +71,64 @@ export default function Home() {
   return (
     <div className="flex flex-col gap-2">
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Total Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{systemMetadata?.userCount || 0}</div>}
-            <div className="text-[10px] text-muted-foreground font-medium">System-wide directory</div>
-          </CardContent>
+        
+        {/* Card 1: Total Users */}
+        <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
+          <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
+            <Users className="h-24 w-24" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Users</p>
+          {loading ? (
+            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
+          ) : (
+            <h3 className="text-2xl font-black mt-1 leading-none">{systemMetadata?.userCount || 0}</h3>
+          )}
+          <p className="text-[9px] mt-2 font-bold opacity-70">System-wide directory</p>
         </Card>
         
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">My Projects</CardTitle>
-            <FolderKanban className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{projectCount}</div>}
-            <div className="text-[10px] text-muted-foreground font-medium">Accessible portfolio</div>
-          </CardContent>
+        {/* Card 2: My Projects */}
+        <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
+          <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
+            <FolderKanban className="h-24 w-24" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">My Projects</p>
+          {loading ? (
+            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
+          ) : (
+            <h3 className="text-2xl font-black mt-1 leading-none">{projectCount}</h3>
+          )}
+          <p className="text-[9px] mt-2 font-bold opacity-70">Accessible portfolio</p>
         </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-slate-600">Contractors</CardTitle>
-            <HardHat className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            {loading ? <Skeleton className="h-7 w-20" /> : <div className="text-2xl font-bold text-slate-800">{contractorCount}</div>}
-            <div className="text-[10px] text-muted-foreground font-medium">Verified vendors</div>
-          </CardContent>
+        {/* Card 3: Contractors */}
+        <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
+          <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
+            <HardHat className="h-24 w-24" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Contractors</p>
+          {loading ? (
+            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
+          ) : (
+            <h3 className="text-2xl font-black mt-1 leading-none">{contractorCount}</h3>
+          )}
+          <p className="text-[9px] mt-2 font-bold opacity-70">Verified vendors</p>
         </Card>
 
-        <Card className="border-primary/20 bg-primary/5">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-bold text-primary flex items-center gap-2">
-              <Target className="h-4 w-4" /> Focused Project
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
+        {/* Card 4: Focused Project - Orange Accent */}
+        <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#FF9800] text-white overflow-hidden relative group cursor-default">
+          <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
+            <Target className="h-24 w-24" />
+          </div>
+          <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Focused Project</p>
+          <div className="mt-2 relative z-10">
             <Select 
               value={selectedProjectId || "all"} 
               onValueChange={(val) => setSelectedProjectId(val === "all" ? null : val)}
             >
-              <SelectTrigger className="h-9 rounded-sm border-primary/20 bg-white text-xs font-bold shadow-sm">
+              <SelectTrigger className="h-8 rounded-sm border-white/20 bg-white/10 text-white text-[11px] font-bold shadow-sm hover:bg-white/20 transition-colors">
                 <SelectValue placeholder="Global Context" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="rounded-sm border-slate-200">
                 <SelectItem value="all" className="text-xs font-bold">All Assigned Projects</SelectItem>
                 {filteredProjects?.map((p) => (
                   <SelectItem key={p.id} value={p.id} className="text-xs font-medium">
@@ -115,10 +137,8 @@ export default function Home() {
                 ))}
               </SelectContent>
             </Select>
-            <div className="text-[10px] text-muted-foreground mt-2 font-medium">
-              Modules will filter based on this selection.
-            </div>
-          </CardContent>
+          </div>
+          <p className="text-[9px] mt-2 font-bold opacity-70">Modules filter active</p>
         </Card>
       </div>
 
