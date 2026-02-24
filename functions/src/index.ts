@@ -81,9 +81,9 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
     if (!after) return;
 
     const rChanged = after.role !== before?.role;
-    const mChanged = JSON.stringify(after.assignedModules) !== 
+    const mChanged = JSON.stringify(after.assignedModules) !==
                      JSON.stringify(before?.assignedModules);
-    const pChanged = JSON.stringify(after.assignedProjects) !== 
+    const pChanged = JSON.stringify(after.assignedProjects) !==
                      JSON.stringify(before?.assignedProjects);
 
     if (!rChanged && !mChanged && !pChanged) return;
