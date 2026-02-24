@@ -64,10 +64,11 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
     await userDocRef.set(newUserDocument);
 
-    // Set custom claims for Storage rules compatibility
+    // CRITICAL: Set initial claims immediately including assignedProjects
     await admin.auth().setCustomUserClaims(uid, {
       role: role,
       assignedModules: defaultModules,
+      assignedProjects: [],
     });
 
     logger.info(`[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`);
@@ -88,16 +89,19 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}", async (event
 
   const roleChanged = afterData.role !== beforeData?.role;
   const modulesChanged = JSON.stringify(afterData.assignedModules) !== JSON.stringify(beforeData?.assignedModules);
+  const projectsChanged = JSON.stringify(afterData.assignedProjects) !== JSON.stringify(beforeData?.assignedProjects);
 
-  if (!roleChanged && !modulesChanged) return;
+  if (!roleChanged && !modulesChanged && !projectsChanged) return;
   
   const uid = event.params.userId;
   logger.info(`[onUserRoleChange] Syncing claims for ${uid}. Role: ${afterData.role}`);
 
   try {
+    // Sync all critical security fields to the Auth Token
     await admin.auth().setCustomUserClaims(uid, {
       role: afterData.role || "viewer",
       assignedModules: afterData.assignedModules || [],
+      assignedProjects: afterData.assignedProjects || [],
     });
   } catch (error) {
     logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);

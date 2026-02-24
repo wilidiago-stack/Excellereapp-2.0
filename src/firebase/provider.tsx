@@ -1,6 +1,6 @@
 'use client';
 
-import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { FirebaseApp } from 'firebase/app';
 import { Firestore, doc, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged, getIdTokenResult } from 'firebase/auth';
@@ -53,6 +53,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     userError: null,
     dbProfile: null,
   });
+
+  const lastRefreshRef = useRef<number>(0);
 
   // 1. Initial Auth State and Token Load
   useEffect(() => {
@@ -126,27 +128,45 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     return () => unsubscribeDoc();
   }, [firestore, authState.user?.uid]);
 
-  // 3. Proactive Token Refresh Logic
-  // This ensures that when DB data changes, the Token (claims) catch up immediately.
+  // 3. Robust Token Refresh Logic
+  // This ensures that when DB data changes, the Token (claims) catch up eventually,
+  // but with strict protection against loops and quota exhaustion.
   useEffect(() => {
     const user = authState.user;
-    if (!user || !authState.dbProfile) return;
+    const dbProfile = authState.dbProfile;
+    if (!user || !dbProfile) return;
 
-    const dbRole = authState.dbProfile.role;
+    // Compare fields to detect real security changes
+    const dbRole = dbProfile.role;
     const tokenRole = authState.claims?.role;
     
-    const dbModules = JSON.stringify(authState.dbProfile.assignedModules || []);
+    const dbModules = JSON.stringify(dbProfile.assignedModules || []);
     const tokenModules = JSON.stringify(authState.claims?.assignedModules || []);
 
-    const dbProjects = JSON.stringify(authState.dbProfile.assignedProjects || []);
+    const dbProjects = JSON.stringify(dbProfile.assignedProjects || []);
     const tokenProjects = JSON.stringify(authState.claims?.assignedProjects || []);
 
-    // If there is any discrepancy between DB and Token, force a token refresh
-    if (dbRole !== tokenRole || dbModules !== tokenModules || dbProjects !== tokenProjects) {
-      console.log("[Auth] Security discrepancy detected. Refreshing ID Token...");
-      getIdTokenResult(user, true).then(tokenResult => {
-        setAuthState(prev => ({ ...prev, claims: tokenResult.claims }));
-      }).catch(err => console.error("[Auth] Token refresh failed:", err));
+    const hasDiscrepancy = dbRole !== tokenRole || dbModules !== tokenModules || dbProjects !== tokenProjects;
+
+    if (hasDiscrepancy) {
+      const now = Date.now();
+      // Only allow auto-refresh once every 30 seconds to prevent quota-exceeded errors
+      if (now - lastRefreshRef.current > 30000) {
+        console.log("[Auth] Security discrepancy detected. Refreshing ID Token...");
+        lastRefreshRef.current = now;
+        
+        getIdTokenResult(user, true)
+          .then(tokenResult => {
+            setAuthState(prev => ({ ...prev, claims: tokenResult.claims }));
+          })
+          .catch(err => {
+            if (err.code === 'auth/quota-exceeded') {
+              console.error("[Auth] Quota exceeded. Please wait before next refresh.");
+            } else {
+              console.error("[Auth] Token refresh failed:", err);
+            }
+          });
+      }
     }
   }, [authState.user, authState.dbProfile, authState.claims]);
 
