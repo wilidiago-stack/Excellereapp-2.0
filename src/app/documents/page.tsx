@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useProjectContext } from '@/context/project-context';
 import { 
   useFirestore, 
@@ -14,7 +14,10 @@ import {
   addDoc, 
   serverTimestamp, 
   doc, 
-  deleteDoc 
+  deleteDoc,
+  query,
+  where,
+  updateDoc
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,7 +34,13 @@ import {
   FileCheck,
   ShieldAlert,
   ShieldCheck,
-  AlertTriangle
+  AlertTriangle,
+  FolderPlus,
+  Folder,
+  ChevronRight,
+  MoreVertical,
+  Move,
+  ExternalLink
 } from 'lucide-react';
 import { 
   Table, 
@@ -49,11 +58,25 @@ import {
   DialogTrigger,
   DialogFooter
 } from '@/components/ui/dialog';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSeparator
+} from '@/components/ui/dropdown-menu';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { Badge } from '@/components/ui/badge';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
+import { cn } from '@/lib/utils';
+
+interface Breadcrumb {
+  id: string;
+  name: string;
+}
 
 export default function DocumentsPage() {
   const { selectedProjectId } = useProjectContext();
@@ -65,9 +88,14 @@ export default function DocumentsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isUploading, setIsUploading] = useState(false);
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [folderDialogOpen, setFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  
+  // Navigation State
+  const [currentFolderId, setCurrentFolderId] = useState<string>('root');
+  const [breadcrumbs, setBreadcrumbs] = useState<Breadcrumb[]>([{ id: 'root', name: 'Main Repository' }]);
 
-  // Ingeniería de permisos alineada con storage.rules y email_verified
   const isVerified = user?.emailVerified;
   const isAdmin = role === 'admin';
   const isPM = role === 'project_manager';
@@ -82,14 +110,25 @@ export default function DocumentsPage() {
 
   const docsCollection = useMemoFirebase(() => {
     if (!firestore || !selectedProjectId) return null;
-    return collection(firestore, 'projects', selectedProjectId, 'documents');
-  }, [firestore, selectedProjectId]);
+    return query(
+      collection(firestore, 'projects', selectedProjectId, 'documents'),
+      where('parentId', '==', currentFolderId)
+    );
+  }, [firestore, selectedProjectId, currentFolderId]);
 
-  const { data: documents, isLoading } = useCollection(docsCollection);
+  const { data: items, isLoading } = useCollection(docsCollection);
 
-  const filteredDocs = documents?.filter(d => 
-    d.name?.toLowerCase().includes(searchQuery.toLowerCase())
-  ) || [];
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    return items.filter(item => 
+      item.name?.toLowerCase().includes(searchQuery.toLowerCase())
+    ).sort((a, b) => {
+      // Folders first
+      if (a.type === 'folder' && b.type !== 'folder') return -1;
+      if (a.type !== 'folder' && b.type === 'folder') return 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [items, searchQuery]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -100,7 +139,7 @@ export default function DocumentsPage() {
   const handleUpload = async () => {
     if (!selectedFile || !selectedProjectId || !user || !storage || !firestore) return;
     if (!isVerified) {
-      toast({ variant: 'destructive', title: 'Account Not Verified', description: 'Please verify your email to upload.' });
+      toast({ variant: 'destructive', title: 'Account Not Verified', description: 'Please verify your email.' });
       return;
     }
 
@@ -117,36 +156,55 @@ export default function DocumentsPage() {
         fileUrl: downloadUrl,
         fileType: selectedFile.type,
         fileSize: selectedFile.size,
+        type: 'file',
+        parentId: currentFolderId,
         uploadedById: user.uid,
         uploadedByName: user.displayName || user.email,
         uploadDate: serverTimestamp(),
         projectId: selectedProjectId,
       };
 
-      await addDoc(docsCollection!, docData);
+      await addDoc(collection(firestore, 'projects', selectedProjectId, 'documents'), docData);
 
-      toast({ title: 'Document Uploaded', description: `${selectedFile.name} added.` });
+      toast({ title: 'Upload Complete', description: `${selectedFile.name} is now available.` });
       setUploadDialogOpen(false);
       setSelectedFile(null);
     } catch (error: any) {
-      console.error('Upload failed:', error);
-      toast({ 
-        variant: 'destructive', 
-        title: 'Upload Rejected', 
-        description: 'Storage denied access. Ensure you are verified.' 
-      });
+      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Storage access denied.' });
     } finally {
       setIsUploading(false);
     }
   };
 
-  const handleDelete = async (docId: string, fileName: string) => {
+  const handleCreateFolder = async () => {
+    if (!newFolderName || !selectedProjectId || !firestore) return;
+    
+    const folderData = {
+      name: newFolderName,
+      type: 'folder',
+      parentId: currentFolderId,
+      uploadDate: serverTimestamp(),
+      projectId: selectedProjectId,
+      uploadedByName: user?.displayName || user?.email,
+    };
+
+    try {
+      await addDoc(collection(firestore, 'projects', selectedProjectId, 'documents'), folderData);
+      toast({ title: 'Folder Created', description: `Directory '${newFolderName}' added.` });
+      setNewFolderName('');
+      setFolderDialogOpen(false);
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Could not create folder.' });
+    }
+  };
+
+  const handleDelete = async (id: string, name: string) => {
     if (!firestore || !selectedProjectId || !canWrite) return;
     
-    const docRef = doc(firestore, 'projects', selectedProjectId, 'documents', docId);
+    const docRef = doc(firestore, 'projects', selectedProjectId, 'documents', id);
     deleteDoc(docRef)
       .then(() => {
-        toast({ title: 'Removed', description: `${fileName} deleted.` });
+        toast({ title: 'Deleted', description: `${name} has been removed.` });
       })
       .catch((error) => {
         errorEmitter.emit('permission-error', new FirestorePermissionError({
@@ -156,8 +214,19 @@ export default function DocumentsPage() {
       });
   };
 
+  const navigateToFolder = (id: string, name: string) => {
+    setCurrentFolderId(id);
+    setBreadcrumbs(prev => [...prev, { id, name }]);
+  };
+
+  const navigateToBreadcrumb = (index: number) => {
+    const target = breadcrumbs[index];
+    setCurrentFolderId(target.id);
+    setBreadcrumbs(prev => prev.slice(0, index + 1));
+  };
+
   const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
+    if (!bytes || bytes === 0) return '0 B';
     const k = 1024;
     const sizes = ['B', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -170,7 +239,7 @@ export default function DocumentsPage() {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Project Documents</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>Central Blueprint Repository.</span>
+            <span>Repository & Blueprint Explorer.</span>
             {selectedProjectId && (
               <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] font-black uppercase">
                 {activeProject?.name || 'Project Filter Active'}
@@ -180,66 +249,48 @@ export default function DocumentsPage() {
         </div>
         
         <div className="flex items-center gap-2">
-          {!isVerified && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-200 rounded-sm text-orange-700 animate-pulse">
-              <AlertTriangle className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-black uppercase">Unverified Account</span>
-            </div>
-          )}
-          {isVerified && (
-            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-sm text-[#46a395]">
-              <ShieldCheck className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-black uppercase">Verified ID</span>
-            </div>
-          )}
-          {canWrite ? (
-            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
-                  <Upload className="h-3.5 w-3.5" /> Upload File
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="rounded-sm">
-                <DialogHeader>
-                  <DialogTitle>Upload Document</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="grid w-full items-center gap-1.5">
-                    <label className="text-xs font-bold text-slate-500 uppercase">Select File</label>
-                    <Input 
-                      type="file" 
-                      onChange={handleFileChange} 
-                      className="h-10 border-slate-200 text-xs pt-2"
-                    />
-                  </div>
-                  {selectedFile && (
-                    <div className="p-3 bg-slate-50 rounded-sm border border-slate-100 flex items-center gap-3">
-                      <FileCheck className="h-5 w-5 text-[#46a395]" />
-                      <div>
-                        <p className="text-xs font-bold text-slate-700">{selectedFile.name}</p>
-                        <p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-                <DialogFooter>
-                  <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-                  <Button 
-                    size="sm" 
-                    onClick={handleUpload} 
-                    disabled={!selectedFile || isUploading}
-                    className="gap-2"
-                  >
-                    {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                    Confirm Upload
+          {canWrite && (
+            <div className="flex items-center gap-2">
+              <Dialog open={folderDialogOpen} onOpenChange={setFolderDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
+                    <FolderPlus className="h-3.5 w-3.5" /> New Folder
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          ) : (
-            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 rounded-sm text-slate-500">
-              <ShieldAlert className="h-3.5 w-3.5" />
-              <span className="text-[10px] font-bold uppercase tracking-tight">Read Only (Viewer)</span>
+                </DialogTrigger>
+                <DialogContent className="rounded-sm">
+                  <DialogHeader><DialogTitle>Create New Folder</DialogTitle></DialogHeader>
+                  <div className="py-4"><Input placeholder="Folder Name" value={newFolderName} onChange={e => setNewFolderName(e.target.value)} className="h-10 text-xs" /></div>
+                  <DialogFooter>
+                    <Button variant="outline" size="sm" onClick={() => setFolderDialogOpen(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleCreateFolder} disabled={!newFolderName}>Create Folder</Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
+                    <Upload className="h-3.5 w-3.5" /> Upload File
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="rounded-sm">
+                  <DialogHeader><DialogTitle>Upload Document</DialogTitle></DialogHeader>
+                  <div className="space-y-4 py-4">
+                    <Input type="file" onChange={handleFileChange} className="h-10 text-xs pt-2" />
+                    {selectedFile && (
+                      <div className="p-3 bg-slate-50 rounded-sm border flex items-center gap-3">
+                        <FileCheck className="h-5 w-5 text-[#46a395]" /><div className="flex-1 overflow-hidden"><p className="text-xs font-bold truncate">{selectedFile.name}</p><p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p></div>
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+                    <Button size="sm" onClick={handleUpload} disabled={!selectedFile || isUploading} className="gap-2">
+                      {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />} Confirm
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
             </div>
           )}
         </div>
@@ -252,83 +303,97 @@ export default function DocumentsPage() {
           <p className="text-xs text-slate-400 mt-1 max-w-xs">Use the Dashboard project filter to browse documents.</p>
         </Card>
       ) : (
-        <div className="flex flex-col md:flex-row gap-2 flex-1 min-h-0">
-          <Card className="w-full md:w-72 shrink-0 rounded-sm border-slate-200 shadow-sm flex flex-col">
-            <CardHeader className="p-4 border-b bg-slate-50/50">
-              <div className="relative">
-                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground" />
-                <Input 
-                  placeholder="Filter files..." 
-                  className="pl-8 h-9 bg-white border-slate-200 text-xs" 
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+        <div className="flex flex-col gap-2 flex-1 min-h-0">
+          {/* NAVIGATION BAR */}
+          <div className="flex items-center gap-2 p-2 bg-slate-50 rounded-sm border border-slate-200">
+            {breadcrumbs.map((crumb, idx) => (
+              <div key={crumb.id} className="flex items-center gap-2">
+                <button 
+                  onClick={() => navigateToBreadcrumb(idx)}
+                  className={cn(
+                    "text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-sm transition-all",
+                    idx === breadcrumbs.length - 1 ? "bg-white text-[#46a395] shadow-sm" : "text-slate-400 hover:text-slate-600"
+                  )}
+                >
+                  {crumb.name}
+                </button>
+                {idx < breadcrumbs.length - 1 && <ChevronRight className="h-3 w-3 text-slate-300" />}
               </div>
-            </CardHeader>
-            <CardContent className="p-4 flex-1 overflow-y-auto no-scrollbar space-y-6">
-              <div className="p-3 rounded-sm border border-slate-100 bg-slate-50 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <FileText className="h-3.5 w-3.5 text-primary" />
-                  <span className="text-xs font-medium">Visible Assets</span>
-                </div>
-                <span className="text-xs font-bold">{filteredDocs.length}</span>
-              </div>
-            </CardContent>
-          </Card>
+            ))}
+            <div className="flex-1" />
+            <div className="relative w-48">
+              <Search className="absolute left-2 top-2 h-3.5 w-3.5 text-slate-400" />
+              <Input placeholder="Search items..." className="pl-7 h-7 bg-white text-[10px] rounded-sm" value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+          </div>
 
           <Card className="flex-1 overflow-hidden flex flex-col rounded-sm border-slate-200 shadow-sm">
             <div className="flex-1 overflow-y-auto no-scrollbar">
               <Table>
-                <TableHeader className="bg-slate-50/50 sticky top-0 z-10">
-                  <TableRow className="hover:bg-transparent border-b-slate-200">
-                    <TableHead className="text-[11px] font-bold h-10 px-6">File Reference</TableHead>
-                    <TableHead className="text-[11px] font-bold h-10">Type</TableHead>
-                    <TableHead className="text-[11px] font-bold h-10">Size</TableHead>
-                    <TableHead className="text-[11px] font-bold h-10">Sync Date</TableHead>
-                    <TableHead className="h-10 w-24"></TableHead>
+                <TableHeader className="bg-slate-50 sticky top-0 z-10">
+                  <TableRow className="h-10 border-b-slate-200">
+                    <TableHead className="text-[11px] font-bold px-6">Name</TableHead>
+                    <TableHead className="text-[11px] font-bold">Type</TableHead>
+                    <TableHead className="text-[11px] font-bold">Size</TableHead>
+                    <TableHead className="text-[11px] font-bold">Modified</TableHead>
+                    <TableHead className="h-10 w-12"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
                     [1, 2].map(i => <TableRow key={i}><TableCell colSpan={5}><Loader2 className="h-4 w-4 animate-spin mx-auto text-slate-200" /></TableCell></TableRow>)
-                  ) : filteredDocs.length === 0 ? (
-                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-slate-400">No blueprints available.</TableCell></TableRow>
+                  ) : filteredItems.length === 0 ? (
+                    <TableRow><TableCell colSpan={5} className="h-32 text-center text-xs text-slate-400">Empty directory.</TableCell></TableRow>
                   ) : (
-                    filteredDocs.map((doc: any) => (
-                      <TableRow key={doc.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
+                    filteredItems.map((item: any) => (
+                      <TableRow key={item.id} className="hover:bg-slate-50/50 border-b-slate-100 group">
                         <TableCell className="py-2.5 px-6">
-                          <div className="flex items-center gap-2">
-                            <FileText className="h-3.5 w-3.5 text-slate-400" />
-                            <span className="text-xs font-bold text-slate-700 truncate max-w-xs">{doc.name}</span>
+                          <div className="flex items-center gap-3">
+                            {item.type === 'folder' ? (
+                              <button onClick={() => navigateToFolder(item.id, item.name)} className="flex items-center gap-3 text-left">
+                                <Folder className="h-4 w-4 text-orange-400 fill-orange-400/20" />
+                                <span className="text-xs font-bold text-slate-700 hover:text-primary transition-colors">{item.name}</span>
+                              </button>
+                            ) : (
+                              <>
+                                <FileText className="h-4 w-4 text-slate-400" />
+                                <span className="text-xs font-medium text-slate-600 truncate max-w-xs">{item.name}</span>
+                              </>
+                            )}
                           </div>
                         </TableCell>
                         <TableCell className="py-2.5">
                           <Badge variant="outline" className="text-[9px] h-4 rounded-sm uppercase bg-white">
-                            {doc.fileType?.split('/')[1] || 'DATA'}
+                            {item.type === 'folder' ? 'DIR' : (item.fileType?.split('/')[1] || 'FILE')}
                           </Badge>
                         </TableCell>
-                        <TableCell className="py-2.5 text-xs text-slate-500">{formatFileSize(doc.fileSize)}</TableCell>
+                        <TableCell className="py-2.5 text-[10px] text-slate-500">{item.type === 'folder' ? '--' : formatFileSize(item.fileSize)}</TableCell>
                         <TableCell className="py-2.5">
                           <span className="text-[10px] font-bold text-slate-400 uppercase">
-                            {doc.uploadDate?.toDate ? format(doc.uploadDate.toDate(), 'MMM dd, yy') : 'N/A'}
+                            {item.uploadDate?.toDate ? format(item.uploadDate.toDate(), 'MMM dd, yy') : 'N/A'}
                           </span>
                         </TableCell>
-                        <TableCell className="py-2.5 text-right pr-6">
-                          <div className="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm" asChild>
-                              <a href={doc.fileUrl} target="_blank" rel="noopener noreferrer"><Download className="h-3.5 w-3.5" /></a>
-                            </Button>
-                            {canWrite && (
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-7 w-7 rounded-sm text-destructive hover:bg-destructive/10"
-                                onClick={() => handleDelete(doc.id, doc.name)}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </Button>
-                            )}
-                          </div>
+                        <TableCell className="py-2.5 text-right pr-4">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 rounded-sm opacity-0 group-hover:opacity-100"><MoreVertical className="h-3.5 w-3.5" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="rounded-sm w-40">
+                              <DropdownMenuLabel className="text-[10px] font-bold uppercase text-slate-400">Manage Item</DropdownMenuLabel>
+                              {item.type === 'folder' ? (
+                                <DropdownMenuItem onClick={() => navigateToFolder(item.id, item.name)} className="text-xs gap-2"><ExternalLink className="h-3 w-3" /> Open</DropdownMenuItem>
+                              ) : (
+                                <DropdownMenuItem asChild className="text-xs gap-2"><a href={item.fileUrl} target="_blank" rel="noreferrer"><Download className="h-3 w-3" /> Download</a></DropdownMenuItem>
+                              )}
+                              <DropdownMenuSeparator />
+                              {canWrite && (
+                                <>
+                                  <DropdownMenuItem className="text-xs gap-2"><Move className="h-3 w-3" /> Move to...</DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleDelete(item.id, item.name)} className="text-xs gap-2 text-destructive"><Trash2 className="h-3 w-3" /> Delete</DropdownMenuItem>
+                                </>
+                              )}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </TableCell>
                       </TableRow>
                     ))
