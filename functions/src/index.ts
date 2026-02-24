@@ -73,7 +73,9 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       assignedProjects: [],
     });
 
-    logger.info(`[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`);
+    logger.info(
+      `[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`
+    );
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
   }
@@ -82,7 +84,8 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 /**
  * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
  */
-export const onUserRoleChange = onDocumentUpdated("users/{userId}",
+export const onUserRoleChange = onDocumentUpdated(
+  "users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
@@ -107,8 +110,11 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
         assignedModules: afterData.assignedModules || [],
         assignedProjects: afterData.assignedProjects || [],
       });
-      logger.info(`[onUserRoleChange] Claims synced for ${uid}.`);
     } catch (error) {
-      logger.error(`[onUserRoleChange] Failed to set claims for ${uid}:`, error);
+      logger.error(
+        `[onUserRoleChange] Failed to set claims for ${uid}:`,
+        error
+      );
     }
-  });
+  }
+);
