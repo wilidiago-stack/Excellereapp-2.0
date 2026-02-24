@@ -29,7 +29,9 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       const metadataDoc = await transaction.get(metadataRef);
       const data = metadataDoc.data();
       const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
-      if (currentCount === 0) isFirstUser = true;
+      if (currentCount === 0) {
+        isFirstUser = true;
+      }
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
         transaction.update(metadataRef, {
@@ -90,24 +92,28 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
-    const before = event.data?.before.data();
-    const after = event.data?.after.data();
-    if (!after) return;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+    if (!afterData) {
+      return;
+    }
 
-    const rChanged = after.role !== before?.role;
-    const mChanged = JSON.stringify(after.assignedModules) !==
-      JSON.stringify(before?.assignedModules);
-    const pChanged = JSON.stringify(after.assignedProjects) !==
-      JSON.stringify(before?.assignedProjects);
+    const rChanged = afterData.role !== beforeData?.role;
+    const mChanged = JSON.stringify(afterData.assignedModules) !==
+      JSON.stringify(beforeData?.assignedModules);
+    const pChanged = JSON.stringify(afterData.assignedProjects) !==
+      JSON.stringify(beforeData?.assignedProjects);
 
-    if (!rChanged && !mChanged && !pChanged) return;
+    if (!rChanged && !mChanged && !pChanged) {
+      return;
+    }
     const uid = event.params.userId;
 
     try {
       await admin.auth().setCustomUserClaims(uid, {
-        role: after.role || "viewer",
-        assignedModules: after.assignedModules || [],
-        assignedProjects: after.assignedProjects || [],
+        role: afterData.role || "viewer",
+        assignedModules: afterData.assignedModules || [],
+        assignedProjects: afterData.assignedProjects || [],
       });
     } catch (error) {
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
