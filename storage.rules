@@ -2,39 +2,45 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     
-    /** Verifica si el usuario tiene una sesión activa */
+    /** Verifica sesión activa */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** Valida el rol desde los Custom Claims del Token */
+    /** Verifica que el email esté confirmado */
+    function isVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    /** Valida el rol desde los Custom Claims */
     function getRole() {
       return request.auth.token.role;
     }
 
     function isAdmin() {
-      return isSignedIn() && getRole() == 'admin';
+      return isSignedIn() && isVerified() && getRole() == 'admin';
     }
 
     function isManager() {
-      return isSignedIn() && getRole() == 'project_manager';
+      return isSignedIn() && isVerified() && getRole() == 'project_manager';
     }
 
-    /** Lógica de permisos por rol solicitada:
-     *  - Admin y PM: Full Access (subir, borrar, mirar)
-     *  - Viewer: Read Only (solo mirar)
+    /** 
+     * Acceso por Proyecto:
+     * - Admin y PM: Full Access (mira, sube, borra)
+     * - Viewer (verificado): Read Only
      */
     match /projects/{projectId}/{allPaths=**} {
-      // Todos los usuarios autenticados pueden ver (incluye Viewers)
-      allow read: if isSignedIn();
+      // Lectura permitida para todos los usuarios verificados
+      allow read: if isSignedIn() && isVerified();
       
-      // Solo Admin y Project Manager pueden subir o borrar
+      // Escritura y borrado solo para perfiles de gestión verificados
       allow write, delete: if isAdmin() || isManager();
     }
 
-    /** Fallback de seguridad global */
+    /** Fallback global: Verificados únicamente */
     match /{allPaths=**} {
-      allow read: if isSignedIn();
+      allow read: if isSignedIn() && isVerified();
       allow write: if isAdmin();
     }
   }

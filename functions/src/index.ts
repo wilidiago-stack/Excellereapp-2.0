@@ -49,9 +49,9 @@ export const setupInitialUserRole = onAuthUserCreated(
 
       const nameParts = displayName?.split(" ")
         .filter((p: string) => p.length > 0) || [];
-      const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-      const lastName = nameParts.length > 1 ?
-        nameParts.slice(1).join(" ") : (email ? "(from email)" : "User");
+      const fName = nameParts[0] || (email ? email.split("@")[0] : "New");
+      const lName = nameParts.length > 1 ?
+        nameParts.slice(1).join(" ") : (email ? "(email)" : "User");
 
       const role = isFirstUser ? "admin" : "viewer";
 
@@ -62,8 +62,8 @@ export const setupInitialUserRole = onAuthUserCreated(
       ] : [];
 
       const newUserDocument = {
-        firstName,
-        lastName,
+        firstName: fName,
+        lastName: lName,
         email: email || "",
         role: role,
         status: "active",
@@ -82,7 +82,7 @@ export const setupInitialUserRole = onAuthUserCreated(
       });
 
       logger.info(
-        `[setupInitialUserRole] Setup complete for ${uid}. Role: ${role}`
+        `[setupInitialUserRole] Setup for ${uid} complete. Role: ${role}`
       );
     } catch (error) {
       logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
@@ -103,33 +103,28 @@ export const onUserRoleChange = onDocumentUpdated(
 
     if (!afterData) return;
 
-    const roleChanged = afterData.role !== beforeData?.role;
+    const rChanged = afterData.role !== beforeData?.role;
+    const mB = JSON.stringify(beforeData?.assignedModules || []);
+    const mA = JSON.stringify(afterData.assignedModules || []);
+    const pB = JSON.stringify(beforeData?.assignedProjects || []);
+    const pA = JSON.stringify(afterData.assignedProjects || []);
 
-    const mBefore = JSON.stringify(beforeData?.assignedModules || []);
-    const mAfter = JSON.stringify(afterData.assignedModules || []);
-    const modulesChanged = mBefore !== mAfter;
+    const mChanged = mB !== mA;
+    const pChanged = pB !== pA;
 
-    const pBefore = JSON.stringify(beforeData?.assignedProjects || []);
-    const pAfter = JSON.stringify(afterData.assignedProjects || []);
-    const projectsChanged = pBefore !== pAfter;
-
-    if (!roleChanged && !modulesChanged && !projectsChanged) return;
+    if (!rChanged && !mChanged && !pChanged) return;
 
     const uid = event.params.userId;
     logger.info(`[onUserRoleChange] Syncing claims for ${uid}.`);
 
     try {
-      // Sync critical security fields to the Auth Token
       await admin.auth().setCustomUserClaims(uid, {
         role: afterData.role || "viewer",
         assignedModules: afterData.assignedModules || [],
         assignedProjects: afterData.assignedProjects || [],
       });
     } catch (error) {
-      logger.error(
-        `[onUserRoleChange] Failed to set claims for ${uid}:`,
-        error
-      );
+      logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
   }
 );

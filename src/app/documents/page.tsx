@@ -29,7 +29,9 @@ import {
   Loader2, 
   Files,
   FileCheck,
-  ShieldAlert
+  ShieldAlert,
+  ShieldCheck,
+  AlertTriangle
 } from 'lucide-react';
 import { 
   Table, 
@@ -65,10 +67,11 @@ export default function DocumentsPage() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  // Ingeniería de permisos alineada con storage.rules
+  // Ingeniería de permisos alineada con storage.rules y email_verified
+  const isVerified = user?.emailVerified;
   const isAdmin = role === 'admin';
   const isPM = role === 'project_manager';
-  const canWrite = isAdmin || isPM;
+  const canWrite = (isAdmin || isPM) && isVerified;
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -96,6 +99,10 @@ export default function DocumentsPage() {
 
   const handleUpload = async () => {
     if (!selectedFile || !selectedProjectId || !user || !storage || !firestore) return;
+    if (!isVerified) {
+      toast({ variant: 'destructive', title: 'Account Not Verified', description: 'Please verify your email to upload.' });
+      return;
+    }
 
     setIsUploading(true);
     try {
@@ -126,7 +133,7 @@ export default function DocumentsPage() {
       toast({ 
         variant: 'destructive', 
         title: 'Upload Rejected', 
-        description: 'Server denied write access. Please refresh your session.' 
+        description: 'Storage denied access. Ensure you are verified.' 
       });
     } finally {
       setIsUploading(false);
@@ -172,56 +179,70 @@ export default function DocumentsPage() {
           </div>
         </div>
         
-        {canWrite ? (
-          <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
-                <Upload className="h-3.5 w-3.5" /> Upload File
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="rounded-sm">
-              <DialogHeader>
-                <DialogTitle>Upload Document</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4 py-4">
-                <div className="grid w-full items-center gap-1.5">
-                  <label className="text-xs font-bold text-slate-500 uppercase">Select File</label>
-                  <Input 
-                    type="file" 
-                    onChange={handleFileChange} 
-                    className="h-10 border-slate-200 text-xs pt-2"
-                  />
-                </div>
-                {selectedFile && (
-                  <div className="p-3 bg-slate-50 rounded-sm border border-slate-100 flex items-center gap-3">
-                    <FileCheck className="h-5 w-5 text-[#46a395]" />
-                    <div>
-                      <p className="text-xs font-bold text-slate-700">{selectedFile.name}</p>
-                      <p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
-                <Button 
-                  size="sm" 
-                  onClick={handleUpload} 
-                  disabled={!selectedFile || isUploading}
-                  className="gap-2"
-                >
-                  {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
-                  Confirm Upload
+        <div className="flex items-center gap-2">
+          {!isVerified && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-orange-50 border border-orange-200 rounded-sm text-orange-700 animate-pulse">
+              <AlertTriangle className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-black uppercase">Unverified Account</span>
+            </div>
+          )}
+          {isVerified && (
+            <div className="flex items-center gap-2 px-3 py-1 bg-green-50 border border-green-200 rounded-sm text-[#46a395]">
+              <ShieldCheck className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-black uppercase">Verified ID</span>
+            </div>
+          )}
+          {canWrite ? (
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" className="h-8 rounded-sm gap-2" disabled={!selectedProjectId}>
+                  <Upload className="h-3.5 w-3.5" /> Upload File
                 </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
-        ) : (
-          <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 rounded-sm text-slate-500">
-            <ShieldAlert className="h-3.5 w-3.5" />
-            <span className="text-[10px] font-bold uppercase tracking-tight">Read Only (Viewer)</span>
-          </div>
-        )}
+              </DialogTrigger>
+              <DialogContent className="rounded-sm">
+                <DialogHeader>
+                  <DialogTitle>Upload Document</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="grid w-full items-center gap-1.5">
+                    <label className="text-xs font-bold text-slate-500 uppercase">Select File</label>
+                    <Input 
+                      type="file" 
+                      onChange={handleFileChange} 
+                      className="h-10 border-slate-200 text-xs pt-2"
+                    />
+                  </div>
+                  {selectedFile && (
+                    <div className="p-3 bg-slate-50 rounded-sm border border-slate-100 flex items-center gap-3">
+                      <FileCheck className="h-5 w-5 text-[#46a395]" />
+                      <div>
+                        <p className="text-xs font-bold text-slate-700">{selectedFile.name}</p>
+                        <p className="text-[10px] text-slate-400">{formatFileSize(selectedFile.size)}</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" size="sm" onClick={() => setUploadDialogOpen(false)}>Cancel</Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleUpload} 
+                    disabled={!selectedFile || isUploading}
+                    className="gap-2"
+                  >
+                    {isUploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+                    Confirm Upload
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          ) : (
+            <div className="flex items-center gap-2 px-3 py-1 bg-slate-50 border border-slate-200 rounded-sm text-slate-500">
+              <ShieldAlert className="h-3.5 w-3.5" />
+              <span className="text-[10px] font-bold uppercase tracking-tight">Read Only (Viewer)</span>
+            </div>
+          )}
+        </div>
       </div>
 
       {!selectedProjectId ? (
