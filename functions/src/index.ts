@@ -133,3 +133,5 @@ export const onUserRoleChange = onDocumentUpdated(
     }
   }
 );
+
+export {menuSuggestion} from "./genkit-sample";
