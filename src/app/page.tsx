@@ -1,5 +1,7 @@
+
 'use client';
 
+import { useState, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -12,7 +14,12 @@ import {
   HardHat, 
   Users, 
   Target, 
-  LayoutDashboard 
+  LayoutDashboard,
+  ExternalLink,
+  Plus,
+  Trash2,
+  Link as LinkIcon,
+  Loader2
 } from 'lucide-react';
 import { OverviewChart } from '@/components/overview-chart';
 import { 
@@ -22,7 +29,13 @@ import {
   useMemoFirebase, 
   useAuth 
 } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { 
+  collection, 
+  doc, 
+  addDoc, 
+  deleteDoc, 
+  serverTimestamp 
+} from 'firebase/firestore';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useProjectContext } from '@/context/project-context';
 import {
@@ -32,30 +45,60 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { useMemo } from 'react';
+import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 export default function Home() {
   const { user, role, assignedProjects } = useAuth();
   const firestore = useFirestore();
+  const { toast } = useToast();
   const { selectedProjectId, setSelectedProjectId } = useProjectContext();
+  
+  const [newLinkLabel, setNewLinkLabel] = useState('');
+  const [newLinkUrl, setNewLinkUrl] = useState('');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
 
+  const isAdmin = role === 'admin';
+
+  // System Metadata Read
   const metadataDoc = useMemoFirebase(
     () => (firestore && user ? doc(firestore, 'system', 'metadata') : null),
     [firestore, user?.uid]
   );
   const { data: systemMetadata, isLoading: metadataLoading } = useDoc(metadataDoc);
 
+  // Projects Read
   const projectsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'projects') : null),
     [firestore, user?.uid]
   );
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsCollection);
 
+  // Contractors Read
   const contractorsCollection = useMemoFirebase(
     () => (firestore && user ? collection(firestore, 'contractors') : null),
     [firestore, user?.uid]
   );
   const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsCollection);
+
+  // Quick Links Read
+  const quickLinksCollection = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'system', 'quick_links') : null),
+    [firestore]
+  );
+  const { data: quickLinks, isLoading: linksLoading } = useCollection(quickLinksCollection);
 
   const loading = metadataLoading || projectsLoading || contractorsLoading;
 
@@ -65,76 +108,87 @@ export default function Home() {
     return projects.filter(p => assignedProjects?.includes(p.id));
   }, [projects, role, assignedProjects]);
 
-  const projectCount = filteredProjects.length;
-  const contractorCount = contractors?.length ?? 0;
+  const handleAddLink = async () => {
+    if (!firestore || !newLinkLabel || !newLinkUrl) return;
+    setIsSaving(true);
+    
+    const linkData = {
+      label: newLinkLabel,
+      url: newLinkUrl.startsWith('http') ? newLinkUrl : `https://${newLinkUrl}`,
+      createdAt: serverTimestamp(),
+    };
+
+    addDoc(collection(firestore, 'system', 'quick_links'), linkData)
+      .then(() => {
+        toast({ title: "Link Created", description: "Quick access button added." });
+        setNewLinkLabel('');
+        setNewLinkUrl('');
+        setIsAddDialogOpen(false);
+      })
+      .catch((err) => {
+        errorEmitter.emit('permission-error', new FirestorePermissionError({
+          path: 'system/quick_links',
+          operation: 'create',
+          requestResourceData: linkData,
+        }));
+      })
+      .finally(() => setIsSaving(false));
+  };
+
+  const handleDeleteLink = (id: string) => {
+    if (!firestore || !isAdmin) return;
+    const linkRef = doc(firestore, 'system', 'quick_links', id);
+    deleteDoc(linkRef).catch(err => {
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: linkRef.path,
+        operation: 'delete',
+      }));
+    });
+  };
 
   return (
     <div className="flex flex-col gap-2">
       <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-4">
-        
-        {/* Card 1: Total Users */}
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
           <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
             <Users className="h-24 w-24" />
           </div>
           <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Total Users</p>
-          {loading ? (
-            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
-          ) : (
-            <h3 className="text-2xl font-black mt-1 leading-none">{systemMetadata?.userCount || 0}</h3>
-          )}
+          {loading ? <Skeleton className="h-8 w-20 bg-white/20 mt-1" /> : <h3 className="text-2xl font-black mt-1 leading-none">{systemMetadata?.userCount || 0}</h3>}
           <p className="text-[9px] mt-2 font-bold opacity-70">System-wide directory</p>
         </Card>
         
-        {/* Card 2: My Projects */}
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
           <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
             <FolderKanban className="h-24 w-24" />
           </div>
           <p className="text-[10px] font-black uppercase tracking-widest opacity-80">My Projects</p>
-          {loading ? (
-            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
-          ) : (
-            <h3 className="text-2xl font-black mt-1 leading-none">{projectCount}</h3>
-          )}
+          {loading ? <Skeleton className="h-8 w-20 bg-white/20 mt-1" /> : <h3 className="text-2xl font-black mt-1 leading-none">{filteredProjects.length}</h3>}
           <p className="text-[9px] mt-2 font-bold opacity-70">Accessible portfolio</p>
         </Card>
 
-        {/* Card 3: Contractors */}
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#46a395] text-white overflow-hidden relative group cursor-default">
           <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
             <HardHat className="h-24 w-24" />
           </div>
           <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Contractors</p>
-          {loading ? (
-            <Skeleton className="h-8 w-20 bg-white/20 mt-1" />
-          ) : (
-            <h3 className="text-2xl font-black mt-1 leading-none">{contractorCount}</h3>
-          )}
+          {loading ? <Skeleton className="h-8 w-20 bg-white/20 mt-1" /> : <h3 className="text-2xl font-black mt-1 leading-none">{contractors?.length || 0}</h3>}
           <p className="text-[9px] mt-2 font-bold opacity-70">Verified vendors</p>
         </Card>
 
-        {/* Card 4: Focused Project - Orange Accent */}
         <Card className="rounded-sm border-slate-200 shadow-sm p-4 bg-[#FF9800] text-white overflow-hidden relative group cursor-default">
           <div className="absolute right-[-10px] top-[-10px] opacity-10 group-hover:scale-110 transition-transform">
             <Target className="h-24 w-24" />
           </div>
           <p className="text-[10px] font-black uppercase tracking-widest opacity-80">Focused Project</p>
           <div className="mt-2 relative z-10">
-            <Select 
-              value={selectedProjectId || "all"} 
-              onValueChange={(val) => setSelectedProjectId(val === "all" ? null : val)}
-            >
+            <Select value={selectedProjectId || "all"} onValueChange={(val) => setSelectedProjectId(val === "all" ? null : val)}>
               <SelectTrigger className="h-8 rounded-sm border-white/20 bg-white/10 text-white text-[11px] font-bold shadow-sm hover:bg-white/20 transition-colors">
                 <SelectValue placeholder="Global Context" />
               </SelectTrigger>
-              <SelectContent className="rounded-sm border-slate-200">
+              <SelectContent className="rounded-sm">
                 <SelectItem value="all" className="text-xs font-bold">All Assigned Projects</SelectItem>
-                {filteredProjects?.map((p) => (
-                  <SelectItem key={p.id} value={p.id} className="text-xs font-medium">
-                    {p.name}
-                  </SelectItem>
-                ))}
+                {filteredProjects?.map((p) => <SelectItem key={p.id} value={p.id} className="text-xs font-medium">{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
           </div>
@@ -152,6 +206,74 @@ export default function Home() {
         </CardHeader>
         <CardContent>
           <OverviewChart />
+        </CardContent>
+      </Card>
+
+      <Card className="rounded-sm border-slate-200 shadow-sm">
+        <CardHeader className="p-4 border-b bg-slate-50/50 flex flex-row items-center justify-between">
+          <div className="flex items-center gap-2">
+            <LinkIcon className="h-4 w-4 text-[#46a395]" />
+            <CardTitle className="text-sm font-bold uppercase tracking-tight">Quick Access Links</CardTitle>
+          </div>
+          {isAdmin && (
+            <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline" className="h-7 text-[10px] font-bold uppercase rounded-sm border-[#46a395] text-[#46a395] hover:bg-[#46a395] hover:text-white transition-all gap-1">
+                  <Plus className="h-3 w-3" /> Add Link
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="rounded-sm">
+                <DialogHeader>
+                  <DialogTitle>Create Quick Access Button</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Button Label</label>
+                    <Input placeholder="e.g. Safety Portal" value={newLinkLabel} onChange={(e) => setNewLinkLabel(e.target.value)} className="h-10 rounded-sm text-xs" />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-bold uppercase text-slate-500">Target URL</label>
+                    <Input placeholder="https://example.com" value={newLinkUrl} onChange={(e) => setNewLinkUrl(e.target.value)} className="h-10 rounded-sm text-xs" />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" size="sm" onClick={() => setIsAddDialogOpen(false)}>Cancel</Button>
+                  <Button size="sm" onClick={handleAddLink} disabled={!newLinkLabel || !newLinkUrl || isSaving} className="gap-2">
+                    {isSaving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                    Confirm Creation
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </CardHeader>
+        <CardContent className="p-4">
+          <div className="flex flex-wrap gap-2">
+            {linksLoading ? [1, 2, 3].map(i => <Skeleton key={i} className="h-10 w-32 rounded-sm" />) : quickLinks?.length === 0 ? (
+              <div className="w-full py-6 text-center text-[10px] font-bold uppercase text-slate-400 italic border border-dashed rounded-sm">
+                No active quick links
+              </div>
+            ) : (
+              quickLinks?.map((link: any) => (
+                <div key={link.id} className="relative group">
+                  <Button asChild variant="outline" className="h-10 px-4 rounded-sm border-slate-200 hover:border-[#46a395] hover:bg-[#46a395]/5 hover:text-[#46a395] transition-all gap-2 pr-8 group">
+                    <a href={link.url} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5 opacity-50" />
+                      <span className="text-xs font-bold">{link.label}</span>
+                    </a>
+                  </Button>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => handleDeleteLink(link.id)}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 h-6 w-6 rounded-full bg-red-50 text-red-500 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-500 hover:text-white"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

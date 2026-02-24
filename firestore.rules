@@ -1,18 +1,12 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    /**
-     * Helper functions for role-based access control.
-     * Consults the designated role directly from the user's Firestore document
-     * to ensure real-time permission enforcement.
-     */
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    // Fetches the current user's profile document from the database
     function getUserData() {
       return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
     }
@@ -29,27 +23,20 @@ service cloud.firestore {
       return hasRole('project_manager');
     }
 
-    /** Total access for Admin and Project Manager */
     function canWrite() {
       return isAdmin() || isManager();
     }
 
-    // --- Collection Rules ---
-
-    /**
-     * System metadata is readable by all authenticated users.
-     */
     match /system/metadata {
       allow read: if isSignedIn();
       allow write: if isAdmin();
     }
 
-    /**
-     * Users management.
-     * Users can read their own profile.
-     * Admins manage the full directory.
-     * PMs can list users for assignments.
-     */
+    match /system/quick_links/{linkId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin() || isManager();
@@ -58,17 +45,9 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /**
-     * Operational Collections:
-     * projects, contractors, dailyReports, monthlyReports, safetyEvents.
-     */
-    
-    // Explicit match for main operative modules
     match /projects/{docId} {
       allow read: if isSignedIn();
       allow write: if canWrite();
-      
-      // Handle project sub-collections (like documents metadata)
       match /{allSubpaths=**} {
         allow read: if isSignedIn();
         allow write: if canWrite();
@@ -95,10 +74,6 @@ service cloud.firestore {
       allow write: if canWrite();
     }
 
-    /**
-     * Time Tracking Logic:
-     * Users log their own, Admins/PMs control everything.
-     */
     match /time_entries/{entryId} {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
