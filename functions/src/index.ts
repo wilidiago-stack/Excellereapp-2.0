@@ -38,9 +38,18 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
       const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
       const role = isFirstUser ? "admin" : "viewer";
       const modules = isFirstUser ? [
-        "dashboard", "projects", "users", "contractors",
-        "daily-report", "monthly-report", "safety-events",
-        "project-team", "documents", "calendar", "map", "weather"
+        "dashboard",
+        "projects",
+        "users",
+        "contractors",
+        "daily-report",
+        "monthly-report",
+        "safety-events",
+        "project-team",
+        "documents",
+        "calendar",
+        "map",
+        "weather",
       ] : [];
 
       const newUser = {
@@ -63,7 +72,7 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
     } catch (error) {
       logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
     }
-  }
+  },
 );
 
 /**
@@ -94,7 +103,7 @@ export const onUserRoleChange = firestore.onDocumentUpdated(
     } catch (error) {
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
-  }
+  },
 );
 
 export {menuSuggestion} from "./genkit-sample";
