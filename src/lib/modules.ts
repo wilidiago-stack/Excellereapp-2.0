@@ -8,7 +8,7 @@
  */
 
 import { 
-  Home, Users, FolderKanban, Building, HardHat, FileText, 
+  Home, Users, FolderKanban, HardHat, FileText, 
   CalendarDays, Files, Camera, Map as MapIcon, DollarSign, 
   BarChart2, Clock, CloudSun, ShieldAlert, LucideIcon 
 } from 'lucide-react';
@@ -24,7 +24,6 @@ export interface AppModule {
 
 export const APP_MODULES: AppModule[] = [
   { id: 'dashboard', label: 'Dashboard', href: '/', icon: Home, defaultVisibility: 'all' },
-  { id: 'customers', label: 'Customers', href: '/customers', icon: Building, defaultVisibility: 'all' },
   { id: 'projects', label: 'Projects', href: '/projects', icon: FolderKanban, defaultVisibility: 'manager' },
   { id: 'users', label: 'Users', href: '/users', icon: Users, defaultVisibility: 'admin' },
   { id: 'contractors', label: 'Contractors', href: '/contractors', icon: HardHat, defaultVisibility: 'manager' },
