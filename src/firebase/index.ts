@@ -5,6 +5,8 @@ import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
+import { initializeAppCheck, ReCaptchaV3Provider } from 'firebase/app-check';
+import { RECAPTCHA_V3_SITE_KEY } from './app-check-config';
 
 // IMPORTANT: DO NOT MODIFY THIS FUNCTION
 export function initializeFirebase() {
@@ -18,6 +20,15 @@ export function initializeFirebase() {
       }
       firebaseApp = initializeApp(firebaseConfig);
     }
+    
+    // Initialize App Check only on the client side
+    if (typeof window !== "undefined") {
+      initializeAppCheck(firebaseApp, {
+        provider: new ReCaptchaV3Provider(RECAPTCHA_V3_SITE_KEY),
+        isTokenAutoRefreshEnabled: true,
+      });
+    }
+    
     return getSdks(firebaseApp);
   }
   return getSdks(getApp());
