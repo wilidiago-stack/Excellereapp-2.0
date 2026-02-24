@@ -10,6 +10,7 @@ const apiKey = defineSecret("GOOGLE_GENAI_API_KEY");
  */
 async function startTelemetry() {
   try {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
     const m = require("@genkit-ai/firebase");
     if (m && typeof m.enableFirebaseTelemetry === "function") {
       m.enableFirebaseTelemetry();

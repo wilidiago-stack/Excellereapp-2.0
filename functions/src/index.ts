@@ -37,7 +37,11 @@ export const setupInitialUserRole = identity.onAuthUserCreated(
       const fName = parts[0] || (email ? email.split("@")[0] : "New");
       const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
       const role = isFirstUser ? "admin" : "viewer";
-      const modules = isFirstUser ? ["dashboard", "projects", "users"] : [];
+      const modules = isFirstUser ? [
+        "dashboard", "projects", "users", "contractors",
+        "daily-report", "monthly-report", "safety-events",
+        "project-team", "documents", "calendar", "map", "weather"
+      ] : [];
 
       const newUser = {
         firstName: fName,
