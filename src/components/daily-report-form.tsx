@@ -19,7 +19,7 @@ import {
   Loader2,
   Mic,
   MicOff,
-  Sparkles
+  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth, useCollection, useMemoFirebase, useFirestore } from '@/firebase';
@@ -66,6 +66,12 @@ import {
 import { Separator } from './ui/separator';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 const manHourSchema = z.object({
   contractorId: z.string().min(1, 'Please select a contractor'),
@@ -352,29 +358,52 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 relative">
         
-        <div className="fixed bottom-10 right-10 z-50 group">
-          <Card className="p-4 shadow-2xl border-primary/20 bg-white/95 backdrop-blur-md flex flex-col items-center gap-3 animate-in slide-in-from-bottom-4">
-            <div className="flex items-center gap-2 mb-1">
-              <Sparkles className="h-4 w-4 text-[#46a395] animate-pulse" />
-              <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">AI Voice Assistant</span>
-            </div>
-            <Button
-              type="button"
-              variant={isListening ? "destructive" : "default"}
-              size="icon"
-              onClick={isListening ? () => {} : startVoiceCapture}
-              disabled={isAIProcessing}
-              className={cn(
-                "h-14 w-14 rounded-full shadow-lg transition-all hover:scale-110 active:scale-95",
-                isListening && "animate-pulse"
-              )}
-            >
-              {isAIProcessing ? <Loader2 className="h-6 w-6 animate-spin" /> : isListening ? <MicOff className="h-6 w-6" /> : <Mic className="h-6 w-6" />}
-            </Button>
-            {isListening && <p className="text-[9px] font-bold text-red-500 animate-pulse uppercase">Listening...</p>}
-            {isAIProcessing && <p className="text-[9px] font-bold text-[#46a395] animate-bounce uppercase">IA Processing...</p>}
-            {!isListening && !isAIProcessing && <p className="text-[9px] font-bold text-slate-400 uppercase">Click to Dictate</p>}
-          </Card>
+        {/* RE-DESIGNED MINIMALIST VOICE ASSISTANT */}
+        <div className="fixed bottom-6 right-6 z-50 group">
+          <div className="flex flex-col items-end gap-2">
+            {(isListening || isAIProcessing) && (
+              <div className={cn(
+                "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm border animate-in fade-in slide-in-from-right-2",
+                isListening ? "bg-red-50 text-red-500 border-red-100" : "bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20"
+              )}>
+                {isListening ? "Recording Audio..." : "Gemini is Thinking..."}
+              </div>
+            )}
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    variant={isListening ? "destructive" : "default"}
+                    size="icon"
+                    onClick={isListening ? () => {} : startVoiceCapture}
+                    disabled={isAIProcessing}
+                    className={cn(
+                      "h-12 w-12 rounded-full shadow-xl transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/20",
+                      isListening && "animate-pulse shadow-red-200"
+                    )}
+                  >
+                    {isAIProcessing ? (
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                    ) : isListening ? (
+                      <MicOff className="h-5 w-5" />
+                    ) : (
+                      <div className="relative">
+                        <Mic className="h-5 w-5" />
+                        <div className="absolute -top-1 -right-1">
+                          <Sparkles className="h-2.5 w-2.5 text-white/80 animate-pulse" />
+                        </div>
+                      </div>
+                    )}
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="bg-slate-900 text-white border-none text-[10px] font-bold uppercase">
+                  {isListening ? "Stop and Process" : "Smart Voice Assistant"}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
         </div>
 
         <div className="space-y-4">
