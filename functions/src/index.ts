@@ -36,25 +36,14 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
       }
     });
 
-    const parts = displayName?.split(" ").filter(
-      (p: string) => p.length > 0,
-    ) || [];
-    const firstName = parts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
+    const nameParts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
     const defaultModules = isFirstUser ? [
-      "dashboard",
-      "projects",
-      "users",
-      "contractors",
-      "daily-report",
-      "monthly-report",
-      "safety-events",
-      "project-team",
-      "documents",
-      "calendar",
-      "map",
-      "weather",
+      "dashboard", "projects", "users", "contractors",
+      "daily-report", "monthly-report", "safety-events",
+      "project-team", "documents", "calendar", "map", "weather",
       "reports-analytics",
     ] : [];
 

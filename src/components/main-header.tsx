@@ -42,6 +42,44 @@ export function MainHeader() {
   
   const isAdmin = role === 'admin';
 
+  // Helper to process voice commands and navigate directly if matched
+  const processVoiceCommand = (transcript: string) => {
+    const text = transcript.toLowerCase().trim();
+    
+    // Check if the transcript matches any action label or id
+    const matchedAction = ACTION_REGISTRY.find(action => {
+      const label = action.label.toLowerCase();
+      const id = action.id.toLowerCase().replace(/-/g, ' ');
+      
+      // Direct match or "create/new/open" prefix match
+      return text === label || 
+             text === id || 
+             text.includes(`new ${label}`) || 
+             text.includes(`create ${label}`) ||
+             text.includes(`open ${label}`) ||
+             label.includes(text);
+    });
+
+    if (matchedAction) {
+      // Permission check (matching registry logic)
+      const hasAccess = isAdmin || assignedModules?.includes(matchedAction.moduleId) || 
+        ['weather', 'calendar', 'map', 'safety-events', 'reports-analytics', 'dashboard'].includes(matchedAction.moduleId);
+      
+      if (hasAccess) {
+        toast({
+          title: "Executing Command",
+          description: `Opening ${matchedAction.label}...`,
+          duration: 2000,
+        });
+        router.push(matchedAction.href);
+        setSearchQuery('');
+        setIsSearchOpen(false);
+        return true;
+      }
+    }
+    return false;
+  };
+
   const startListening = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || 
       (window as any).webkitSpeechRecognition;
@@ -66,8 +104,15 @@ export function MainHeader() {
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setSearchQuery(transcript);
-      setIsSearchOpen(true);
+      
+      // Try to execute as a direct command first
+      const wasExecuted = processVoiceCommand(transcript);
+      
+      if (!wasExecuted) {
+        // Fallback to search if no direct action was triggered
+        setSearchQuery(transcript);
+        setIsSearchOpen(true);
+      }
     };
 
     recognition.onerror = (event: any) => {
