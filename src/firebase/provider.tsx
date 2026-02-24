@@ -66,8 +66,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       async (firebaseUser) => {
         if (firebaseUser) {
           try {
-            // Force refresh if the user just signed in to get latest custom claims
-            const tokenResult = await getIdTokenResult(firebaseUser, true);
+            // Get initial token result
+            const tokenResult = await getIdTokenResult(firebaseUser);
             setAuthState(prev => ({
               ...prev,
               user: firebaseUser,
@@ -103,7 +103,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   }, [auth]);
 
   // Real-time synchronization with the Firestore User document
-  // This is critical because Auth Claims take time to propagate, but Firestore is instant.
   useEffect(() => {
     if (!firestore || !authState.user) {
       setAuthState(prev => ({ ...prev, dbProfile: null }));
@@ -127,6 +126,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     return () => unsubscribeDoc();
   }, [firestore, authState.user?.uid]);
+
+  // AUTO-REFRESH TOKEN LOGIC
+  // If we have a role in the DB but NOT in the token claims, force a refresh once.
+  useEffect(() => {
+    const user = authState.user;
+    const dbRole = authState.dbProfile?.role;
+    const tokenRole = authState.claims?.role;
+
+    if (user && dbRole && !tokenRole) {
+      getIdTokenResult(user, true).then(tokenResult => {
+        if (tokenResult.claims.role) {
+          setAuthState(prev => ({ ...prev, claims: tokenResult.claims }));
+        }
+      }).catch(err => console.error("Auto-token refresh failed:", err));
+    }
+  }, [authState.user, authState.dbProfile?.role, authState.claims?.role]);
 
   const contextValue = useMemo((): FirebaseContextState => {
     const servicesAvailable = !!(firebaseApp && firestore && auth);
@@ -160,7 +175,6 @@ export const useAuth = (): AuthState => {
   const { user, claims, isUserLoading, userError, dbProfile } = useFirebase();
   
   // Prefer live data from Firestore (dbProfile) over cached data in Auth claims
-  // This allows immediate UI updates when an Admin changes a user's role.
   const role = dbProfile?.role || claims?.role || null;
   const assignedModules = dbProfile?.assignedModules || claims?.assignedModules || null;
   const assignedProjects = dbProfile?.assignedProjects || claims?.assignedProjects || null;
