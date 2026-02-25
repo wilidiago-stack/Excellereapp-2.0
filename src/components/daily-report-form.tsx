@@ -189,7 +189,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
 
   useEffect(() => {
     if (initialData && initialData.id) {
-      const data = {
+      const data: any = {
         date: initialData.date?.toDate ? initialData.date.toDate() : new Date(initialData.date),
         username: initialData.username || user?.displayName || '',
         projectId: initialData.projectId || '',
