@@ -13,7 +13,10 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
+        request.auth.token.role == 'admin'
+      );
     }
 
     function isExistingOwner(userId) {

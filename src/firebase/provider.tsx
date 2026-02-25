@@ -144,8 +144,7 @@ const EMPTY_ARRAY: string[] = [];
 export const useAuth = () => {
   const { user, isUserLoading, claims } = useFirebase();
   
-  // Memoize the return value to prevent infinite render loops in components
-  // that use role or assignedModules as dependency array items.
+  // Memoize the return value to prevent infinite render loops
   return useMemo(() => ({
     user,
     loading: isUserLoading,
