@@ -361,7 +361,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
           </div>
           <Card className="rounded-sm border-slate-200 overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10 w-48">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10">Activity Description</TableHead><TableHead className="text-[10px) font-bold uppercase h-10 w-40">Location</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
+              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10 w-48">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10">Activity Description</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 w-40">Location</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
               <TableBody>
                 {dailyActivityFields.map((field, index) => (
                   <TableRow key={field.id}>

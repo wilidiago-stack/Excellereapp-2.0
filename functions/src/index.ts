@@ -4,18 +4,13 @@ import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
 
-// Set global options for the function
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
 
-/**
- * Triggered on new user creation in Firebase Authentication.
- */
 export const setupInitialUserRole = onUserCreated(async (event) => {
   const user = event.data;
   if (!user) return;
@@ -75,9 +70,6 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
   }
 });
 
-/**
- * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
- */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
