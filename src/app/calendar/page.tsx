@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -257,15 +256,15 @@ export default function CalendarPage() {
               {events.slice(0, 3).map((event) => (
                 <div key={event.id} className={cn(
                   "text-[8px] px-1.5 py-0.5 rounded-sm truncate border flex items-center gap-1",
-                  event.type === 'start' ? 'bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20' : 
-                  event.type === 'delivery' ? 'bg-orange-100 text-orange-700 border-orange-200' :
-                  'bg-blue-50 text-blue-700 border-blue-100'
+                  event.type === 'start' ? "bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20" : 
+                  event.type === 'delivery' ? "bg-orange-100 text-orange-700 border-orange-200" :
+                  "bg-blue-50 text-blue-700 border-blue-100"
                 )}>
                   <div className={cn(
                     "h-1 w-1 rounded-full shrink-0",
-                    event.type === 'start' ? 'bg-[#46a395]' : 
-                    event.type === 'delivery' ? 'bg-orange-500' : 
-                    'bg-blue-500'
+                    event.type === 'start' ? "bg-[#46a395]" : 
+                    event.type === 'delivery' ? "bg-orange-500" : 
+                    "bg-blue-500"
                   )} /> 
                   {event.title}
                 </div>
