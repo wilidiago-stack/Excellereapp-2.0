@@ -12,7 +12,7 @@ const db = admin.firestore();
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
 
 export const setupInitialUserRole = onUserCreated(async (event) => {
-  const {data} = event;
+  const data = event.data;
   if (!data) return;
 
   const {uid, email, displayName} = data;
