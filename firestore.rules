@@ -1,93 +1,107 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    /**
+     * EXCELLERE REVIVE - SECURITY RULES DOCUMENTATION
+     *
+     * Core Philosophy:
+     * This ruleset implements a robust, multi-layered authorization model designed for a 
+     * modular application. It prioritizes strict identity verification and ownership 
+     * while maintaining flexibility in data schema to support rapid prototyping.
+     *
+     * Data Structure:
+     * 1. Global Metadata (/modules): Read-only for authenticated users, managed by admins.
+     * 2. User-Specific Data (/users/{userId}/...): Strictly isolated by the authenticated UID.
+     * 3. Administrative Roles (/roles_admin): Internal collection used for DBAC (Database-Backed Access Control).
+     *
+     * Key Security Decisions:
+     * - Authorization Independence: By nesting user-specific permissions under /users/{userId}, 
+     *   we eliminate the need for cross-document lookups (get() calls), reducing latency and cost.
+     * - DBAC for Metadata: Administrative privileges are determined by the presence of a document 
+     *   in the /roles_admin collection, allowing for real-time permission management without custom claims.
+     * - Relational Integrity: On creation of user-owned documents, the system mandates that internal 
+     *   fields (like userId) match the document path to prevent cross-user data injection.
+     *
+     * Denormalization for Authorization:
+     * To ensure fast rules, the 'userId' is explicitly required in the document data for 
+     * UserModuleAccess entities, even though it is present in the path. This allows for 
+     * immutable field checks during updates.
+     */
+
+    // --- GLOBAL HELPER FUNCTIONS ---
+
+    /** @description Checks if the user is authenticated with any provider. */
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    /** @description Checks if the user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
     }
 
-    function hasRole(roleName) {
-      return isSignedIn() && getUserData().role == roleName;
-    }
-
+    /** @description Checks if the user has an entry in the administrative roles collection. */
     function isAdmin() {
-      return hasRole('admin');
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    function isManager() {
-      return hasRole('project_manager');
+    /** @description Verifies document existence and owner status for state-changing operations. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
     }
 
-    function canWrite() {
-      return isAdmin() || isManager();
+    /** @description Verifies document existence and admin status for state-changing operations. */
+    function isExistingAdmin() {
+      return resource != null && isAdmin();
     }
 
-    match /system/metadata {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
+    // --- COLLECTION RULES ---
 
-    match /quick_links/{linkId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
-    match /calendar_notes/{noteId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn();
-    }
-
-    match /users/{userId} {
-      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
-      allow list: if isAdmin() || isManager();
+    /**
+     * @description Global definitions of application modules. Visible to all users to build UI navigation.
+     * @path /modules/{moduleId}
+     * @allow get, list: If user is signed in.
+     * @allow create: If user is an admin.
+     * @deny create: If user is a standard customer.
+     * @principle Public authenticated read access with administrative-only write control.
+     */
+    match /modules/{moduleId} {
+      allow get, list: if isSignedIn();
       allow create: if isAdmin();
-      allow update: if isAdmin() || (request.auth.uid == userId);
-      allow delete: if isAdmin();
+      allow update, delete: if isExistingAdmin();
     }
 
-    match /projects/{docId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-      match /{allSubpaths=**} {
-        allow read: if isSignedIn();
-        allow write: if canWrite();
-      }
+    /**
+     * @description Specific access permissions for a user regarding various modules.
+     * @path /users/{userId}/moduleAccess/{userModuleAccessId}
+     * @allow list: If the UID in the path matches the authenticated user.
+     * @allow create: If owner creates for themselves and sets internal userId field correctly.
+     * @deny update: If the user attempts to change the userId field (immutability).
+     * @principle User-scoped subcollections ensure strict data isolation and ownership.
+     */
+    match /users/{userId}/moduleAccess/{userModuleAccessId} {
+      allow get, list: if isOwner(userId);
+      
+      // Relational Integrity: Force the document data to match the path context on creation.
+      allow create: if isOwner(userId) && request.resource.data.userId == userId;
+      
+      // Relational Integrity: Ensure the userId field remains immutable during updates.
+      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
+      
+      allow delete: if isExistingOwner(userId);
     }
 
-    match /contractors/{docId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /dailyReports/{docId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /monthlyReports/{docId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /safetyEvents/{docId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite();
-    }
-
-    match /time_entries/{entryId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn();
-      allow update, delete: if canWrite() || (resource.data.userId == request.auth.uid);
-    }
-
-    match /weekly_submissions/{submissionId} {
-      allow read: if isSignedIn();
-      allow write: if canWrite() || submissionId.startsWith(request.auth.uid);
+    /**
+     * @description Administrative roles collection used for DBAC.
+     * @path /roles_admin/{adminId}
+     * @allow get: If signed in (needed for exists() checks in other rules).
+     * @allow write: if false; (Managed exclusively via Firebase Admin SDK or Console).
+     * @principle Secure internal collection for permission elevation.
+     */
+    match /roles_admin/{adminId} {
+      allow get: if isSignedIn();
+      allow list, create, update, delete: if false;
     }
   }
 }
