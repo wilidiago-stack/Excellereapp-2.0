@@ -1,143 +1,44 @@
 {
   "entities": {
+    "User": {
+      "title": "User",
+      "description": "System user profile containing roles and module access permissions.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["admin", "project_manager", "viewer"] },
+        "status": { "type": "string", "enum": ["active", "pending", "invited", "rejected"] },
+        "assignedModules": { "type": "array", "items": { "type": "string" } },
+        "assignedProjects": { "type": "array", "items": { "type": "string" } },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
+    },
     "Module": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Module",
       "type": "object",
-      "description": "Represents a distinct functional area or feature within the Excellere Revive application, accessible to users.",
+      "description": "Represents a distinct functional area within the application.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Module entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The display name of the module, e.g., 'Dashboard', 'Settings'."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the module's purpose or functionality."
-        },
-        "iconName": {
-          "type": "string",
-          "description": "The name of the icon associated with this module for UI display (e.g., 'dashboard-icon', 'settings-gear')."
-        },
-        "routePath": {
-          "type": "string",
-          "description": "The URL path or route segment used to navigate to this module in the application (e.g., '/dashboard', '/settings')."
-        },
-        "displayOrder": {
-          "type": "number",
-          "description": "An integer value defining the order in which the module should appear in navigation menus."
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description",
-        "iconName",
-        "routePath",
-        "displayOrder"
-      ]
-    },
-    "UserModuleAccess": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "UserModuleAccess",
-      "type": "object",
-      "description": "Defines the access permissions a specific user has for a particular application module.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the UserModuleAccess entity."
-        },
-        "userId": {
-          "type": "string",
-          "description": "Reference to the unique identifier of the user from the external authentication system. (Relationship: User 1:N UserModuleAccess)"
-        },
-        "moduleId": {
-          "type": "string",
-          "description": "Reference to the unique identifier of the Module. (Relationship: Module 1:N UserModuleAccess)"
-        },
-        "canView": {
-          "type": "boolean",
-          "description": "Indicates whether the user has permission to view the module's content."
-        },
-        "canEdit": {
-          "type": "boolean",
-          "description": "Indicates whether the user has permission to modify data or settings within the module."
-        },
-        "canDelete": {
-          "type": "boolean",
-          "description": "Indicates whether the user has permission to delete data or records within the module."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when this access record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when this access record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "userId",
-        "moduleId",
-        "canView",
-        "canEdit",
-        "canDelete",
-        "createdAt",
-        "updatedAt"
-      ]
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "routePath": { "type": "string" },
+        "iconName": { "type": "string" }
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password", "google.com", "microsoft.com"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/modules/{moduleId}",
-        "definition": {
-          "entityName": "Module",
-          "schema": {
-            "$ref": "#/backend/entities/Module"
-          },
-          "description": "Stores global definitions of application modules, accessible to all authenticated users for UI navigation. Write access is restricted to administrators.",
-          "params": [
-            {
-              "name": "moduleId",
-              "description": "The unique identifier for a specific module."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/users/{userId}/moduleAccess/{userModuleAccessId}",
-        "definition": {
-          "entityName": "UserModuleAccess",
-          "schema": {
-            "$ref": "#/backend/entities/UserModuleAccess"
-          },
-          "description": "Defines the specific access permissions a user has for each module. This collection is owned by the user specified in the path, ensuring authorization independence.",
-          "params": [
-            {
-              "name": "userId",
-              "description": "The unique identifier of the user who owns these module access permissions."
-            },
-            {
-              "name": "userModuleAccessId",
-              "description": "The unique identifier for a specific user's module access record."
-            }
-          ]
-        }
-      }
-    ],
-    "reasoning": "The recommended Firestore structure for Excellere Revive prioritizes security, scalability, and ease of debugging by strictly adhering to the core design principles and mandates. \n\n**Authorization Independence & Denormalization:**\n\n1.  **Global Modules (`/modules/{moduleId}`):** This collection stores the metadata for each application module (e.g., 'Dashboard', 'Settings'). These documents are designed to be self-contained and globally readable by any authenticated user. Authorization for reading these modules does not depend on any parent documents or complex lookups, thus eliminating the need for `get()` calls in security rules. Write access (create, update, delete) is restricted to administrators only, managed by a separate role-based access control mechanism. This structure ensures that module definitions can be fetched efficiently and independently.\n\n2.  **User-Specific Module Access (`/users/{userId}/moduleAccess/{userModuleAccessId}`):** This subcollection is nested under the `/users/{userId}` path. By embedding the `userId` directly into the document path, ownership is explicitly defined by the path itself (`request.auth.uid == userId`). This design inherently denormalizes the authorization context, as the required `userId` for access control is readily available in the `userId` wildcard of the path. Consequently, security rules can evaluate access without performing any `get()` operations, which is critical for maintaining atomic operations and preventing security rule complexity. The `userId` field is also present within the `UserModuleAccess` document for data integrity and query flexibility, but its primary authorization role is fulfilled by the path.\n\n**Querying for Authorization & QAPs (Rules are not Filters):**\n\n1.  **For Modules:** The `/modules` collection is structured for secure `list` operations. Any authenticated user can securely list all documents in this collection to populate their navigation menu. Security rules will simply check if `request.auth.uid != null` for read access, ensuring no unauthorized users can access module definitions while allowing all legitimate users to see available modules.\n\n2.  **For User Module Access:** The `/users/{userId}/moduleAccess` subcollection allows a user to securely `list` all their own module access permissions. A user will query `/users/$(request.auth.uid)/moduleAccess`. The security rules will directly compare `request.auth.uid` with the `{userId}` wildcard in the path, ensuring that users can only retrieve their own access records. This design pattern guarantees that the application client does not need to filter results, as the database itself enforces the ownership-based security during the query, thereby adhering to the 'QAPs' principle.\n\n**DBAC (Database-Backed Access Control) & Global Roles:**\nTo manage administrative privileges and allow write access to `/modules` or manage `/users/{userId}/moduleAccess` records, a separate collection for global roles is essential. While not explicitly defined as an entity in the provided schema, a common pattern for DBAC is to use a collection like `/roles_admin/{adminId}`. The mere existence of a document at `/roles_admin/$(request.auth.uid)` would grant administrative privileges. This method ensures authorization is handled via data existence rather than custom claims, providing flexibility and debuggability without complex `get()` calls in rules, as rules would simply check `exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid))`. This collection supports the admin write access needed for the `Module` collection and potential management of `UserModuleAccess` records.\n\nOverall, this structure provides a clear separation of global, system-defined data (Modules) and private, user-specific authorization data (UserModuleAccess), each with highly efficient and secure access patterns. It minimizes rule complexity by embedding authorization context directly into the data path or using simple existence checks, thereby fulfilling the core design principles for a secure, scalable, and debuggable Firestore backend."
+    "/users/{userId}": {
+      "schema": { "$ref": "#/backend/entities/User" },
+      "description": "User profiles with role-based access control."
+    },
+    "/modules/{moduleId}": {
+      "schema": { "$ref": "#/backend/entities/Module" },
+      "description": "Global module definitions."
+    }
   }
 }

@@ -37,8 +37,12 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
     const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
     const fName = parts[0] || (email ? email.split("@")[0] : "New");
     const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
-    const role = isFirstUser ? "admin" : "viewer";
-    const modules = isFirstUser ? [
+    
+    // Grant admin role to first user OR specific bootstrap admin email
+    const isSpecialAdmin = email === "andres.diago@outlook.com";
+    const role = (isFirstUser || isSpecialAdmin) ? "admin" : "viewer";
+    
+    const modules = (role === "admin") ? [
       "dashboard", "projects", "users", "contractors",
       "daily-report", "monthly-report", "safety-events",
       "project-team", "documents", "calendar", "map", "weather",
