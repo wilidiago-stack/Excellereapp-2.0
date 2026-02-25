@@ -42,12 +42,13 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
     const isSpecialAdmin = email === "andres.diago@outlook.com";
     const role = (isFirstUser || isSpecialAdmin) ? "admin" : "viewer";
     
+    // Non-admins start with empty modules to trigger the approval modal
     const modules = (role === "admin") ? [
       "dashboard", "projects", "users", "contractors",
       "daily-report", "monthly-report", "safety-events",
       "project-team", "documents", "calendar", "map", "weather",
       "reports-analytics", "time-sheet", "master-sheet-time",
-    ] : ["dashboard", "time-sheet"];
+    ] : [];
 
     const newUser = {
       firstName: fName,

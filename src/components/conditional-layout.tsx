@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { useAuth, useAuthInstance } from '@/firebase';
-import { Loader2, ShieldAlert } from 'lucide-react';
+import { Loader2, ShieldAlert, LogOut } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { APP_MODULES } from '@/lib/modules';
 import {
@@ -16,6 +16,7 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { signOut } from 'firebase/auth';
+import { Button } from './ui/button';
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, role, assignedModules } = useAuth();
@@ -26,6 +27,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const isPublicPath = publicPaths.some((p) => pathname.startsWith(p));
 
   const [isRestricted, setIsRestricted] = useState(false);
+  const [isNewUser, setIsNewUser] = useState(false);
 
   useEffect(() => {
     if (!loading && !user && !isPublicPath) {
@@ -37,32 +39,36 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     if (loading || !user || isPublicPath) return;
 
     const isAdmin = role === 'admin';
+    const hasModules = assignedModules && assignedModules.length > 0;
     
+    // Check if the user is not an admin and has no modules assigned
+    if (!isAdmin && !hasModules) {
+      setIsNewUser(true);
+      return;
+    } else {
+      setIsNewUser(false);
+    }
+
     if (isAdmin) {
       setIsRestricted(false);
       return;
     }
 
-    // Allow dashboard for all authenticated users during claim sync
     if (pathname === '/') {
       setIsRestricted(false);
       return;
     }
 
-    // Check module permissions
     const currentModule = APP_MODULES.find(
       m => pathname.startsWith(m.href) && m.href !== '/'
     );
     
-    if (currentModule && assignedModules && assignedModules.length > 0) {
+    if (currentModule) {
       if (!assignedModules.includes(currentModule.id)) {
         setIsRestricted(true);
       } else {
         setIsRestricted(false);
       }
-    } else {
-      // Default to allowed if no module mapping exists or claims haven't loaded
-      setIsRestricted(false);
     }
   }, [loading, user, isPublicPath, role, assignedModules, pathname]);
 
@@ -71,6 +77,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
       signOut(auth).then(() => {
         router.push('/login');
         setIsRestricted(false);
+        setIsNewUser(false);
       });
     }
   };
@@ -80,7 +87,7 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
       <div className="flex flex-col items-center justify-center min-h-screen gap-4">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <p className="text-sm text-muted-foreground animate-pulse">
-          Starting secure session...
+          Establishing secure session...
         </p>
       </div>
     );
@@ -98,7 +105,40 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
     <>
       <AppShell>{children}</AppShell>
       
-      <AlertDialog open={isRestricted}>
+      {/* NEW: Modal for Users without module assignments (New/Pending) */}
+      <AlertDialog open={isNewUser}>
+        <AlertDialogContent className="max-w-md border-none shadow-2xl">
+          <AlertDialogHeader className="items-center text-center pb-4">
+            <div className="h-20 w-20 rounded-full bg-slate-50 flex items-center justify-center mb-6 ring-8 ring-slate-50/50">
+              <ShieldAlert className="h-10 w-10 text-slate-400" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-black tracking-tight text-slate-800">
+              Access Pending Approval
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-base text-slate-500 leading-relaxed mt-4">
+              Welcome to the Excellere App. Your account is successfully 
+              authenticated but currently lacks authorization to access 
+              platform modules.
+              <br /><br />
+              Please <span className="font-bold text-slate-900">contact the system administrator</span> 
+              to verify your profile and enable your workspace.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="sm:justify-center pt-2">
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              className="w-full sm:w-auto rounded-sm border-slate-200 font-bold uppercase tracking-widest text-[10px] h-11 gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out & Exit
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal for existing users trying to access unauthorized areas */}
+      <AlertDialog open={isRestricted && !isNewUser}>
         <AlertDialogContent className="max-w-md">
           <AlertDialogHeader className="items-center text-center">
             <div className="h-12 w-12 rounded-full bg-destructive/10 flex items-center justify-center mb-2">
@@ -116,8 +156,8 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:justify-center">
-            <AlertDialogAction onClick={handleLogout}>
-              Return to Login
+            <AlertDialogAction onClick={() => router.push('/')}>
+              Back to Dashboard
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
