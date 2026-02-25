@@ -179,11 +179,27 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         bbsGemba: 0,
         operationsStandDowns: 0,
       },
-      manHours: [{ contractorId: '', headcount: 0, hours: 0 }],
-      dailyActivities: [{ contractorId: '', activity: '', location: '', permits: [] }],
-      notes: [{ note: '', status: 'open' }],
+      manHours: [],
+      dailyActivities: [],
+      notes: [],
     },
   });
+
+  const {
+    fields: dailyActivityFields,
+    append: appendDailyActivity,
+    remove: removeDailyActivity,
+  } = useFieldArray({ control: form.control, name: 'dailyActivities' });
+  const {
+    fields: manHourFields,
+    append: appendManHour,
+    remove: removeManHour,
+  } = useFieldArray({ control: form.control, name: 'manHours' });
+  const {
+    fields: noteFields,
+    append: appendNote,
+    remove: removeNote,
+  } = useFieldArray({ control: form.control, name: 'notes' });
 
   const watchedProjectId = form.watch('projectId');
 
@@ -251,24 +267,12 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       if (selectedProjectId && !form.getValues('projectId')) {
         form.setValue('projectId', selectedProjectId);
       }
+      // Ensure at least one empty row for new reports
+      if (manHourFields.length === 0) appendManHour({ contractorId: '', headcount: 0, hours: 0 });
+      if (dailyActivityFields.length === 0) appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] });
+      if (noteFields.length === 0) appendNote({ note: '', status: 'open' });
     }
-  }, [user, initialData, form, selectedProjectId]);
-
-  const {
-    fields: dailyActivityFields,
-    append: appendDailyActivity,
-    remove: removeDailyActivity,
-  } = useFieldArray({ control: form.control, name: 'dailyActivities' });
-  const {
-    fields: manHourFields,
-    append: appendManHour,
-    remove: removeManHour,
-  } = useFieldArray({ control: form.control, name: 'manHours' });
-  const {
-    fields: noteFields,
-    append: appendNote,
-    remove: removeNote,
-  } = useFieldArray({ control: form.control, name: 'notes' });
+  }, [user, initialData, form, selectedProjectId, appendManHour, appendDailyActivity, appendNote]);
 
   const startVoiceCapture = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
