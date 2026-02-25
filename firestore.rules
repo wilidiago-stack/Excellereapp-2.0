@@ -82,7 +82,11 @@ service cloud.firestore {
 
     match /weekly_submissions/{submissionId} {
       allow read: if isSignedIn();
-      allow write: if canWrite() || submissionId.startsWith(request.auth.uid);
+      // Se utiliza validacion por campo userId para evitar error de startsWith en ID
+      allow write: if canWrite() || (isSignedIn() && (
+        (request.resource != null && request.resource.data.userId == request.auth.uid) ||
+        (resource != null && resource.data.userId == request.auth.uid)
+      ));
     }
 
     match /calendar_notes/{noteId} {
