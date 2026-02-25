@@ -267,12 +267,11 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       if (selectedProjectId && !form.getValues('projectId')) {
         form.setValue('projectId', selectedProjectId);
       }
-      // Ensure at least one empty row for new reports
-      if (manHourFields.length === 0) appendManHour({ contractorId: '', headcount: 0, hours: 0 });
-      if (dailyActivityFields.length === 0) appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] });
-      if (noteFields.length === 0) appendNote({ note: '', status: 'open' });
+      if (manHourFields.length === 0 && !isEditMode) appendManHour({ contractorId: '', headcount: 0, hours: 0 });
+      if (dailyActivityFields.length === 0 && !isEditMode) appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] });
+      if (noteFields.length === 0 && !isEditMode) appendNote({ note: '', status: 'open' });
     }
-  }, [user, initialData, form, selectedProjectId, appendManHour, appendDailyActivity, appendNote]);
+  }, [user, initialData, form, selectedProjectId, isEditMode]);
 
   const startVoiceCapture = () => {
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
