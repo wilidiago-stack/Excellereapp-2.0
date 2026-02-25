@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onUserCreated} from "firebase-functions/v2/identity";
+import {onUserCreated} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";

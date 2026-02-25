@@ -82,6 +82,7 @@ service cloud.firestore {
 
     match /weekly_submissions/{submissionId} {
       allow read: if isSignedIn();
+      // Updated rule to use resource.data.userId instead of startsWith on document ID
       allow create: if canWrite() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
       allow update, delete: if canWrite() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
