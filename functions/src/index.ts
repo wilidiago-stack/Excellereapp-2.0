@@ -1,3 +1,4 @@
+
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreated} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
@@ -39,18 +40,9 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
     const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     const role = isFirstUser ? "admin" : "viewer";
     const modules = isFirstUser ? [
-      "dashboard",
-      "projects",
-      "users",
-      "contractors",
-      "daily-report",
-      "monthly-report",
-      "safety-events",
-      "project-team",
-      "documents",
-      "calendar",
-      "map",
-      "weather",
+      "dashboard", "projects", "users", "contractors",
+      "daily-report", "monthly-report", "safety-events",
+      "project-team", "documents", "calendar", "map", "weather",
       "reports-analytics",
     ] : [];
 
@@ -104,5 +96,3 @@ export const onUserRoleChange = onDocumentUpdated("users/{userId}",
       logger.error(`[onUserRoleChange] Failed for ${uid}:`, error);
     }
   });
-
-export {menuSuggestion} from "./genkit-sample";

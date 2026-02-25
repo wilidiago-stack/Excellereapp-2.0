@@ -32,6 +32,19 @@
         "projectId": { "type": "string" }
       },
       "required": ["label", "url"]
+    },
+    "CalendarNote": {
+      "title": "CalendarNote",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "projectId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" }
+      },
+      "required": ["title", "date"]
     }
   },
   "auth": {
@@ -45,6 +58,7 @@
   "firestore": {
     "/system/metadata": { "schema": "object", "description": "Global counters and system state." },
     "/projects/{projectId}/quick_links/{linkId}": { "schema": "QuickLink", "description": "Project-specific dashboard buttons." },
+    "/calendar_notes/{noteId}": { "schema": "CalendarNote", "description": "Manual calendar events and reminders." },
     "/users/{userId}": { "schema": "UserProfile", "description": "User profile and permission set." },
     "/projects/{projectId}": { "schema": "object", "description": "Construction projects." },
     "/contractors/{contractorId}": { "schema": "object", "description": "Vendor directory." },
