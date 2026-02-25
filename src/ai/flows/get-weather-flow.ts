@@ -45,7 +45,8 @@ const getRealWeatherFlow = ai.defineFlow(
     try {
       const url = `https://wttr.in/${encodeURIComponent(city)}?format=j1`;
       const response = await fetch(url, {
-        next: { revalidate: 3600 } // Cache for 1 hour
+        next: { revalidate: 3600 }, // Cache for 1 hour
+        headers: { 'Accept': 'application/json' }
       });
       
       if (!response.ok) throw new Error('Weather API service is unavailable');
@@ -57,12 +58,12 @@ const getRealWeatherFlow = ai.defineFlow(
       }
 
       const current = data.current_condition[0];
-      const weatherToday = data.weather[0];
+      const weatherToday = data.weather?.[0] || {};
       
       // Defensive extraction of description
       const weatherDesc = current.weatherDesc?.[0]?.value || 'Clear';
       
-      const forecast = data.weather.map((w: any) => {
+      const forecast = (data.weather || []).map((w: any) => {
         // Use mid-day (12:00) forecast if available, else first item
         const hourData = w.hourly?.[4] || w.hourly?.[0] || {};
         return {

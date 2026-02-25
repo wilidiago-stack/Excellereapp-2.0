@@ -269,7 +269,8 @@ export default function WeatherPage() {
                             "text-[11px] font-black uppercase mb-0.5",
                             adv.type === 'danger' ? "text-red-700" :
                             adv.type === 'warning' ? "text-orange-700" :
-                            adv.type === 'info' ? "text-blue-700" : "text-green-700"
+                            adv.type === 'info' ? "text-blue-700" :
+                            "text-green-700"
                           )}>{adv.title}</h4>
                           <p className="text-[10px] text-slate-600 leading-relaxed font-medium">{adv.text}</p>
                         </div>
