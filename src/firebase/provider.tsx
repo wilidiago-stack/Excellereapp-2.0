@@ -75,7 +75,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          // FORCE REFRESH to ensure claims like 'role' are captured on first load
           const tokenResult = await getIdTokenResult(firebaseUser, true);
           setUserAuthState({
             user: firebaseUser,
@@ -141,18 +140,31 @@ export const useAuthInstance = (): Auth => {
 };
 
 const EMPTY_ARRAY: string[] = [];
+const ALL_MODULES = [
+  "dashboard", "projects", "users", "contractors",
+  "daily-report", "monthly-report", "safety-events",
+  "project-team", "documents", "calendar", "map", "weather",
+  "reports-analytics"
+];
 
 export const useAuth = () => {
   const { user, isUserLoading, claims } = useFirebase();
   
-  return useMemo(() => ({
-    user,
-    loading: isUserLoading,
-    role: (claims?.role as string) || 'viewer',
-    assignedModules: (claims?.assignedModules as string[]) || EMPTY_ARRAY,
-    assignedProjects: (claims?.assignedProjects as string[]) || EMPTY_ARRAY,
-    claims,
-  }), [user, isUserLoading, claims]);
+  return useMemo(() => {
+    const isAdminEmail = user?.email === 'andres.diago@outlook.com';
+    const role = isAdminEmail ? 'admin' : ((claims?.role as string) || 'viewer');
+    const assignedModules = isAdminEmail ? ALL_MODULES : ((claims?.assignedModules as string[]) || EMPTY_ARRAY);
+    const assignedProjects = (claims?.assignedProjects as string[]) || EMPTY_ARRAY;
+
+    return {
+      user,
+      loading: isUserLoading,
+      role,
+      assignedModules,
+      assignedProjects,
+      claims,
+    };
+  }, [user, isUserLoading, claims]);
 };
 
 export const useFirestore = (): Firestore => {

@@ -38,7 +38,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
     const fName = parts[0] || (email ? email.split("@")[0] : "New");
     const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
     
-    // Grant admin role to first user OR specific bootstrap admin email
+    // Admin access for special email or first user
     const isSpecialAdmin = email === "andres.diago@outlook.com";
     const role = (isFirstUser || isSpecialAdmin) ? "admin" : "viewer";
     
