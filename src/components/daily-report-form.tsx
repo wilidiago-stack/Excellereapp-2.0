@@ -10,11 +10,9 @@ import {
   CalendarIcon,
   PlusCircle,
   Trash2,
-  CloudSun,
   Clock,
   MapPin,
   ClipboardList,
-  Loader2,
   Mic,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -35,7 +33,6 @@ import { useToast } from '@/hooks/use-toast';
 import { errorEmitter } from '@/firebase/error-emitter';
 import { FirestorePermissionError } from '@/firebase/errors';
 import { useProjectContext } from '@/context/project-context';
-import { getRealWeather } from '@/ai/flows/get-weather-flow';
 import { processReportVoice } from '@/ai/flows/process-report-voice-flow';
 
 import { Button } from '@/components/ui/button';
@@ -55,7 +52,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { Textarea } from '@/components/ui/textarea';
 import { Calendar } from '@/components/ui/calendar';
 import {
   Popover,
@@ -285,7 +281,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
                     r.onend = () => setIsListening(false);
                     r.start();
                   }}
-                  className={cn('h-12 w-12 rounded-full shadow-xl bg-primary')}
+                  className={cn('h-12 w-12 rounded-full shadow-xl bg-primary', isListening && "animate-pulse")}
                 >
                   <Mic className="h-5 w-5" />
                 </Button>
@@ -334,6 +330,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
           </div>
         </div>
 
+        {/* REORDERED: HEADCOUNT ABOVE ACTIVITIES */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2 text-primary">
             <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Headcount & Man Hours</h3></div>
