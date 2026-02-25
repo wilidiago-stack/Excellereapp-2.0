@@ -139,16 +139,21 @@ export const useAuthInstance = (): Auth => {
   return auth;
 };
 
+const EMPTY_ARRAY: string[] = [];
+
 export const useAuth = () => {
   const { user, isUserLoading, claims } = useFirebase();
-  return {
+  
+  // Memoize the return value to prevent infinite render loops in components
+  // that use role or assignedModules as dependency array items.
+  return useMemo(() => ({
     user,
     loading: isUserLoading,
     role: (claims?.role as string) || 'viewer',
-    assignedModules: (claims?.assignedModules as string[]) || [],
-    assignedProjects: (claims?.assignedProjects as string[]) || [],
+    assignedModules: (claims?.assignedModules as string[]) || EMPTY_ARRAY,
+    assignedProjects: (claims?.assignedProjects as string[]) || EMPTY_ARRAY,
     claims,
-  };
+  }), [user, isUserLoading, claims]);
 };
 
 export const useFirestore = (): Firestore => {
