@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onUserCreated} from "firebase-functions/v2/auth";
+import {onUserCreated} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -11,6 +11,9 @@ const db = admin.firestore();
 
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
 
+/**
+ * Triggered on new user creation in Firebase Authentication.
+ */
 export const setupInitialUserRole = onUserCreated(async (event) => {
   const data = event.data;
   if (!data) return;
@@ -70,6 +73,9 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
   }
 });
 
+/**
+ * Syncs Firestore changes to Firebase Auth Custom Claims.
+ */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
     const beforeData = event.data?.before.data();
