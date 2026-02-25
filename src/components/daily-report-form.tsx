@@ -131,9 +131,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
   const { toast } = useToast();
   const router = useRouter();
   const isEditMode = !!initialData?.id;
-  const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
-  const [isAIProcessing, setIsAIProcessing] = useState(false);
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -216,9 +214,21 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
           bbsGemba: Number(initialData.safetyStats?.bbsGemba) || 0,
           operationsStandDowns: Number(initialData.safetyStats?.operationsStandDowns) || 0,
         },
-        manHours: initialData.manHours || [],
-        dailyActivities: initialData.dailyActivities || [],
-        notes: initialData.notes || [],
+        manHours: (initialData.manHours || []).map((mh: any) => ({
+          contractorId: mh.contractorId || '',
+          headcount: Number(mh.headcount) || 0,
+          hours: Number(mh.hours) || 0,
+        })),
+        dailyActivities: (initialData.dailyActivities || []).map((act: any) => ({
+          contractorId: act.contractorId || '',
+          activity: act.activity || '',
+          location: act.location || '',
+          permits: act.permits || [],
+        })),
+        notes: (initialData.notes || []).map((n: any) => ({
+          note: n.note || '',
+          status: n.status || 'Open',
+        })),
       };
       form.reset(data);
     }
@@ -246,7 +256,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
   };
 
   const totalGeneralManHours = (form.watch('manHours') || []).reduce(
-    (acc, curr) => acc + (curr.headcount || 0) * (curr.hours || 0),
+    (acc, curr) => acc + (Number(curr.headcount) || 0) * (Number(curr.hours) || 0),
     0
   );
 
@@ -265,7 +275,11 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
                     const r = new SR();
                     r.onstart = () => setIsListening(true);
                     r.onresult = (e: any) => processReportVoice(e.results[0][0].transcript).then(ext => {
-                      if (ext.manHours) ext.manHours.forEach(m => appendManHour({ contractorId: '', ...m }));
+                      if (ext.manHours) ext.manHours.forEach(m => appendManHour({ 
+                        contractorId: '', 
+                        headcount: m.headcount, 
+                        hours: m.hours 
+                      }));
                       toast({ title: 'AI Sync Complete' });
                     });
                     r.onend = () => setIsListening(false);
@@ -334,7 +348,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
                     <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Contractor" /></SelectTrigger></FormControl><SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.headcount`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.hours`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
-                    <TableCell className="py-3 text-center text-xs font-bold">{(form.watch(`manHours.${index}.headcount`) * form.watch(`manHours.${index}.hours`)).toFixed(1)}</TableCell>
+                    <TableCell className="py-3 text-center text-xs font-bold">{(Number(form.watch(`manHours.${index}.headcount`)) * Number(form.watch(`manHours.${index}.hours`))).toFixed(1)}</TableCell>
                     <TableCell className="py-3"><Button type="button" variant="ghost" size="icon" onClick={() => removeManHour(index)}><Trash2 className="h-3.5" /></Button></TableCell>
                   </TableRow>
                 ))}

@@ -4,9 +4,11 @@ import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
+// Initialize Firebase Admin SDK
 admin.initializeApp();
 const db = admin.firestore();
 
+// Set global options for the function
 setGlobalOptions({maxInstances: 10});
 
 /**
@@ -14,6 +16,8 @@ setGlobalOptions({maxInstances: 10});
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const {uid, email, displayName} = event.data;
+  logger.info(`[setupInitialUserRole] UID: ${uid}`);
+
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -45,14 +49,16 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 
     const newUserDocument = {
       firstName, lastName, email: email || "",
-      role, status: "active", assignedModules: defaultModules,
+      role: role, status: "active", assignedModules: defaultModules,
       assignedProjects: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     await userDocRef.set(newUserDocument);
     await admin.auth().setCustomUserClaims(uid, {
-      role, assignedModules: defaultModules, assignedProjects: [],
+      role: role,
+      assignedModules: defaultModules,
+      assignedProjects: [],
     });
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);
@@ -60,7 +66,7 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
 });
 
 /**
- * Syncs changes from the Firestore user document to Custom Claims.
+ * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
