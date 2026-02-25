@@ -149,10 +149,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const [isAIProcessing, setIsAIProcessing] = useState(false);
 
   const dailyReportsCollection = useMemoFirebase(
-    () =>
-      firestore && user?.uid
-        ? collection(firestore, 'dailyReports')
-        : null,
+    () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
     [firestore, user?.uid]
   );
 
@@ -185,13 +182,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       username: user?.displayName || '',
       projectId: selectedProjectId || '',
       shift: 'Day',
-      weather: {
-        city: '',
-        conditions: '',
-        highTemp: 0,
-        lowTemp: 0,
-        wind: 0,
-      },
+      weather: { city: '', conditions: '', highTemp: 0, lowTemp: 0, wind: 0 },
       safetyStats: {
         recordableIncidents: 0,
         lightFirstAids: 0,
@@ -227,10 +218,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
 
   useEffect(() => {
     if (!watchedProjectId || isEditMode) return;
-
-    const selectedProject = projectsData?.find(
-      (p: any) => p.id === watchedProjectId
-    );
+    const selectedProject = projectsData?.find((p: any) => p.id === watchedProjectId);
     if (selectedProject?.city) {
       const fetchAutoWeather = async () => {
         setIsWeatherLoading(true);
@@ -241,11 +229,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
           form.setValue('weather.highTemp', data.high);
           form.setValue('weather.lowTemp', data.low);
           form.setValue('weather.wind', data.wind);
-          toast({
-            title: 'Weather Synced',
-            description: `Conditions for ${data.city} updated automatically.`,
-            duration: 3000,
-          });
         } catch (err) {
           console.warn('Weather auto-sync failed');
         } finally {
@@ -254,7 +237,7 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       };
       fetchAutoWeather();
     }
-  }, [watchedProjectId, projectsData, isEditMode, form, toast]);
+  }, [watchedProjectId, projectsData, isEditMode, form]);
 
   useEffect(() => {
     if (initialData && Object.keys(initialData).length > 1) {
@@ -275,15 +258,13 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
           wind: initialData.weather?.wind || 0,
         },
         safetyStats: {
-          recordableIncidents:
-            initialData.safetyStats?.recordableIncidents || 0,
+          recordableIncidents: initialData.safetyStats?.recordableIncidents || 0,
           lightFirstAids: initialData.safetyStats?.lightFirstAids || 0,
           safetyMeeting: initialData.safetyStats?.safetyMeeting || 0,
           toolBoxTalks: initialData.safetyStats?.toolBoxTalks || 0,
           admSiteOrientation: initialData.safetyStats?.admSiteOrientation || 0,
           bbsGemba: initialData.safetyStats?.bbsGemba || 0,
-          operationsStandDowns:
-            initialData.safetyStats?.operationsStandDowns || 0,
+          operationsStandDowns: initialData.safetyStats?.operationsStandDowns || 0,
         },
         dailyActivities: initialData.dailyActivities || [],
         manHours: initialData.manHours || [],
@@ -297,53 +278,26 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
       if (selectedProjectId && !form.getValues('projectId')) {
         form.setValue('projectId', selectedProjectId);
       }
+      // Provide initial empty row only if not in edit mode
       if (manHourFields.length === 0 && !isEditMode)
         appendManHour({ contractorId: '', headcount: 0, hours: 0 });
       if (dailyActivityFields.length === 0 && !isEditMode)
-        appendDailyActivity({
-          contractorId: '',
-          activity: '',
-          location: '',
-          permits: [],
-        });
+        appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] });
       if (noteFields.length === 0 && !isEditMode)
         appendNote({ note: '', status: 'open' });
     }
-  }, [
-    user,
-    initialData,
-    form,
-    selectedProjectId,
-    isEditMode,
-    appendManHour,
-    appendDailyActivity,
-    appendNote,
-  ]);
+  }, [initialData, user, selectedProjectId, isEditMode]);
 
   const startVoiceCapture = () => {
-    const SpeechRecognition =
-      (window as any).SpeechRecognition ||
-      (window as any).webkitSpeechRecognition;
+    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     if (!SpeechRecognition) {
-      toast({
-        variant: 'destructive',
-        title: 'Not Supported',
-        description: 'Voice is not supported in this browser.',
-      });
+      toast({ variant: 'destructive', title: 'Not Supported', description: 'Voice is not supported.' });
       return;
     }
-
     const recognition = new SpeechRecognition();
     recognition.lang = 'en-US';
-    recognition.continuous = false;
-    recognition.interimResults = false;
-
     recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => {
-      const result = event.results[0][0].transcript;
-      processTranscript(result);
-    };
-    recognition.onerror = () => setIsListening(false);
+    recognition.onresult = (event: any) => processTranscript(event.results[0][0].transcript);
     recognition.onend = () => setIsListening(false);
     recognition.start();
   };
@@ -352,80 +306,35 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     setIsAIProcessing(true);
     try {
       const extraction = await processReportVoice(text);
-
       if (extraction.weather) {
-        if (extraction.weather.conditions)
-          form.setValue('weather.conditions', extraction.weather.conditions);
-        if (extraction.weather.highTemp)
-          form.setValue('weather.highTemp', extraction.weather.highTemp);
-        if (extraction.weather.lowTemp)
-          form.setValue('weather.lowTemp', extraction.weather.lowTemp);
-        if (extraction.weather.wind)
-          form.setValue('weather.wind', extraction.weather.wind);
+        if (extraction.weather.conditions) form.setValue('weather.conditions', extraction.weather.conditions);
+        if (extraction.weather.highTemp) form.setValue('weather.highTemp', extraction.weather.highTemp);
+        if (extraction.weather.lowTemp) form.setValue('weather.lowTemp', extraction.weather.lowTemp);
+        if (extraction.weather.wind) form.setValue('weather.wind', extraction.weather.wind);
       }
-
       if (extraction.safetyStats) {
         Object.entries(extraction.safetyStats).forEach(([key, val]) => {
           form.setValue(`safetyStats.${key}` as any, val);
         });
       }
-
       if (extraction.manHours) {
         extraction.manHours.forEach((mh) => {
-          const contractor = contractors.find((c) =>
-            c.label.toLowerCase().includes(mh.contractorName.toLowerCase())
-          );
-          if (contractor) {
-            appendManHour({
-              contractorId: contractor.id,
-              headcount: mh.headcount,
-              hours: mh.hours,
-            });
-          }
+          const contractor = contractors.find((c) => c.label.toLowerCase().includes(mh.contractorName.toLowerCase()));
+          if (contractor) appendManHour({ contractorId: contractor.id, headcount: mh.headcount, hours: mh.hours });
         });
       }
-
       if (extraction.activities) {
         extraction.activities.forEach((act) => {
-          const contractor = contractors.find((c) =>
-            c.label.toLowerCase().includes(act.contractorName.toLowerCase())
-          );
-          const selectedProject = projectsData?.find(
-            (p: any) => p.id === watchedProjectId
-          );
-          const location =
-            selectedProject?.workAreas?.find((wa: string) =>
-              wa.toLowerCase().includes(act.location.toLowerCase())
-            ) || act.location;
-
-          if (contractor) {
-            appendDailyActivity({
-              contractorId: contractor.id,
-              activity: act.activity,
-              location: location,
-              permits: [],
-            });
-          }
+          const contractor = contractors.find((c) => c.label.toLowerCase().includes(act.contractorName.toLowerCase()));
+          if (contractor) appendDailyActivity({ contractorId: contractor.id, activity: act.activity, location: act.location, permits: [] });
         });
       }
-
       if (extraction.notes) {
-        extraction.notes.forEach((note) => {
-          appendNote({ note, status: 'open' });
-        });
+        extraction.notes.forEach((note) => appendNote({ note, status: 'open' }));
       }
-
-      toast({
-        title: 'AI Processing Complete',
-        description: 'Form has been partially filled from your dictation.',
-        duration: 3000,
-      });
+      toast({ title: 'AI Processed', description: 'Form updated from voice.' });
     } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'AI Error',
-        description: 'Failed to extract data from voice.',
-      });
+      toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to extract data.' });
     } finally {
       setIsAIProcessing(false);
     }
@@ -433,35 +342,19 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
 
   const onSubmit = (data: DailyReportFormValues) => {
     if (!firestore || !user || !dailyReportsCollection) return;
-    const payload = {
-      ...data,
-      date: startOfDay(data.date),
-      updatedAt: serverTimestamp(),
-    };
+    const payload = { ...data, date: startOfDay(data.date), updatedAt: serverTimestamp() };
     const op = isEditMode
       ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload)
-      : addDoc(dailyReportsCollection, {
-          ...payload,
-          authorId: user.uid,
-          createdAt: serverTimestamp(),
-        });
+      : addDoc(dailyReportsCollection, { ...payload, authorId: user.uid, createdAt: serverTimestamp() });
     op.then(() => {
-      toast({
-        title: 'Report Saved',
-        description: 'Daily report has been processed successfully.',
-      });
+      toast({ title: 'Report Saved', description: 'Report processed successfully.' });
       router.push('/daily-report');
     }).catch((error) =>
-      errorEmitter.emit(
-        'permission-error',
-        new FirestorePermissionError({
-          path: isEditMode
-            ? `dailyReports/${initialData.id}`
-            : dailyReportsCollection.path,
-          operation: 'write',
-          requestResourceData: payload,
-        })
-      )
+      errorEmitter.emit('permission-error', new FirestorePermissionError({
+        path: isEditMode ? `dailyReports/${initialData.id}` : dailyReportsCollection.path,
+        operation: 'write',
+        requestResourceData: payload,
+      }))
     );
   };
 
@@ -472,778 +365,134 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
 
   return (
     <Form {...form}>
-      <form
-        onSubmit={form.handleSubmit(onSubmit)}
-        className="space-y-10 relative"
-      >
-        <div className="fixed bottom-6 right-6 z-50 group">
-          <div className="flex flex-col items-end gap-2">
-            {(isListening || isAIProcessing) && (
-              <div
-                className={cn(
-                  'px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm border animate-in fade-in slide-in-from-right-2',
-                  isListening
-                    ? 'bg-red-50 text-red-500 border-red-100'
-                    : 'bg-[#4285F4]/10 text-[#4285F4] border-[#4285F4]/20'
-                )}
-              >
-                {isListening ? 'Recording Audio...' : 'Gemini is Thinking...'}
-              </div>
-            )}
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    variant={isListening ? 'destructive' : 'default'}
-                    size="icon"
-                    onClick={isListening ? () => {} : startVoiceCapture}
-                    disabled={isAIProcessing}
-                    className={cn(
-                      'h-12 w-12 rounded-full shadow-xl transition-all duration-300 hover:scale-110 active:scale-95 border-2 border-white/20',
-                      !isListening &&
-                        !isAIProcessing &&
-                        'bg-gradient-to-br from-[#1BA1E3] via-[#9168C0] to-[#D05CA4] hover:shadow-[#9168C0]/40',
-                      isListening && 'animate-pulse shadow-red-200'
-                    )}
-                  >
-                    {isAIProcessing ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : isListening ? (
-                      <MicOff className="h-5 w-5" />
-                    ) : (
-                      <div className="relative">
-                        <Mic className="h-5 w-5" />
-                        <div className="absolute -top-1 -right-1">
-                          <Sparkles className="h-2.5 w-2.5 text-white/80 animate-pulse" />
-                        </div>
-                      </div>
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent
-                  side="left"
-                  className="bg-slate-900 text-white border-none text-[10px] font-bold uppercase"
+      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-10 relative">
+        <div className="fixed bottom-6 right-6 z-50">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  variant={isListening ? 'destructive' : 'default'}
+                  size="icon"
+                  onClick={startVoiceCapture}
+                  disabled={isAIProcessing}
+                  className={cn(
+                    'h-12 w-12 rounded-full shadow-xl transition-all duration-300 hover:scale-110',
+                    !isListening && !isAIProcessing && 'bg-gradient-to-br from-[#1BA1E3] via-[#9168C0] to-[#D05CA4]'
+                  )}
                 >
-                  {isListening ? 'Stop and Process' : 'Gemini Voice Assistant'}
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          </div>
+                  {isAIProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="left" className="bg-slate-900 text-white text-[10px] font-bold uppercase">
+                {isListening ? 'Stop' : 'Voice Assistant'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-[#46a395]">
             <ClipboardList className="h-5 w-5" />
-            <h3 className="text-sm font-bold uppercase tracking-tight">
-              General Information
-            </h3>
+            <h3 className="text-sm font-bold uppercase tracking-tight">General Information</h3>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-sm border bg-slate-50/30 shadow-inner">
-            <FormField
-              control={form.control}
-              name="date"
-              render={({ field }) => (
-                <FormItem className="flex flex-col">
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Date
-                  </FormLabel>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <FormControl>
-                        <Button
-                          variant={'outline'}
-                          className={cn(
-                            'h-9 rounded-sm pl-3 text-left font-normal border-slate-200 text-xs',
-                            !field.value && 'text-muted-foreground'
-                          )}
-                        >
-                          {field.value ? (
-                            format(field.value, 'PPP')
-                          ) : (
-                            <span>Pick a date</span>
-                          )}
-                          <CalendarIcon className="ml-auto h-3.5 w-3.5 opacity-50" />
-                        </Button>
-                      </FormControl>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0 rounded-sm" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={field.value}
-                        onSelect={field.onChange}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="username"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Report Author
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      {...field}
-                      readOnly
-                      className="h-9 rounded-sm bg-slate-100 text-xs font-medium"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="projectId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Project Reference
-                  </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-sm border bg-slate-50/30">
+            <FormField control={form.control} name="date" render={({ field }) => (
+              <FormItem className="flex flex-col">
+                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Date</FormLabel>
+                <Popover>
+                  <PopoverTrigger asChild>
                     <FormControl>
-                      <SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs">
-                        <SelectValue placeholder="Select project" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="rounded-sm">
-                      {projects.map((p) => (
-                        <SelectItem key={p.id} value={p.id}>
-                          {p.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="shift"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Shift Type
-                  </FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
-                    <FormControl>
-                      <SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs">
-                        <SelectValue placeholder="Select shift" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent className="rounded-sm">
-                      <SelectItem value="Day" className="text-xs">
-                        Day Shift
-                      </SelectItem>
-                      <SelectItem value="Night" className="text-xs">
-                        Night Shift
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-orange-500">
-              {isWeatherLoading ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-              ) : (
-                <CloudSun className="h-5 w-5" />
-              )}
-              <h3 className="text-sm font-bold uppercase tracking-tight">
-                Weather Conditions
-              </h3>
-              {isWeatherLoading && (
-                <Badge variant="outline" className="text-[8px] animate-pulse">
-                  Syncing...
-                </Badge>
-              )}
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 p-4 rounded-sm border bg-slate-50/30">
-            <FormField
-              control={form.control}
-              name="weather.city"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Site Location
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Cedar Rapids"
-                      {...field}
-                      className="h-9 rounded-sm text-xs"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="weather.conditions"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Sky State
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="e.g. Overcast"
-                      {...field}
-                      className="h-9 rounded-sm text-xs"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="weather.highTemp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    High Temp (°F)
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      className="h-9 rounded-sm text-xs"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="weather.lowTemp"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Low Temp (°F)
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      className="h-9 rounded-sm text-xs"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="weather.wind"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel className="text-[10px] font-bold uppercase text-slate-500">
-                    Wind (mph)
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...field}
-                      className="h-9 rounded-sm text-xs"
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center gap-2 mb-2 text-primary">
-            <ShieldCheck className="h-5 w-5" />
-            <h3 className="text-sm font-bold uppercase tracking-tight">
-              HSE Safety Metrics
-            </h3>
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 p-4 rounded-sm border bg-slate-50/10 shadow-sm">
-            {[
-              { name: 'recordableIncidents', label: 'Incidents' },
-              { name: 'lightFirstAids', label: 'First Aid' },
-              { name: 'safetyMeeting', label: 'Meetings' },
-              { name: 'toolBoxTalks', label: 'TBT Talks' },
-              { name: 'admSiteOrientation', label: 'Orientations' },
-              { name: 'bbsGemba', label: 'Gemba BBS' },
-              { name: 'operationsStandDowns', label: 'Stand Downs' },
-            ].map((stat) => (
-              <FormField
-                key={stat.name}
-                control={form.control}
-                name={`safetyStats.${stat.name}` as any}
-                render={({ field }) => (
-                  <FormItem className="space-y-1">
-                    <FormLabel className="text-[9px] font-bold uppercase text-slate-400 line-clamp-1">
-                      {stat.label}
-                    </FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        className="h-8 rounded-sm text-center font-bold text-xs"
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
-          </div>
-        </div>
-
-        <Separator className="opacity-50" />
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-primary">
-              <Clock className="h-5 w-5" />
-              <h3 className="text-sm font-bold uppercase tracking-tight">
-                Headcount & Man Hours
-              </h3>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs rounded-sm gap-2"
-              onClick={() =>
-                appendManHour({ contractorId: '', headcount: 0, hours: 0 })
-              }
-            >
-              <PlusCircle className="h-3.5 w-3.5" /> Add Record
-            </Button>
-          </div>
-          <Card className="rounded-sm border-slate-200 overflow-hidden shadow-sm">
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b-slate-200">
-                  <TableHead className="text-[10px] font-bold uppercase h-10">
-                    Contractor Name
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10 w-32 text-center">
-                    Headcount
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10 w-32 text-center">
-                    Hours/Man
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10 w-32 text-center">
-                    Total
-                  </TableHead>
-                  <TableHead className="h-10 w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {manHourFields.map((field, index) => {
-                  const headcount =
-                    form.watch(`manHours.${index}.headcount`) || 0;
-                  const hours = form.watch(`manHours.${index}.hours`) || 0;
-                  return (
-                    <TableRow
-                      key={field.id}
-                      className="border-b-slate-100 hover:bg-slate-50/30"
-                    >
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.contractorId`}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
-                                  <SelectValue placeholder="Contractor" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-sm">
-                                {contractors.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.headcount`}
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              {...field}
-                              className="h-8 rounded-sm text-xs text-center border-slate-200"
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`manHours.${index}.hours`}
-                          render={({ field }) => (
-                            <Input
-                              type="number"
-                              {...field}
-                              className="h-8 rounded-sm text-xs text-center border-slate-200"
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3 text-center text-xs font-bold text-slate-700">
-                        {(headcount * hours).toFixed(1)}
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-300 hover:text-destructive"
-                          onClick={() => removeManHour(index)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-          <div className="flex justify-end pr-14">
-            <div className="text-xs font-black text-slate-800 uppercase tracking-tighter">
-              Total General Hours:{' '}
-              <span className="text-[#46a395] ml-2 text-sm">
-                {totalGeneralManHours.toFixed(1)}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-[#46a395]">
-              <MapPin className="h-5 w-5" />
-              <h3 className="text-sm font-bold uppercase tracking-tight">
-                Site Activities & Permits
-              </h3>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs rounded-sm gap-2"
-              onClick={() =>
-                appendDailyActivity({
-                  contractorId: '',
-                  activity: '',
-                  location: '',
-                  permits: [],
-                })
-              }
-            >
-              <PlusCircle className="h-3.5 w-3.5" /> Add Activity
-            </Button>
-          </div>
-          <Card className="rounded-sm border-slate-200 overflow-hidden shadow-sm">
-            <Table>
-              <TableHeader className="bg-slate-50/50">
-                <TableRow className="hover:bg-transparent border-b-slate-200">
-                  <TableHead className="text-[10px] font-bold uppercase h-10 w-48">
-                    Contractor
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10">
-                    Activity Description
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10 w-40">
-                    Location
-                  </TableHead>
-                  <TableHead className="text-[10px] font-bold uppercase h-10 min-w-[250px]">
-                    Required Permits
-                  </TableHead>
-                  <TableHead className="h-10 w-10"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {dailyActivityFields.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={5}
-                      className="h-24 text-center text-xs text-slate-400 italic"
-                    >
-                      No activities added yet.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  dailyActivityFields.map((field, index) => (
-                    <TableRow
-                      key={field.id}
-                      className="border-b-slate-100 hover:bg-slate-50/30"
-                    >
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`dailyActivities.${index}.contractorId`}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
-                                  <SelectValue placeholder="Contractor" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-sm">
-                                {contractors.map((c) => (
-                                  <SelectItem key={c.id} value={c.id}>
-                                    {c.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`dailyActivities.${index}.activity`}
-                          render={({ field }) => (
-                            <Input
-                              {...field}
-                              placeholder="Main task today..."
-                              className="h-8 rounded-sm text-xs border-slate-200"
-                            />
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`dailyActivities.${index}.location`}
-                          render={({ field }) => (
-                            <Select
-                              onValueChange={field.onChange}
-                              value={field.value}
-                            >
-                              <FormControl>
-                                <SelectTrigger className="h-8 rounded-sm text-xs border-slate-200">
-                                  <SelectValue placeholder="Location" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent className="rounded-sm">
-                                {(
-                                  projectsData?.find(
-                                    (p: any) => p.id === watchedProjectId
-                                  )?.workAreas || []
-                                ).map((l: string) => (
-                                  <SelectItem key={l} value={l}>
-                                    {l}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          )}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <FormField
-                          control={form.control}
-                          name={`dailyActivities.${index}.permits`}
-                          render={({ field }) => {
-                            const selectedPermits = field.value || [];
-                            return (
-                              <div className="flex flex-wrap gap-1.5 py-1">
-                                {(
-                                  projectsData?.find(
-                                    (p: any) => p.id === watchedProjectId
-                                  )?.workPermits || []
-                                ).map((permit: string) => {
-                                  const isSelected =
-                                    selectedPermits.includes(permit);
-                                  return (
-                                    <button
-                                      key={permit}
-                                      type="button"
-                                      onClick={() => {
-                                        const nextValue = isSelected
-                                          ? selectedPermits.filter(
-                                              (id: string) => id !== permit
-                                            )
-                                          : [...selectedPermits, permit];
-                                        field.onChange(nextValue);
-                                      }}
-                                      className={cn(
-                                        'px-2 py-0.5 rounded-sm text-[10px] font-bold border transition-all select-none',
-                                        isSelected
-                                          ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 hover:bg-slate-50'
-                                      )}
-                                    >
-                                      {' '}
-                                      {permit}{' '}
-                                    </button>
-                                  );
-                                })}
-                              </div>
-                            );
-                          }}
-                        />
-                      </TableCell>
-                      <TableCell className="py-3">
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-slate-300 hover:text-destructive"
-                          onClick={() => removeDailyActivity(index)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </Card>
-        </div>
-
-        <div className="space-y-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 text-orange-400">
-              <Paperclip className="h-5 w-5" />
-              <h3 className="text-sm font-bold uppercase tracking-tight">
-                Site Notes & Observations
-              </h3>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 text-xs rounded-sm gap-2"
-              onClick={() => appendNote({ note: '', status: 'open' })}
-            >
-              <PlusCircle className="h-3.5 w-3.5" /> Add Observation
-            </Button>
-          </div>
-          <div className="space-y-2">
-            {noteFields.length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400 italic border border-dashed rounded-sm bg-slate-50/50">
-                No observations recorded.
-              </div>
-            ) : (
-              noteFields.map((field, index) => (
-                <Card
-                  key={field.id}
-                  className="rounded-sm border-slate-200 bg-slate-50/20 shadow-sm p-4"
-                >
-                  <div className="flex flex-col md:flex-row gap-4">
-                    <FormField
-                      control={form.control}
-                      name={`notes.${index}.note`}
-                      render={({ field }) => (
-                        <FormItem className="flex-1">
-                          <FormControl>
-                            <Textarea
-                              {...field}
-                              placeholder="Detail your observation..."
-                              className="min-h-[80px] rounded-sm text-xs resize-none"
-                            />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <div className="flex flex-row md:flex-col gap-2 shrink-0 md:w-40">
-                      <FormField
-                        control={form.control}
-                        name={`notes.${index}.status`}
-                        render={({ field }) => (
-                          <Select
-                            onValueChange={field.onChange}
-                            value={field.value}
-                          >
-                            <FormControl>
-                              <SelectTrigger className="h-8 rounded-sm text-xs">
-                                <SelectValue placeholder="Status" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent className="rounded-sm">
-                              <SelectItem value="open" className="text-xs">
-                                Open Issue
-                              </SelectItem>
-                              <SelectItem value="closed" className="text-xs">
-                                Resolved
-                              </SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        className="h-8 rounded-sm text-destructive hover:bg-destructive/10 gap-2 text-[10px] uppercase font-bold mt-auto"
-                        onClick={() => removeNote(index)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" /> Remove
+                      <Button variant="outline" className={cn('h-9 rounded-sm pl-3 text-left border-slate-200 text-xs', !field.value && 'text-muted-foreground')}>
+                        {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
+                        <CalendarIcon className="ml-auto h-3.5 w-3.5 opacity-50" />
                       </Button>
-                    </div>
-                  </div>
-                </Card>
-              ))
-            )}
+                    </FormControl>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                </Popover>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="username" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Author</FormLabel>
+                <FormControl><Input {...field} readOnly className="h-9 rounded-sm bg-slate-100 text-xs" /></FormControl>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="projectId" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Project</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs"><SelectValue placeholder="Project" /></SelectTrigger></FormControl>
+                  <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
+            <FormField control={form.control} name="shift" render={({ field }) => (
+              <FormItem>
+                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Shift</FormLabel>
+                <Select onValueChange={field.onChange} value={field.value}>
+                  <FormControl><SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs"><SelectValue placeholder="Shift" /></SelectTrigger></FormControl>
+                  <SelectContent><SelectItem value="Day">Day</SelectItem><SelectItem value="Night">Night</SelectItem></SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )} />
           </div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-2 text-primary">
+            <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Personal & Man Hours</h3></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendManHour({ contractorId: '', headcount: 0, hours: 0 })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add</Button>
+          </div>
+          <Card className="rounded-sm border-slate-200 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Headcount</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Hours</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Total</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
+              <TableBody>
+                {manHourFields.map((field, index) => (
+                  <TableRow key={field.id} className="border-b-slate-100">
+                    <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl><SelectContent>{contractors.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
+                    <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.headcount`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
+                    <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.hours`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
+                    <TableCell className="py-3 text-center text-xs font-bold">{(form.watch(`manHours.${index}.headcount`) * form.watch(`manHours.${index}.hours`)).toFixed(1)}</TableCell>
+                    <TableCell className="py-3"><Button type="button" variant="ghost" size="icon" onClick={() => removeManHour(index)}><Trash2 className="h-3.5" /></Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+          <div className="text-right pr-14 text-xs font-black">TOTAL MAN HOURS: <span className="text-[#46a395]">{totalGeneralManHours.toFixed(1)}</span></div>
+        </div>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between mb-2 text-[#46a395]">
+            <div className="flex items-center gap-2"><MapPin className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Activities & Permits</h3></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add</Button>
+          </div>
+          <Card className="rounded-sm border-slate-200 overflow-hidden">
+            <Table>
+              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10 w-48">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10">Activity</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 w-40">Location</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
+              <TableBody>
+                {dailyActivityFields.map((field, index) => (
+                  <TableRow key={field.id} className="border-b-slate-100">
+                    <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl><SelectContent>{contractors.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
+                    <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.activity`} render={({ field }) => <Input {...field} className="h-8 text-xs" />} /></TableCell>
+                    <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.location`} render={({ field }) => <Input {...field} className="h-8 text-xs" />} /></TableCell>
+                    <TableCell className="py-3"><Button type="button" variant="ghost" size="icon" onClick={() => removeDailyActivity(index)}><Trash2 className="h-3.5" /></Button></TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
         </div>
 
         <div className="flex justify-end gap-4 pt-6 border-t border-slate-100">
-          <Button
-            variant="outline"
-            type="button"
-            className="h-10 px-8 rounded-sm text-xs font-bold uppercase tracking-wider"
-            onClick={() => router.push('/daily-report')}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="submit"
-            disabled={form.formState.isSubmitting}
-            className="h-10 px-10 rounded-sm text-xs font-bold uppercase tracking-wider shadow-md"
-          >
-            {form.formState.isSubmitting
-              ? 'Finalizing...'
-              : isEditMode
-              ? 'Update Report'
-              : 'Submit Daily Report'}
-          </Button>
+          <Button variant="outline" type="button" className="h-10 px-8 rounded-sm text-xs font-bold uppercase" onClick={() => router.push('/daily-report')}>Cancel</Button>
+          <Button type="submit" disabled={form.formState.isSubmitting} className="h-10 px-10 rounded-sm text-xs font-bold uppercase">{form.formState.isSubmitting ? 'Saving...' : isEditMode ? 'Update' : 'Submit'}</Button>
         </div>
       </form>
     </Form>

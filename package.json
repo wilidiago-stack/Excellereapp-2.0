@@ -8,7 +8,7 @@
     "genkit:watch": "genkit start -- tsx --watch src/ai/dev.ts",
     "build": "NODE_ENV=production next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "next lint",
     "typecheck": "tsc --noEmit",
     "functions:check": "npm --prefix functions run lint && npm --prefix functions run build",
     "check": "npm run lint && npm run typecheck && npm run functions:check"

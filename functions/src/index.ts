@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreated} from "firebase-functions/v2/identity";
+import {onAuthUserCreate} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -7,15 +7,15 @@ import * as logger from "firebase-functions/logger";
 admin.initializeApp();
 const db = admin.firestore();
 
-setGlobalOptions({
-  maxInstances: 10,
-});
+setGlobalOptions({maxInstances: 10});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onAuthUserCreated(async (event) => {
+export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const {uid, email, displayName} = event.data;
+  logger.info(`[setupInitialUserRole] UID: ${uid}`);
+
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -34,37 +34,32 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
       }
     });
 
-    const parts = displayName?.split(" ").filter((p) => p.length > 0) || [];
-    const fName = parts[0] || (email ? email.split("@")[0] : "New");
-    const lName = parts.length > 1 ? parts.slice(1).join(" ") : "User";
-    
-    // Admin access for special email or first user
-    const isSpecialAdmin = email === "andres.diago@outlook.com";
-    const role = (isFirstUser || isSpecialAdmin) ? "admin" : "viewer";
-    
-    // Non-admins start with empty modules to trigger the approval modal
-    const modules = (role === "admin") ? [
+    const nameParts = displayName?.split(" ").filter((p) => p.length > 0) || [];
+    const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
+    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
+    const role = isFirstUser ? "admin" : "viewer";
+    const defaultModules = isFirstUser ? [
       "dashboard", "projects", "users", "contractors",
       "daily-report", "monthly-report", "safety-events",
       "project-team", "documents", "calendar", "map", "weather",
-      "reports-analytics", "time-sheet", "master-sheet-time",
+      "reports-analytics",
     ] : [];
 
-    const newUser = {
-      firstName: fName,
-      lastName: lName,
+    const newUserDocument = {
+      firstName,
+      lastName,
       email: email || "",
       role: role,
       status: "active",
-      assignedModules: modules,
+      assignedModules: defaultModules,
       assignedProjects: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
-    await userDocRef.set(newUser);
+    await userDocRef.set(newUserDocument);
     await admin.auth().setCustomUserClaims(uid, {
       role: role,
-      assignedModules: modules,
+      assignedModules: defaultModules,
       assignedProjects: [],
     });
   } catch (error) {
