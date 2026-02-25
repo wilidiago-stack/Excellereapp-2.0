@@ -17,6 +17,7 @@ import {
   onAuthStateChanged,
   getIdTokenResult,
 } from 'firebase/auth';
+import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 
 interface FirebaseProviderProps {
@@ -24,6 +25,7 @@ interface FirebaseProviderProps {
   firebaseApp: FirebaseApp;
   firestore: Firestore;
   auth: Auth;
+  storage: FirebaseStorage;
 }
 
 interface UserAuthState {
@@ -38,6 +40,7 @@ export interface FirebaseContextState {
   firebaseApp: FirebaseApp | null;
   firestore: Firestore | null;
   auth: Auth | null;
+  storage: FirebaseStorage | null;
   user: User | null;
   isUserLoading: boolean;
   userError: Error | null;
@@ -53,6 +56,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   firebaseApp,
   firestore,
   auth,
+  storage,
 }) => {
   const [userAuthState, setUserAuthState] = useState<UserAuthState>({
     user: null,
@@ -104,18 +108,19 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
   }, [auth]);
 
   const contextValue = useMemo((): FirebaseContextState => {
-    const servicesAvailable = !!(firebaseApp && firestore && auth);
+    const servicesAvailable = !!(firebaseApp && firestore && auth && storage);
     return {
       areServicesAvailable: servicesAvailable,
       firebaseApp: servicesAvailable ? firebaseApp : null,
       firestore: servicesAvailable ? firestore : null,
       auth: servicesAvailable ? auth : null,
+      storage: servicesAvailable ? storage : null,
       user: userAuthState.user,
       isUserLoading: userAuthState.isUserLoading,
       userError: userAuthState.userError,
       claims: userAuthState.claims,
     };
-  }, [firebaseApp, firestore, auth, userAuthState]);
+  }, [firebaseApp, firestore, auth, storage, userAuthState]);
 
   return (
     <FirebaseContext.Provider value={contextValue}>
@@ -171,6 +176,12 @@ export const useFirestore = (): Firestore => {
   const { firestore } = useFirebase();
   if (!firestore) throw new Error('Firestore instance not available.');
   return firestore;
+};
+
+export const useStorage = (): FirebaseStorage => {
+  const { storage } = useFirebase();
+  if (!storage) throw new Error('Firebase Storage instance not available.');
+  return storage;
 };
 
 export const useFirebaseApp = (): FirebaseApp => {
