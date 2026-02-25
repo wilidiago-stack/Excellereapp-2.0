@@ -2,14 +2,6 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    /**
-     * EXCELLERE REVIVE - SECURITY RULES
-     * 
-     * Core Philosophy:
-     * - Authorization Independence: User-specific data is keyed by UID.
-     * - DBAC (Database-Backed Access Control): Admin status via /roles_admin.
-     */
-
     // --- GLOBAL HELPER FUNCTIONS ---
 
     function isSignedIn() {
@@ -30,36 +22,23 @@ service cloud.firestore {
 
     // --- COLLECTION RULES ---
 
-    /**
-     * @description User profile documents.
-     */
     match /users/{userId} {
       allow get: if isOwner(userId) || isAdmin();
       allow update: if isOwner(userId) || isAdmin();
       allow list, create: if isAdmin();
     }
 
-    /**
-     * @description Global definitions of application modules.
-     */
     match /modules/{moduleId} {
       allow get, list: if isSignedIn();
-      allow create: if isAdmin();
-      allow update, delete: if isAdmin();
+      allow create, update, delete: if isAdmin();
     }
 
-    /**
-     * @description Registered site contractors and vendors.
-     */
     match /contractors/{contractorId} {
       allow get, list: if isSignedIn();
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description User-specific module access records.
-     */
     match /users/{userId}/moduleAccess/{userModuleAccessId} {
       allow get, list: if isOwner(userId) || isAdmin();
       allow create: if isOwner(userId) && request.resource.data.userId == userId;
@@ -67,17 +46,11 @@ service cloud.firestore {
       allow delete: if isExistingOwner(userId) || isAdmin();
     }
 
-    /**
-     * @description Administrative roles (DBAC).
-     */
     match /roles_admin/{adminId} {
       allow get: if isSignedIn();
-      allow write: if false; // Managed via Console or Admin SDK
+      allow write: if false; 
     }
 
-    /**
-     * @description Projects and their subcollections.
-     */
     match /projects/{projectId} {
       allow get, list: if isSignedIn();
       allow create, update, delete: if isAdmin();
@@ -93,9 +66,6 @@ service cloud.firestore {
       }
     }
 
-    /**
-     * @description Operational logs (Daily, Monthly, Safety).
-     */
     match /dailyReports/{reportId} {
       allow get, list: if isSignedIn();
       allow create, update: if isSignedIn();
@@ -114,33 +84,24 @@ service cloud.firestore {
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Time tracking system.
-     */
     match /time_entries/{entryId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
     }
 
     match /weekly_submissions/{subId} {
-      allow get, list: if isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
       allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Calendar notes.
-     */
     match /calendar_notes/{noteId} {
       allow get, list: if isSignedIn();
       allow create, update: if isSignedIn();
       allow delete: if isAdmin();
     }
 
-    /**
-     * @description Global system metadata.
-     */
     match /system/metadata {
       allow get: if isSignedIn();
       allow write: if false;
