@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -141,7 +142,7 @@ export default function CalendarPage() {
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button size="sm" className="h-8 text-xs rounded-sm gap-2">
-                <Plus className="h-3.5 w-3.5" /> New Note
+                <Plus className="h-3.5 w-3.5" /> New
               </Button>
             </DialogTrigger>
             <DialogContent className="rounded-sm sm:max-w-md">

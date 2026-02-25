@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "User": {
@@ -26,6 +27,21 @@
         "routePath": { "type": "string" },
         "iconName": { "type": "string" }
       }
+    },
+    "CalendarNote": {
+      "title": "CalendarNote",
+      "description": "Manual calendar events and milestones.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "date": { "type": "string", "format": "date-time" },
+        "projectId": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -39,6 +55,10 @@
     "/modules/{moduleId}": {
       "schema": { "$ref": "#/backend/entities/Module" },
       "description": "Global module definitions."
+    },
+    "/calendar_notes/{noteId}": {
+      "schema": { "$ref": "#/backend/entities/CalendarNote" },
+      "description": "Project-specific manual calendar notes."
     }
   }
 }
