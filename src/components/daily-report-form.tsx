@@ -228,7 +228,7 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
       };
       form.reset(data);
     }
-  }, [initialData, form, user?.displayName]);
+  }, [initialData, form]);
 
   const onSubmit = async (data: DailyReportFormValues) => {
     if (!firestore || !user) return;
