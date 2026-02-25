@@ -1,5 +1,8 @@
 /**
- * @fileOverview Application entry point barrel file.
- * Provides a central export point for core application services.
+ * @fileOverview Application Entry Point (Frontend).
+ * Exports core firebase utilities for the Next.js application.
  */
+
 export * from './firebase';
+export * from './lib/utils';
+export * from './lib/modules';
