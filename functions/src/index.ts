@@ -1,27 +1,23 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onAuthUserCreate} from "firebase-functions/v2/auth";
+import {onUserCreated} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-/**
- * Initialize Firebase Admin SDK.
- */
+// Initialize Firebase Admin SDK.
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 const db = admin.firestore();
 
-/**
- * Global configuration for functions.
- */
+// Global configuration for functions.
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
 
 /**
  * Triggered on new user creation in Firebase Authentication.
  * Sets initial roles and default modules.
  */
-export const setupInitialUserRole = onAuthUserCreate(async (event) => {
+export const setupInitialUserRole = onUserCreated(async (event) => {
   const user = event.data;
   if (!user) return;
 
