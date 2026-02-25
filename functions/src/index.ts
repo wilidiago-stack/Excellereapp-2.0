@@ -12,10 +12,10 @@ const db = admin.firestore();
 setGlobalOptions({maxInstances: 10, region: "us-central1"});
 
 export const setupInitialUserRole = onUserCreated(async (event) => {
-  const user = event.data;
-  if (!user) return;
+  const {data} = event;
+  if (!data) return;
 
-  const {uid, email, displayName} = user;
+  const {uid, email, displayName} = data;
   logger.info(`[setupInitialUserRole] Processing UID: ${uid}`);
 
   const userDocRef = db.doc(`users/${uid}`);
@@ -25,8 +25,8 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
     let isFirstUser = false;
     await db.runTransaction(async (transaction) => {
       const metadataDoc = await transaction.get(metadataRef);
-      const data = metadataDoc.data();
-      const currentCount = metadataDoc.exists ? data?.userCount || 0 : 0;
+      const mData = metadataDoc.data();
+      const currentCount = metadataDoc.exists ? mData?.userCount || 0 : 0;
       if (currentCount === 0) isFirstUser = true;
       const newCount = currentCount + 1;
       if (metadataDoc.exists) {
