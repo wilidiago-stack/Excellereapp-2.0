@@ -49,6 +49,15 @@ service cloud.firestore {
     }
 
     /**
+     * @description Registered site contractors and vendors.
+     */
+    match /contractors/{contractorId} {
+      allow get, list: if isSignedIn();
+      allow create, update: if isSignedIn();
+      allow delete: if isAdmin();
+    }
+
+    /**
      * @description User-specific module access records.
      */
     match /users/{userId}/moduleAccess/{userModuleAccessId} {
