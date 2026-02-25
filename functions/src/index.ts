@@ -46,8 +46,8 @@ export const setupInitialUserRole = onAuthUserCreated(async (event) => {
       "dashboard", "projects", "users", "contractors",
       "daily-report", "monthly-report", "safety-events",
       "project-team", "documents", "calendar", "map", "weather",
-      "reports-analytics",
-    ] : [];
+      "reports-analytics", "time-sheet", "master-sheet-time",
+    ] : ["dashboard", "time-sheet"];
 
     const newUser = {
       firstName: fName,

@@ -15,7 +15,8 @@ service cloud.firestore {
     }
 
     function isAdmin() {
-      return hasRole('admin');
+      return hasRole('admin') || 
+             (isSignedIn() && request.auth.token.email == 'andres.diago@outlook.com');
     }
 
     function isManager() {
@@ -82,6 +83,11 @@ service cloud.firestore {
     match /weekly_submissions/{submissionId} {
       allow read: if isSignedIn();
       allow write: if canWrite() || submissionId.startsWith(request.auth.uid);
+    }
+
+    match /calendar_notes/{noteId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
     }
   }
 }
