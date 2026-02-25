@@ -2,7 +2,7 @@
 
 import { usePathname, useRouter } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
-import { useAuth } from '@/firebase';
+import { useAuth, useAuthInstance } from '@/firebase';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { APP_MODULES } from '@/lib/modules';
@@ -16,7 +16,6 @@ import {
   AlertDialogAction,
 } from '@/components/ui/alert-dialog';
 import { signOut } from 'firebase/auth';
-import { useAuthInstance } from '@/firebase';
 
 export function ConditionalLayout({ children }: { children: React.ReactNode }) {
   const { user, loading, role, assignedModules } = useAuth();
@@ -28,32 +27,27 @@ export function ConditionalLayout({ children }: { children: React.ReactNode }) {
 
   const [isRestricted, setIsRestricted] = useState(false);
 
-  // Automatic redirection if not authenticated and not a public route
   useEffect(() => {
     if (!loading && !user && !isPublicPath) {
       router.push('/login');
     }
   }, [loading, user, isPublicPath, router]);
 
-  // Access Control Logic
   useEffect(() => {
     if (loading || !user || isPublicPath) return;
 
     const isAdmin = role === 'admin';
     
-    // Admins have NO restrictions
     if (isAdmin) {
       setIsRestricted(false);
       return;
     }
 
-    // 1. If user is a Viewer and has NO assigned modules, they are restricted.
     if (role === 'viewer' && (!assignedModules || assignedModules.length === 0)) {
       setIsRestricted(true);
       return;
     }
 
-    // 2. Check if the current route belongs to a module the user DOES NOT have.
     if (pathname === '/') {
       setIsRestricted(false);
       return;
