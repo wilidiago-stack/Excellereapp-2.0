@@ -47,7 +47,10 @@ export default function WeatherPage() {
     return Array.from(new Set(cities)).sort();
   }, [projects]);
 
-  const filteredCities = projectCities.filter(city => city.toLowerCase().includes(searchQuery.toLowerCase()));
+  const filteredCities = projectCities.filter(city => 
+    city.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+  
   const currentCity = selectedCity || projectCities[0];
 
   useEffect(() => {
@@ -57,20 +60,21 @@ export default function WeatherPage() {
   }, [currentCity]);
 
   const fetchWeather = async (city: string) => {
+    if (!city) return;
     setIsWeatherLoading(true);
     setError(null);
     try {
       const data = await getRealWeather(city);
       setWeatherData(data);
-    } catch (err) {
-      setError('Could not retrieve real-time weather data.');
+    } catch (err: any) {
+      setError(err.message || 'Could not retrieve real-time weather data.');
     } finally {
       setIsWeatherLoading(false);
     }
   };
 
   const getWeatherIcon = (conditions: string) => {
-    const c = conditions.toLowerCase();
+    const c = (conditions || '').toLowerCase();
     if (c.includes('sun') || c.includes('clear')) return Sun;
     if (c.includes('rain')) return CloudRain;
     if (c.includes('partly')) return CloudSun;
@@ -78,7 +82,7 @@ export default function WeatherPage() {
   };
 
   const getWeatherColor = (conditions: string) => {
-    const c = conditions.toLowerCase();
+    const c = (conditions || '').toLowerCase();
     if (c.includes('sun') || c.includes('clear')) return 'text-orange-500';
     if (c.includes('rain')) return 'text-blue-600';
     if (c.includes('partly')) return 'text-blue-400';
@@ -87,48 +91,40 @@ export default function WeatherPage() {
 
   const getSafetyAdvisory = (data: WeatherOutput) => {
     const advisories = [];
-    
-    // Wind Logic
     if (data.wind > 20) {
       advisories.push({
         title: "High Wind Alert",
-        text: "Crane operations must be suspended if gust limits are exceeded. Secure all loose materials on upper floors.",
+        text: "Crane operations must be suspended if gust limits are exceeded.",
         type: "danger"
       });
     }
-
-    // Temperature Logic
     if (data.temp > 90) {
       advisories.push({
         title: "Heat Stress Advisory",
-        text: "Mandatory hydration breaks every 45 minutes. Watch for signs of heat exhaustion in site personnel.",
+        text: "Watch for signs of heat exhaustion in site personnel.",
         type: "warning"
       });
     } else if (data.temp < 32) {
       advisories.push({
         title: "Freeze & Slip Hazard",
-        text: "Ice accumulation likely on scaffolding and metal decking. Apply anti-slip grit to walkways.",
+        text: "Apply anti-slip grit to walkways and scaffolding.",
         type: "warning"
       });
     }
-
-    // Conditions Logic
     if (data.conditions.toLowerCase().includes('rain')) {
       advisories.push({
         title: "Wet Site Conditions",
-        text: "Increased electrical hazard. Suspend outdoor electrical work. Verify trench stability and drainage.",
+        text: "Increased electrical hazard. Suspend outdoor electrical work.",
         type: "info"
       });
     }
-
     if (advisories.length === 0) {
       advisories.push({
         title: "Optimal Site Conditions",
-        text: "Site weather is within normal operating parameters. Maintain standard safety protocols.",
+        text: "Maintain standard safety protocols.",
         type: "success"
       });
     }
-
     return advisories;
   };
 
@@ -138,9 +134,9 @@ export default function WeatherPage() {
         <div className="flex flex-col">
           <h1 className="text-xl font-bold tracking-tight text-slate-800">Weather Service</h1>
           <div className="text-xs text-muted-foreground flex items-center gap-2">
-            <span>Site conditions monitoring in Fahrenheit.</span>
+            <span>Site monitoring in Fahrenheit.</span>
             {selectedProjectId && (
-              <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] border-[#46a395]/20 font-bold uppercase">
+              <Badge variant="secondary" className="h-4 rounded-sm text-[9px] bg-[#46a395]/10 text-[#46a395] font-bold uppercase">
                 Context Active
               </Badge>
             )}
@@ -186,11 +182,9 @@ export default function WeatherPage() {
                 >
                   <div className="flex flex-col gap-0.5">
                     <span className="font-bold text-xs">{city}</span>
-                    <span className="text-[9px] text-slate-400 uppercase font-black">Active Monitoring</span>
+                    <span className="text-[9px] text-slate-400 uppercase font-black">Active</span>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-3 w-3 text-slate-300" />
-                  </div>
+                  <MapPin className="h-3 w-3 text-slate-300" />
                 </button>
               ))
             )}
@@ -211,13 +205,13 @@ export default function WeatherPage() {
             </div>
           ) : (
             <>
-              <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden border-none shadow-none">
+              <Card className="rounded-sm overflow-hidden border-none">
                 <div className="bg-[#46a395] p-8 text-white rounded-sm shadow-md">
                   <div className="flex flex-col md:flex-row justify-between items-center gap-6">
                     <div>
                       <div className="flex items-center gap-2 mb-2">
                         <MapPin className="h-4 w-4 text-white/70" />
-                        <span className="text-xs font-bold uppercase tracking-widest opacity-80">Site Location Focus</span>
+                        <span className="text-xs font-bold uppercase tracking-widest opacity-80">Site Focus</span>
                       </div>
                       <h2 className="text-4xl font-black tracking-tighter">{weatherData.city}</h2>
                     </div>
@@ -234,35 +228,33 @@ export default function WeatherPage() {
                   </div>
                   <div className="grid grid-cols-3 gap-4 mt-10 pt-8 border-t border-white/20">
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5 shadow-inner"><Wind className="h-6 w-6" /></div>
-                      <div><p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Wind Speed</p><p className="text-sm font-black">{weatherData.wind} mph</p></div>
+                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5"><Wind className="h-6 w-6" /></div>
+                      <div><p className="text-[10px] font-bold uppercase opacity-70">Wind</p><p className="text-sm font-black">{weatherData.wind} mph</p></div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5 shadow-inner"><Droplets className="h-6 w-6" /></div>
-                      <div><p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Humidity</p><p className="text-sm font-black">{weatherData.humidity}%</p></div>
+                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5"><Droplets className="h-6 w-6" /></div>
+                      <div><p className="text-[10px] font-bold uppercase opacity-70">Humidity</p><p className="text-sm font-black">{weatherData.humidity}%</p></div>
                     </div>
                     <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5 shadow-inner"><Thermometer className="h-6 w-6" /></div>
-                      <div><p className="text-[10px] font-bold uppercase opacity-70 tracking-widest">Feels Like</p><p className="text-sm font-black">{weatherData.temp + 2}°F</p></div>
+                      <div className="h-12 w-12 rounded-sm bg-white/10 flex items-center justify-center border border-white/5"><Thermometer className="h-6 w-6" /></div>
+                      <div><p className="text-[10px] font-bold uppercase opacity-70">High/Low</p><p className="text-sm font-black">{weatherData.high}° / {weatherData.low}°</p></div>
                     </div>
                   </div>
                 </div>
               </Card>
 
-              {/* SITE SAFETY ADVISORY SECTION */}
               <Card className="rounded-sm border-slate-200 shadow-sm overflow-hidden bg-slate-50/50">
                 <CardHeader className="p-4 border-b flex flex-row items-center justify-between">
                   <div className="flex items-center gap-2">
                     <ShieldCheck className="h-3.5 w-3.5 text-[#46a395]" />
                     <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Site Safety Advisory</CardTitle>
                   </div>
-                  <Badge variant="outline" className="text-[8px] h-4 rounded-sm font-black uppercase bg-white">Operational Intelligence</Badge>
                 </CardHeader>
                 <CardContent className="p-4">
                   <div className="grid grid-cols-1 gap-2">
                     {getSafetyAdvisory(weatherData).map((adv, idx) => (
                       <div key={idx} className={cn(
-                        "flex items-start gap-3 p-3 rounded-sm border transition-all animate-in fade-in slide-in-from-left-2",
+                        "flex items-start gap-3 p-3 rounded-sm border",
                         adv.type === 'danger' ? "bg-red-50 border-red-100" :
                         adv.type === 'warning' ? "bg-orange-50 border-orange-100" :
                         adv.type === 'info' ? "bg-blue-50 border-blue-100" :
@@ -277,8 +269,7 @@ export default function WeatherPage() {
                             "text-[11px] font-black uppercase mb-0.5",
                             adv.type === 'danger' ? "text-red-700" :
                             adv.type === 'warning' ? "text-orange-700" :
-                            adv.type === 'info' ? "text-blue-700" :
-                            "text-green-700"
+                            adv.type === 'info' ? "text-blue-700" : "text-green-700"
                           )}>{adv.title}</h4>
                           <p className="text-[10px] text-slate-600 leading-relaxed font-medium">{adv.text}</p>
                         </div>
@@ -294,7 +285,6 @@ export default function WeatherPage() {
                     <CalendarDays className="h-3.5 w-3.5 text-[#46a395]" />
                     <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-slate-500">7-Day Site Forecast</CardTitle>
                   </div>
-                  <span className="text-[9px] font-black text-slate-300 uppercase">Unit: Imperial (F)</span>
                 </CardHeader>
                 <CardContent className="p-0">
                   <div className="grid grid-cols-1 divide-y divide-slate-100">
@@ -308,7 +298,7 @@ export default function WeatherPage() {
                             <div className="text-[10px] font-bold text-slate-400">{format(parseISO(day.date), 'MMM dd')}</div>
                           </div>
                           <div className="flex-1 flex items-center gap-4 px-4">
-                            <div className="h-8 w-8 rounded-sm bg-slate-100 flex items-center justify-center transition-all group-hover:bg-white group-hover:shadow-sm">
+                            <div className="h-8 w-8 rounded-sm bg-slate-100 flex items-center justify-center">
                               <Icon className={`h-4 w-4 ${color}`} />
                             </div>
                             <span className="text-xs font-bold text-slate-600 uppercase tracking-tight">{day.conditions}</span>
@@ -319,11 +309,9 @@ export default function WeatherPage() {
                                 <Umbrella className="h-3 w-3" />
                                 <span className="text-[10px] font-black">{day.rainProb}%</span>
                               </div>
-                              <span className="text-[8px] font-bold text-slate-300 uppercase">PRECIP.</span>
                             </div>
                             <div className="w-16 text-right">
-                              <span className="text-sm font-black text-slate-800">{day.temp}°</span>
-                              <span className="text-[10px] text-slate-400 ml-1 font-bold">F</span>
+                              <span className="text-sm font-black text-slate-800">{day.temp}°F</span>
                             </div>
                           </div>
                         </div>

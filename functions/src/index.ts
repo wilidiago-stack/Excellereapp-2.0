@@ -1,4 +1,3 @@
-
 import {setGlobalOptions} from "firebase-functions/v2";
 import {onAuthUserCreated} from "firebase-functions/v2/identity";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
