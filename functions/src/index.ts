@@ -14,8 +14,6 @@ setGlobalOptions({maxInstances: 10});
  */
 export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const {uid, email, displayName} = event.data;
-  logger.info(`[setupInitialUserRole] UID: ${uid}`);
-
   const userDocRef = db.doc(`users/${uid}`);
   const metadataRef = db.doc("system/metadata");
 
@@ -46,21 +44,15 @@ export const setupInitialUserRole = onAuthUserCreate(async (event) => {
     ] : [];
 
     const newUserDocument = {
-      firstName,
-      lastName,
-      email: email || "",
-      role: role,
-      status: "active",
-      assignedModules: defaultModules,
+      firstName, lastName, email: email || "",
+      role, status: "active", assignedModules: defaultModules,
       assignedProjects: [],
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     };
 
     await userDocRef.set(newUserDocument);
     await admin.auth().setCustomUserClaims(uid, {
-      role: role,
-      assignedModules: defaultModules,
-      assignedProjects: [],
+      role, assignedModules: defaultModules, assignedProjects: [],
     });
   } catch (error) {
     logger.error(`[setupInitialUserRole] Error for ${uid}:`, error);

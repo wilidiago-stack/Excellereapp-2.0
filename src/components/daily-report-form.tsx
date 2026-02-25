@@ -10,16 +10,12 @@ import {
   CalendarIcon,
   PlusCircle,
   Trash2,
-  Paperclip,
   CloudSun,
-  ShieldCheck,
   Clock,
   MapPin,
   ClipboardList,
   Loader2,
   Mic,
-  MicOff,
-  Sparkles,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
@@ -74,9 +70,7 @@ import {
   TableHead,
   TableCell,
 } from '@/components/ui/table';
-import { Separator } from './ui/separator';
 import { Card } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import {
   Tooltip,
   TooltipContent,
@@ -100,16 +94,13 @@ const dailyActivitySchema = z.object({
 const noteSchema = z.object({
   note: z.string().min(1, 'Note is required'),
   status: z.string().min(1, 'Status is required'),
-  imageUrl: z.string().optional(),
 });
 
 const dailyReportSchema = z.object({
   date: z.date({ required_error: 'A date is required.' }),
   username: z.string().min(1, 'Username is required'),
   projectId: z.string().min(1, 'Please select a project.'),
-  shift: z.enum(['Day', 'Night'], {
-    required_error: 'Please select a shift.',
-  }),
+  shift: z.enum(['Day', 'Night']),
   weather: z.object({
     city: z.string().min(1, 'City is required'),
     conditions: z.string().min(1, 'Conditions are required'),
@@ -133,11 +124,7 @@ const dailyReportSchema = z.object({
 
 type DailyReportFormValues = z.infer<typeof dailyReportSchema>;
 
-interface DailyReportFormProps {
-  initialData?: any;
-}
-
-export function DailyReportForm({ initialData }: DailyReportFormProps) {
+export function DailyReportForm({ initialData }: { initialData?: any }) {
   const { user } = useAuth();
   const firestore = useFirestore();
   const { selectedProjectId } = useProjectContext();
@@ -147,11 +134,6 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
   const [isWeatherLoading, setIsWeatherLoading] = useState(false);
   const [isListening, setIsListening] = useState(false);
   const [isAIProcessing, setIsAIProcessing] = useState(false);
-
-  const dailyReportsCollection = useMemoFirebase(
-    () => (firestore && user?.uid ? collection(firestore, 'dailyReports') : null),
-    [firestore, user?.uid]
-  );
 
   const projectsCollection = useMemoFirebase(
     () => (firestore ? collection(firestore, 'projects') : null),
@@ -198,164 +180,69 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
     },
   });
 
-  const {
-    fields: dailyActivityFields,
-    append: appendDailyActivity,
-    remove: removeDailyActivity,
-  } = useFieldArray({ control: form.control, name: 'dailyActivities' });
-  const {
-    fields: manHourFields,
-    append: appendManHour,
-    remove: removeManHour,
-  } = useFieldArray({ control: form.control, name: 'manHours' });
-  const {
-    fields: noteFields,
-    append: appendNote,
-    remove: removeNote,
-  } = useFieldArray({ control: form.control, name: 'notes' });
-
-  const watchedProjectId = form.watch('projectId');
+  const { fields: manHourFields, append: appendManHour, remove: removeManHour } = useFieldArray({
+    control: form.control,
+    name: 'manHours',
+  });
+  const { fields: dailyActivityFields, append: appendDailyActivity, remove: removeDailyActivity } = useFieldArray({
+    control: form.control,
+    name: 'dailyActivities',
+  });
+  const { fields: noteFields, append: appendNote, remove: removeNote } = useFieldArray({
+    control: form.control,
+    name: 'notes',
+  });
 
   useEffect(() => {
-    if (!watchedProjectId || isEditMode) return;
-    const selectedProject = projectsData?.find((p: any) => p.id === watchedProjectId);
-    if (selectedProject?.city) {
-      const fetchAutoWeather = async () => {
-        setIsWeatherLoading(true);
-        try {
-          const data = await getRealWeather(selectedProject.city);
-          form.setValue('weather.city', data.city);
-          form.setValue('weather.conditions', data.conditions);
-          form.setValue('weather.highTemp', data.high);
-          form.setValue('weather.lowTemp', data.low);
-          form.setValue('weather.wind', data.wind);
-        } catch (err) {
-          console.warn('Weather auto-sync failed');
-        } finally {
-          setIsWeatherLoading(false);
-        }
-      };
-      fetchAutoWeather();
-    }
-  }, [watchedProjectId, projectsData, isEditMode, form]);
-
-  useEffect(() => {
-    if (initialData && Object.keys(initialData).length > 1) {
-      const formattedData = {
-        date: initialData.date?.toDate
-          ? initialData.date.toDate()
-          : initialData.date instanceof Date
-          ? initialData.date
-          : new Date(),
-        username: initialData.username || '',
+    if (initialData && initialData.id) {
+      const data = {
+        date: initialData.date?.toDate ? initialData.date.toDate() : new Date(initialData.date),
+        username: initialData.username || user?.displayName || '',
         projectId: initialData.projectId || '',
         shift: initialData.shift || 'Day',
         weather: {
           city: initialData.weather?.city || '',
           conditions: initialData.weather?.conditions || '',
-          highTemp: initialData.weather?.highTemp || 0,
-          lowTemp: initialData.weather?.lowTemp || 0,
-          wind: initialData.weather?.wind || 0,
+          highTemp: Number(initialData.weather?.highTemp) || 0,
+          lowTemp: Number(initialData.weather?.lowTemp) || 0,
+          wind: Number(initialData.weather?.wind) || 0,
         },
         safetyStats: {
-          recordableIncidents: initialData.safetyStats?.recordableIncidents || 0,
-          lightFirstAids: initialData.safetyStats?.lightFirstAids || 0,
-          safetyMeeting: initialData.safetyStats?.safetyMeeting || 0,
-          toolBoxTalks: initialData.safetyStats?.toolBoxTalks || 0,
-          admSiteOrientation: initialData.safetyStats?.admSiteOrientation || 0,
-          bbsGemba: initialData.safetyStats?.bbsGemba || 0,
-          operationsStandDowns: initialData.safetyStats?.operationsStandDowns || 0,
+          recordableIncidents: Number(initialData.safetyStats?.recordableIncidents) || 0,
+          lightFirstAids: Number(initialData.safetyStats?.lightFirstAids) || 0,
+          safetyMeeting: Number(initialData.safetyStats?.safetyMeeting) || 0,
+          toolBoxTalks: Number(initialData.safetyStats?.toolBoxTalks) || 0,
+          admSiteOrientation: Number(initialData.safetyStats?.admSiteOrientation) || 0,
+          bbsGemba: Number(initialData.safetyStats?.bbsGemba) || 0,
+          operationsStandDowns: Number(initialData.safetyStats?.operationsStandDowns) || 0,
         },
-        dailyActivities: initialData.dailyActivities || [],
         manHours: initialData.manHours || [],
+        dailyActivities: initialData.dailyActivities || [],
         notes: initialData.notes || [],
       };
-      form.reset(formattedData);
-    } else {
-      if (user && !form.getValues('username')) {
-        form.setValue('username', user.displayName || '');
-      }
-      if (selectedProjectId && !form.getValues('projectId')) {
-        form.setValue('projectId', selectedProjectId);
-      }
-      // Provide initial empty row only if not in edit mode
-      if (manHourFields.length === 0 && !isEditMode)
-        appendManHour({ contractorId: '', headcount: 0, hours: 0 });
-      if (dailyActivityFields.length === 0 && !isEditMode)
-        appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] });
-      if (noteFields.length === 0 && !isEditMode)
-        appendNote({ note: '', status: 'open' });
+      form.reset(data);
     }
-  }, [initialData, user, selectedProjectId, isEditMode]);
+  }, [initialData, form, user?.displayName]);
 
-  const startVoiceCapture = () => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-    if (!SpeechRecognition) {
-      toast({ variant: 'destructive', title: 'Not Supported', description: 'Voice is not supported.' });
-      return;
-    }
-    const recognition = new SpeechRecognition();
-    recognition.lang = 'en-US';
-    recognition.onstart = () => setIsListening(true);
-    recognition.onresult = (event: any) => processTranscript(event.results[0][0].transcript);
-    recognition.onend = () => setIsListening(false);
-    recognition.start();
-  };
-
-  const processTranscript = async (text: string) => {
-    setIsAIProcessing(true);
-    try {
-      const extraction = await processReportVoice(text);
-      if (extraction.weather) {
-        if (extraction.weather.conditions) form.setValue('weather.conditions', extraction.weather.conditions);
-        if (extraction.weather.highTemp) form.setValue('weather.highTemp', extraction.weather.highTemp);
-        if (extraction.weather.lowTemp) form.setValue('weather.lowTemp', extraction.weather.lowTemp);
-        if (extraction.weather.wind) form.setValue('weather.wind', extraction.weather.wind);
-      }
-      if (extraction.safetyStats) {
-        Object.entries(extraction.safetyStats).forEach(([key, val]) => {
-          form.setValue(`safetyStats.${key}` as any, val);
-        });
-      }
-      if (extraction.manHours) {
-        extraction.manHours.forEach((mh) => {
-          const contractor = contractors.find((c) => c.label.toLowerCase().includes(mh.contractorName.toLowerCase()));
-          if (contractor) appendManHour({ contractorId: contractor.id, headcount: mh.headcount, hours: mh.hours });
-        });
-      }
-      if (extraction.activities) {
-        extraction.activities.forEach((act) => {
-          const contractor = contractors.find((c) => c.label.toLowerCase().includes(act.contractorName.toLowerCase()));
-          if (contractor) appendDailyActivity({ contractorId: contractor.id, activity: act.activity, location: act.location, permits: [] });
-        });
-      }
-      if (extraction.notes) {
-        extraction.notes.forEach((note) => appendNote({ note, status: 'open' }));
-      }
-      toast({ title: 'AI Processed', description: 'Form updated from voice.' });
-    } catch (err) {
-      toast({ variant: 'destructive', title: 'AI Error', description: 'Failed to extract data.' });
-    } finally {
-      setIsAIProcessing(false);
-    }
-  };
-
-  const onSubmit = (data: DailyReportFormValues) => {
-    if (!firestore || !user || !dailyReportsCollection) return;
+  const onSubmit = async (data: DailyReportFormValues) => {
+    if (!firestore || !user) return;
     const payload = { ...data, date: startOfDay(data.date), updatedAt: serverTimestamp() };
-    const op = isEditMode
-      ? updateDoc(doc(firestore, 'dailyReports', initialData.id), payload)
-      : addDoc(dailyReportsCollection, { ...payload, authorId: user.uid, createdAt: serverTimestamp() });
+    const ref = isEditMode ? doc(firestore, 'dailyReports', initialData.id) : collection(firestore, 'dailyReports');
+    
+    const op = isEditMode 
+      ? updateDoc(ref as any, payload) 
+      : addDoc(ref as any, { ...payload, authorId: user.uid, createdAt: serverTimestamp() });
+
     op.then(() => {
-      toast({ title: 'Report Saved', description: 'Report processed successfully.' });
+      toast({ title: 'Report Saved', description: 'Log processed successfully.' });
       router.push('/daily-report');
-    }).catch((error) =>
+    }).catch(err => {
       errorEmitter.emit('permission-error', new FirestorePermissionError({
-        path: isEditMode ? `dailyReports/${initialData.id}` : dailyReportsCollection.path,
+        path: isEditMode ? `dailyReports/${initialData.id}` : 'dailyReports',
         operation: 'write',
         requestResourceData: payload,
-      }))
-    );
+      }));
+    });
   };
 
   const totalGeneralManHours = (form.watch('manHours') || []).reduce(
@@ -372,21 +259,24 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
               <TooltipTrigger asChild>
                 <Button
                   type="button"
-                  variant={isListening ? 'destructive' : 'default'}
-                  size="icon"
-                  onClick={startVoiceCapture}
-                  disabled={isAIProcessing}
-                  className={cn(
-                    'h-12 w-12 rounded-full shadow-xl transition-all duration-300 hover:scale-110',
-                    !isListening && !isAIProcessing && 'bg-gradient-to-br from-[#1BA1E3] via-[#9168C0] to-[#D05CA4]'
-                  )}
+                  onClick={() => {
+                    const SR = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+                    if (!SR) return toast({ variant: 'destructive', title: 'Not Supported' });
+                    const r = new SR();
+                    r.onstart = () => setIsListening(true);
+                    r.onresult = (e: any) => processReportVoice(e.results[0][0].transcript).then(ext => {
+                      if (ext.manHours) ext.manHours.forEach(m => appendManHour({ contractorId: '', ...m }));
+                      toast({ title: 'AI Sync Complete' });
+                    });
+                    r.onend = () => setIsListening(false);
+                    r.start();
+                  }}
+                  className={cn('h-12 w-12 rounded-full shadow-xl bg-primary')}
                 >
-                  {isAIProcessing ? <Loader2 className="h-5 w-5 animate-spin" /> : <Mic className="h-5 w-5" />}
+                  <Mic className="h-5 w-5" />
                 </Button>
               </TooltipTrigger>
-              <TooltipContent side="left" className="bg-slate-900 text-white text-[10px] font-bold uppercase">
-                {isListening ? 'Stop' : 'Voice Assistant'}
-              </TooltipContent>
+              <TooltipContent side="left">Voice Assistant</TooltipContent>
             </Tooltip>
           </TooltipProvider>
         </div>
@@ -394,51 +284,37 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
         <div className="space-y-4">
           <div className="flex items-center gap-2 mb-2 text-[#46a395]">
             <ClipboardList className="h-5 w-5" />
-            <h3 className="text-sm font-bold uppercase tracking-tight">General Information</h3>
+            <h3 className="text-sm font-bold uppercase">General Information</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 p-4 rounded-sm border bg-slate-50/30">
             <FormField control={form.control} name="date" render={({ field }) => (
               <FormItem className="flex flex-col">
-                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Date</FormLabel>
+                <FormLabel className="text-[10px] font-bold uppercase">Date</FormLabel>
                 <Popover>
                   <PopoverTrigger asChild>
-                    <FormControl>
-                      <Button variant="outline" className={cn('h-9 rounded-sm pl-3 text-left border-slate-200 text-xs', !field.value && 'text-muted-foreground')}>
-                        {field.value ? format(field.value, 'PPP') : <span>Pick a date</span>}
-                        <CalendarIcon className="ml-auto h-3.5 w-3.5 opacity-50" />
-                      </Button>
-                    </FormControl>
+                    <FormControl><Button variant="outline" className="h-9 rounded-sm text-xs justify-between">{field.value ? format(field.value, 'PPP') : 'Pick date'}<CalendarIcon className="h-3.5 w-3.5 opacity-50" /></Button></FormControl>
                   </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent>
+                  <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} /></PopoverContent>
                 </Popover>
-                <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name="username" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Author</FormLabel>
-                <FormControl><Input {...field} readOnly className="h-9 rounded-sm bg-slate-100 text-xs" /></FormControl>
-                <FormMessage />
-              </FormItem>
+              <FormItem><FormLabel className="text-[10px] font-bold uppercase">Author</FormLabel><FormControl><Input {...field} readOnly className="h-9 bg-slate-100 text-xs" /></FormControl></FormItem>
             )} />
             <FormField control={form.control} name="projectId" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Project</FormLabel>
+              <FormItem><FormLabel className="text-[10px] font-bold uppercase">Project</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs"><SelectValue placeholder="Project" /></SelectTrigger></FormControl>
-                  <SelectContent>{projects.map((p) => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
+                  <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Project" /></SelectTrigger></FormControl>
+                  <SelectContent>{projects.map(p => <SelectItem key={p.id} value={p.id}>{p.label}</SelectItem>)}</SelectContent>
                 </Select>
-                <FormMessage />
               </FormItem>
             )} />
             <FormField control={form.control} name="shift" render={({ field }) => (
-              <FormItem>
-                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Shift</FormLabel>
+              <FormItem><FormLabel className="text-[10px] font-bold uppercase">Shift</FormLabel>
                 <Select onValueChange={field.onChange} value={field.value}>
-                  <FormControl><SelectTrigger className="h-9 rounded-sm border-slate-200 text-xs"><SelectValue placeholder="Shift" /></SelectTrigger></FormControl>
+                  <FormControl><SelectTrigger className="h-9 text-xs"><SelectValue placeholder="Shift" /></SelectTrigger></FormControl>
                   <SelectContent><SelectItem value="Day">Day</SelectItem><SelectItem value="Night">Night</SelectItem></SelectContent>
                 </Select>
-                <FormMessage />
               </FormItem>
             )} />
           </div>
@@ -446,16 +322,16 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
 
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2 text-primary">
-            <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Personal & Man Hours</h3></div>
-            <Button type="button" variant="outline" size="sm" onClick={() => appendManHour({ contractorId: '', headcount: 0, hours: 0 })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add</Button>
+            <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Headcount & Man Hours</h3></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendManHour({ contractorId: '', headcount: 0, hours: 0 })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add Record</Button>
           </div>
           <Card className="rounded-sm border-slate-200 overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Headcount</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Hours</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Total</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
+              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10">Contractor Name</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Headcount</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Hours/Man</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 text-center w-32">Total</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
               <TableBody>
                 {manHourFields.map((field, index) => (
-                  <TableRow key={field.id} className="border-b-slate-100">
-                    <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl><SelectContent>{contractors.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
+                  <TableRow key={field.id}>
+                    <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Contractor" /></SelectTrigger></FormControl><SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.headcount`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`manHours.${index}.hours`} render={({ field }) => <Input type="number" {...field} className="h-8 text-center" />} /></TableCell>
                     <TableCell className="py-3 text-center text-xs font-bold">{(form.watch(`manHours.${index}.headcount`) * form.watch(`manHours.${index}.hours`)).toFixed(1)}</TableCell>
@@ -465,21 +341,21 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
               </TableBody>
             </Table>
           </Card>
-          <div className="text-right pr-14 text-xs font-black">TOTAL MAN HOURS: <span className="text-[#46a395]">{totalGeneralManHours.toFixed(1)}</span></div>
+          <div className="text-right text-xs font-black">Total General Hours: <span className="text-[#46a395]">{totalGeneralManHours.toFixed(1)}</span></div>
         </div>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2 text-[#46a395]">
-            <div className="flex items-center gap-2"><MapPin className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Activities & Permits</h3></div>
-            <Button type="button" variant="outline" size="sm" onClick={() => appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add</Button>
+            <div className="flex items-center gap-2"><MapPin className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Site Activities & Permits</h3></div>
+            <Button type="button" variant="outline" size="sm" onClick={() => appendDailyActivity({ contractorId: '', activity: '', location: '', permits: [] })} className="h-8 text-xs gap-2"><PlusCircle className="h-3.5" /> Add Activity</Button>
           </div>
           <Card className="rounded-sm border-slate-200 overflow-hidden">
             <Table>
-              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10 w-48">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10">Activity</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 w-40">Location</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
+              <TableHeader className="bg-slate-50/50"><TableRow><TableHead className="text-[10px] font-bold uppercase h-10 w-48">Contractor</TableHead><TableHead className="text-[10px] font-bold uppercase h-10">Activity Description</TableHead><TableHead className="text-[10px] font-bold uppercase h-10 w-40">Location</TableHead><TableHead className="h-10 w-10"></TableHead></TableRow></TableHeader>
               <TableBody>
                 {dailyActivityFields.map((field, index) => (
-                  <TableRow key={field.id} className="border-b-slate-100">
-                    <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Select" /></SelectTrigger></FormControl><SelectContent>{contractors.map((c) => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
+                  <TableRow key={field.id}>
+                    <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.contractorId`} render={({ field }) => <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger className="h-8 text-xs"><SelectValue placeholder="Contractor" /></SelectTrigger></FormControl><SelectContent>{contractors.map(c => <SelectItem key={c.id} value={c.id}>{c.label}</SelectItem>)}</SelectContent></Select>} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.activity`} render={({ field }) => <Input {...field} className="h-8 text-xs" />} /></TableCell>
                     <TableCell className="py-3"><FormField control={form.control} name={`dailyActivities.${index}.location`} render={({ field }) => <Input {...field} className="h-8 text-xs" />} /></TableCell>
                     <TableCell className="py-3"><Button type="button" variant="ghost" size="icon" onClick={() => removeDailyActivity(index)}><Trash2 className="h-3.5" /></Button></TableCell>
@@ -490,9 +366,9 @@ export function DailyReportForm({ initialData }: DailyReportFormProps) {
           </Card>
         </div>
 
-        <div className="flex justify-end gap-4 pt-6 border-t border-slate-100">
-          <Button variant="outline" type="button" className="h-10 px-8 rounded-sm text-xs font-bold uppercase" onClick={() => router.push('/daily-report')}>Cancel</Button>
-          <Button type="submit" disabled={form.formState.isSubmitting} className="h-10 px-10 rounded-sm text-xs font-bold uppercase">{form.formState.isSubmitting ? 'Saving...' : isEditMode ? 'Update' : 'Submit'}</Button>
+        <div className="flex justify-end gap-4 pt-6 border-t">
+          <Button variant="outline" type="button" onClick={() => router.push('/daily-report')} className="h-10 rounded-sm text-xs font-bold uppercase">Cancel</Button>
+          <Button type="submit" disabled={form.formState.isSubmitting} className="h-10 px-10 rounded-sm text-xs font-bold uppercase">{form.formState.isSubmitting ? 'Saving...' : isEditMode ? 'Update Report' : 'Submit Log'}</Button>
         </div>
       </form>
     </Form>
