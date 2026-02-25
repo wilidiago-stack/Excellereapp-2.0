@@ -75,7 +75,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
     const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
         try {
-          const tokenResult = await getIdTokenResult(firebaseUser);
+          // FORCE REFRESH to ensure claims like 'role' are captured on first load
+          const tokenResult = await getIdTokenResult(firebaseUser, true);
           setUserAuthState({
             user: firebaseUser,
             isUserLoading: false,
@@ -144,7 +145,6 @@ const EMPTY_ARRAY: string[] = [];
 export const useAuth = () => {
   const { user, isUserLoading, claims } = useFirebase();
   
-  // Memoize the return value to prevent infinite render loops
   return useMemo(() => ({
     user,
     loading: isUserLoading,

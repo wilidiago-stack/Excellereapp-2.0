@@ -2,112 +2,86 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // --- GLOBAL HELPER FUNCTIONS ---
-
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isOwner(userId) {
-      return isSignedIn() && request.auth.uid == userId;
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function hasRole(roleName) {
+      return isSignedIn() && getUserData().role == roleName;
     }
 
     function isAdmin() {
-      return isSignedIn() && (
-        exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid)) ||
-        request.auth.token.role == 'admin'
-      );
+      return hasRole('admin');
     }
 
-    function isExistingOwner(userId) {
-      return resource != null && isOwner(userId);
+    function isManager() {
+      return hasRole('project_manager');
     }
 
-    // --- COLLECTION RULES ---
-
-    match /users/{userId} {
-      allow get: if isOwner(userId) || isAdmin();
-      allow update: if isOwner(userId) || isAdmin();
-      allow list, create: if isAdmin();
-    }
-
-    match /modules/{moduleId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-    }
-
-    match /contractors/{contractorId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /users/{userId}/moduleAccess/{userModuleAccessId} {
-      allow get, list: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.userId == userId;
-      allow update: if isExistingOwner(userId) && request.resource.data.userId == resource.data.userId;
-      allow delete: if isExistingOwner(userId) || isAdmin();
-    }
-
-    match /roles_admin/{adminId} {
-      allow get: if isSignedIn();
-      allow write: if false; 
-    }
-
-    match /projects/{projectId} {
-      allow get, list: if isSignedIn();
-      allow create, update, delete: if isAdmin();
-      
-      match /documents/{docId} {
-        allow read: if isSignedIn();
-        allow write, delete: if isAdmin();
-      }
-      
-      match /quick_links/{linkId} {
-        allow get, list: if isSignedIn();
-        allow create, update, delete: if isAdmin();
-      }
-    }
-
-    match /dailyReports/{reportId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /monthlyReports/{reportId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /safetyEvents/{eventId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
-    }
-
-    match /time_entries/{entryId} {
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin();
-    }
-
-    match /weekly_submissions/{subId} {
-      allow get, list: if isSignedIn() && (resource == null || resource.data.userId == request.auth.uid || isAdmin());
-      allow create, update: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow delete: if isAdmin();
-    }
-
-    match /calendar_notes/{noteId} {
-      allow get, list: if isSignedIn();
-      allow create, update: if isSignedIn();
-      allow delete: if isAdmin();
+    function canWrite() {
+      return isAdmin() || isManager();
     }
 
     match /system/metadata {
-      allow get: if isSignedIn();
-      allow write: if false;
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /quick_links/{linkId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow list: if isAdmin() || isManager();
+      allow create: if isAdmin();
+      allow update: if isAdmin() || (request.auth.uid == userId);
+      allow delete: if isAdmin();
+    }
+
+    match /projects/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+      match /{allSubpaths=**} {
+        allow read: if isSignedIn();
+        allow write: if canWrite();
+      }
+    }
+
+    match /contractors/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /dailyReports/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /monthlyReports/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /safetyEvents/{docId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite();
+    }
+
+    match /time_entries/{entryId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if canWrite() || (resource.data.userId == request.auth.uid);
+    }
+
+    match /weekly_submissions/{submissionId} {
+      allow read: if isSignedIn();
+      allow write: if canWrite() || submissionId.startsWith(request.auth.uid);
     }
   }
 }

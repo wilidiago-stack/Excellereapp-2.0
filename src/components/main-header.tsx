@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
 export function MainHeader() {
-  const { role, assignedModules } = useAuth();
+  const { user, role, assignedModules } = useAuth();
   const router = useRouter();
   const { toast } = useToast();
   const [searchQuery, setSearchQuery] = useState('');
@@ -40,18 +40,16 @@ export function MainHeader() {
   const [isListening, setIsListening] = useState(false);
   const searchRef = useRef<HTMLDivElement>(null);
   
-  const isAdmin = role === 'admin';
+  // Hardcoded Admin Email for UI fallback during claim sync
+  const isAdmin = role === 'admin' || user?.email === 'andres.diago@outlook.com';
 
-  // Helper to process voice commands and navigate directly if matched
   const processVoiceCommand = (transcript: string) => {
     const text = transcript.toLowerCase().trim();
     
-    // Check if the transcript matches any action label or id
     const matchedAction = ACTION_REGISTRY.find(action => {
       const label = action.label.toLowerCase();
       const id = action.id.toLowerCase().replace(/-/g, ' ');
       
-      // Direct match or "create/new/open" prefix match
       return text === label || 
              text === id || 
              text.includes(`new ${label}`) || 
@@ -61,7 +59,6 @@ export function MainHeader() {
     });
 
     if (matchedAction) {
-      // Permission check (matching registry logic)
       const hasAccess = isAdmin || assignedModules?.includes(matchedAction.moduleId) || 
         ['weather', 'calendar', 'map', 'safety-events', 'reports-analytics', 'dashboard'].includes(matchedAction.moduleId);
       
@@ -98,34 +95,17 @@ export function MainHeader() {
     recognition.continuous = false;
     recognition.interimResults = false;
 
-    recognition.onstart = () => {
-      setIsListening(true);
-    };
-
+    recognition.onstart = () => setIsListening(true);
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      
-      // Try to execute as a direct command first
       const wasExecuted = processVoiceCommand(transcript);
-      
       if (!wasExecuted) {
-        // Fallback to search if no direct action was triggered
         setSearchQuery(transcript);
         setIsSearchOpen(true);
       }
     };
-
-    recognition.onerror = (event: any) => {
-      if (event.error !== 'aborted') {
-        console.warn('Speech recognition warning:', event.error);
-      }
-      setIsListening(false);
-    };
-
-    recognition.onend = () => {
-      setIsListening(false);
-    };
-
+    recognition.onerror = () => setIsListening(false);
+    recognition.onend = () => setIsListening(false);
     recognition.start();
   };
 
@@ -166,7 +146,7 @@ export function MainHeader() {
 
   const menuItems = APP_MODULES.map(module => {
     const isAssigned = assignedModules && assignedModules.includes(module.id);
-    const show = isAdmin || isAssigned;
+    const show = isAdmin || isAssigned || module.id === 'dashboard';
     return { ...module, show };
   });
 
@@ -189,10 +169,11 @@ export function MainHeader() {
               <span className="sr-only">Toggle menu</span>
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-56 max-h-[80vh] overflow-y-auto">
+          <DropdownMenuContent align="start" className="w-56 max-h-[80vh] overflow-y-auto rounded-sm shadow-xl">
+            <div className="px-2 py-1.5 text-[9px] font-black uppercase text-slate-400 tracking-widest">Navigation</div>
             {menuItems.map((item) =>
               item.show ? (
-                <DropdownMenuItem key={item.label} asChild>
+                <DropdownMenuItem key={item.label} asChild className="cursor-pointer">
                   <Link href={item.href}>
                     <item.icon className="mr-2 h-4 w-4" />
                     <span>{item.label}</span>
@@ -206,6 +187,7 @@ export function MainHeader() {
                 key={item.label}
                 asChild
                 disabled={item.disabled}
+                className="cursor-pointer"
               >
                 <Link href={item.href}>
                   <item.icon className="mr-2 h-4 w-4" />
