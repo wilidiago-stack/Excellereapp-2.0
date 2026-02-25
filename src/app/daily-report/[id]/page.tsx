@@ -362,7 +362,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Man Hours */}
-        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2 card">
+        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-1 card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <UsersIcon className="h-3.5 w-3.5 text-[#46a395]" /> Labor Summary
@@ -395,7 +395,7 @@ export default function ViewDailyReportPage({ params }: { params: Promise<{ id: 
         </Card>
 
         {/* Observations */}
-        <Card className="rounded-sm border-slate-200 shadow-sm card">
+        <Card className="rounded-sm border-slate-200 shadow-sm lg:col-span-2 card">
           <CardHeader className="p-4 border-b bg-slate-50/50">
             <CardTitle className="text-xs font-bold uppercase flex items-center gap-2">
               <Paperclip className="h-3.5 w-3.5 text-orange-400" /> Observations
