@@ -210,21 +210,21 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
           bbsGemba: Number(initialData.safetyStats?.bbsGemba) || 0,
           operationsStandDowns: Number(initialData.safetyStats?.operationsStandDowns) || 0,
         },
-        manHours: (initialData.manHours || []).map((mh: any) => ({
+        manHours: Array.isArray(initialData.manHours) ? initialData.manHours.map((mh: any) => ({
           contractorId: mh.contractorId || '',
           headcount: Number(mh.headcount) || 0,
           hours: Number(mh.hours) || 0,
-        })),
-        dailyActivities: (initialData.dailyActivities || []).map((act: any) => ({
+        })) : [],
+        dailyActivities: Array.isArray(initialData.dailyActivities) ? initialData.dailyActivities.map((act: any) => ({
           contractorId: act.contractorId || '',
           activity: act.activity || '',
           location: act.location || '',
-          permits: act.permits || [],
-        })),
-        notes: (initialData.notes || []).map((n: any) => ({
+          permits: Array.isArray(act.permits) ? act.permits : [],
+        })) : [],
+        notes: Array.isArray(initialData.notes) ? initialData.notes.map((n: any) => ({
           note: n.note || '',
           status: n.status || 'Open',
-        })),
+        })) : [],
       };
       form.reset(data);
     }
@@ -330,7 +330,6 @@ export function DailyReportForm({ initialData }: { initialData?: any }) {
           </div>
         </div>
 
-        {/* REORDERED: HEADCOUNT ABOVE ACTIVITIES */}
         <div className="space-y-4">
           <div className="flex items-center justify-between mb-2 text-primary">
             <div className="flex items-center gap-2"><Clock className="h-5 w-5" /><h3 className="text-sm font-bold uppercase">Headcount & Man Hours</h3></div>
