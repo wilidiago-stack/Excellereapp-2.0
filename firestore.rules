@@ -83,7 +83,7 @@ service cloud.firestore {
     match /weekly_submissions/{submissionId} {
       allow read: if isSignedIn();
       allow create: if canWrite() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
-      allow update, delete: if canWrite() || (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()));
+      allow update, delete: if canWrite() || (isSignedIn() && resource.data.userId == request.auth.uid);
     }
 
     match /calendar_notes/{noteId} {
