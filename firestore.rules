@@ -32,11 +32,6 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    match /quick_links/{linkId} {
-      allow read: if isSignedIn();
-      allow write: if isAdmin();
-    }
-
     match /users/{userId} {
       allow get: if isSignedIn() && (request.auth.uid == userId || isAdmin());
       allow list: if isAdmin() || isManager();
