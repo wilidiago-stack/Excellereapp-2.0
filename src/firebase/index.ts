@@ -6,25 +6,20 @@ import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
+/**
+ * Initializes Firebase services for the application.
+ * Uses explicit config to avoid "app/no-options" error in SSR/Local environments.
+ */
 export function initializeFirebase() {
-  if (!getApps().length) {
-    let firebaseApp;
-    try {
-      firebaseApp = initializeApp();
-    } catch (e) {
-      if (process.env.NODE_ENV === 'production') {
-        console.warn(
-          'Automatic initialization failed. Falling back to config.',
-          e
-        );
-      }
-      firebaseApp = initializeApp(firebaseConfig);
-    }
-
-    return getSdks(firebaseApp);
+  const apps = getApps();
+  if (apps.length > 0) {
+    return getSdks(apps[0]);
   }
 
-  return getSdks(getApp());
+  // Always provide options explicitly to prevent initialization failures
+  // outside of Google Cloud Hosting environments.
+  const firebaseApp = initializeApp(firebaseConfig);
+  return getSdks(firebaseApp);
 }
 
 export function getSdks(firebaseApp: FirebaseApp) {
