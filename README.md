@@ -1,3 +1,4 @@
+git commit -m "feat: inicialización del proyecto Excellere"
 # Excellere Revive 2.0
 
 Este es el proyecto modernizado de Excellere, construido con Next.js 15, Firebase y Genkit.
