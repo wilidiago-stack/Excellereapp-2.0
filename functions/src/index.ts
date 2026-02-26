@@ -13,6 +13,9 @@ const db = admin.firestore();
 
 setGlobalOptions({ maxInstances: 10, region: "us-central1" });
 
+/**
+ * Triggered on new user creation in Firebase Authentication.
+ */
 export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
   const data = event.data;
   if (!data) {
@@ -85,6 +88,9 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
   }
 });
 
+/**
+ * Syncs changes from the Firestore user document to Custom Claims.
+ */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", 
   async (event: any) => {
     const change = event.data;
