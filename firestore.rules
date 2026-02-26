@@ -82,7 +82,7 @@ service cloud.firestore {
 
     match /weekly_submissions/{submissionId} {
       allow read: if isSignedIn();
-      // Use document field 'userId' instead of ID prefix for security and rule compliance
+      // Validamos por el campo userId dentro del documento en lugar de startsWith en el ID
       allow create: if canWrite() || (isSignedIn() && request.resource.data.userId == request.auth.uid);
       allow update, delete: if canWrite() || (isSignedIn() && (resource.data.userId == request.auth.uid || isAdmin()));
     }
