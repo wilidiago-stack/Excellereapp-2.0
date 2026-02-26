@@ -1,5 +1,5 @@
 import {setGlobalOptions} from "firebase-functions/v2";
-import {onUserCreated} from "firebase-functions/v2/identity";
+import {onAuthUserCreate} from "firebase-functions/v2/auth";
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -14,7 +14,7 @@ setGlobalOptions({maxInstances: 10, region: "us-central1"});
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onUserCreated(async (event) => {
+export const setupInitialUserRole = onAuthUserCreate(async (event) => {
   const data = event.data;
   if (!data) return;
 

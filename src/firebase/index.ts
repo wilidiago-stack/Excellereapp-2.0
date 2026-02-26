@@ -12,7 +12,7 @@ import { getStorage } from 'firebase/storage';
  */
 export function initializeFirebase() {
   const apps = getApps();
-  // CRITICAL: Always provide firebaseConfig to initializeApp
+  // CRITICAL: Always provide firebaseConfig to initializeApp to avoid app/no-options error
   const firebaseApp = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
