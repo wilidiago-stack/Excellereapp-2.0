@@ -1,4 +1,3 @@
-
 import { setGlobalOptions } from "firebase-functions/v2";
 import { onAuthUserCreated } from "firebase-functions/v2/identity";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
@@ -13,6 +12,14 @@ const db = admin.firestore();
 
 setGlobalOptions({ maxInstances: 10, region: "us-central1" });
 
+const ALL_MODULES = [
+  "dashboard", "projects", "users", "contractors",
+  "daily-report", "monthly-report", "safety-events",
+  "project-team", "documents", "project-aerial-view",
+  "calendar", "map", "capex", "reports-analytics",
+  "schedule", "weather"
+];
+
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
@@ -24,8 +31,6 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
   }
 
   const { uid, email, displayName } = data;
-  logger.info(`[setupInitialUserRole] Processing UID: ${uid}`);
-
   const userDocRef = db.collection("users").doc(uid);
   const metadataRef = db.collection("system").doc("metadata");
 
@@ -54,14 +59,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
       : "User";
     
     const role = isFirstUser ? "admin" : "viewer";
-    
-    const defaultModules = isFirstUser ? [
-      "dashboard", "projects", "users", "contractors",
-      "daily-report", "monthly-report", "safety-events",
-      "project-team", "documents", "project-aerial-view",
-      "calendar", "map", "capex", "reports-analytics",
-      "schedule", "weather"
-    ] : [];
+    const defaultModules = isFirstUser ? ALL_MODULES : [];
 
     const newUserDocument = {
       firstName,
@@ -89,7 +87,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
 });
 
 /**
- * Syncs changes from the Firestore user document to Custom Claims.
+ * Syncs changes from the Firestore user document to Firebase Auth Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", 
   async (event: any) => {
