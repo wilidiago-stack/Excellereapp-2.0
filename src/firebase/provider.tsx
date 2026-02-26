@@ -148,8 +148,9 @@ const EMPTY_ARRAY: string[] = [];
 const ALL_MODULES = [
   "dashboard", "projects", "users", "contractors",
   "daily-report", "monthly-report", "safety-events",
-  "project-team", "documents", "calendar", "map", "weather",
-  "reports-analytics"
+  "project-team", "documents", "project-aerial-view",
+  "calendar", "map", "capex", "reports-analytics",
+  "schedule", "weather"
 ];
 
 export const useAuth = () => {

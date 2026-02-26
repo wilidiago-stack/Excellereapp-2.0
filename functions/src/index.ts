@@ -4,18 +4,18 @@ import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
 
-// Inicialización segura de Admin SDK
+// Initialize Firebase Admin SDK
 if (admin.apps.length === 0) {
   admin.initializeApp();
 }
 
 const db = admin.firestore();
 
-// Configuración global (Región y escalado)
+// Set global options for the function
 setGlobalOptions({ maxInstances: 10, region: "us-central1" });
 
 /**
- * Trigger: Cuando se crea un usuario en Firebase Auth.
+ * Triggered on new user creation in Firebase Authentication.
  */
 export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
   const data = event.data;
@@ -50,15 +50,18 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
       p.length > 0
     );
     const firstName = nameParts[0] || (email ? email.split("@")[0] : "New");
-    const lastName = nameParts.length > 1 ? nameParts.slice(1).join(" ") : "User";
+    const lastName = nameParts.length > 1 
+      ? nameParts.slice(1).join(" ") 
+      : "User";
     
     const role = isFirstUser ? "admin" : "viewer";
     
     const defaultModules = isFirstUser ? [
       "dashboard", "projects", "users", "contractors",
       "daily-report", "monthly-report", "safety-events",
-      "project-team", "documents", "calendar", "map", "weather",
-      "reports-analytics",
+      "project-team", "documents", "project-aerial-view",
+      "calendar", "map", "capex", "reports-analytics",
+      "schedule", "weather"
     ] : [];
 
     const newUserDocument = {
@@ -87,7 +90,7 @@ export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
 });
 
 /**
- * Trigger: Cuando se actualiza un documento en la colección 'users'.
+ * Syncs changes from the Firestore user document to Auth Custom Claims.
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}", 
   async (event: any) => {
