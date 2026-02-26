@@ -50,12 +50,13 @@ import {
   AreaChart, 
   Area,
   LineChart,
-  Line
+  Line,
+  Legend
 } from 'recharts';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, parse } from 'date-fns';
 
-type VizModel = 'project-pulse' | 'safety-matrix' | 'labor-dynamics';
+type VizModel = 'labor-analysis' | 'safety-matrix' | 'labor-dynamics';
 type ChartType = 'bar' | 'area' | 'pie' | 'line';
 
 const chartConfig = {
@@ -76,7 +77,7 @@ const chartConfig = {
 export default function AnalyticsPage() {
   const firestore = useFirestore();
   const { selectedProjectId } = useProjectContext();
-  const [activeModel, setActiveModel] = useState<VizModel>('project-pulse');
+  const [activeModel, setActiveModel] = useState<VizModel>('labor-analysis');
   const [chartType, setChartType] = useState<ChartType>('bar');
 
   // DATA FETCHING
@@ -85,6 +86,12 @@ export default function AnalyticsPage() {
     [firestore]
   );
   const { data: projects, isLoading: projectsLoading } = useCollection(projectsRef);
+
+  const contractorsRef = useMemoFirebase(
+    () => (firestore ? collection(firestore, 'contractors') : null),
+    [firestore]
+  );
+  const { data: contractors, isLoading: contractorsLoading } = useCollection(contractorsRef);
 
   const activeProject = useMemo(() => {
     if (!projects || !selectedProjectId) return null;
@@ -107,16 +114,55 @@ export default function AnalyticsPage() {
   }, [firestore, selectedProjectId]);
   const { data: dailyReports, isLoading: reportsLoading } = useCollection(reportsRef);
 
-  // DATA PROCESSING: Project Pulse
-  const projectStatusData = useMemo(() => {
-    if (!projects) return [];
-    const source = selectedProjectId ? projects.filter(p => p.id === selectedProjectId) : projects;
-    const counts = source.reduce((acc: any, p) => {
-      acc[p.status] = (acc[p.status] || 0) + 1;
+  // DATA PROCESSING: Labor by Contractor and Month
+  const laborByContractorData = useMemo(() => {
+    if (!dailyReports || !contractors) return [];
+    
+    const contractorMap = contractors.reduce((acc: Record<string, string>, c) => {
+      acc[c.id] = c.name;
       return acc;
     }, {});
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [projects, selectedProjectId]);
+
+    const monthlyAggregation: Record<string, Record<string, number>> = {};
+    const months: string[] = [];
+
+    dailyReports.forEach(report => {
+      const d = report.date?.toDate ? report.date.toDate() : new Date(report.date);
+      const monthKey = format(d, 'MMM yyyy');
+      
+      if (!monthlyAggregation[monthKey]) {
+        monthlyAggregation[monthKey] = {};
+        months.push(monthKey);
+      }
+
+      (report.manHours || []).forEach((mh: any) => {
+        const cName = contractorMap[mh.contractorId] || 'Other';
+        const totalHrs = (Number(mh.headcount) || 0) * (Number(mh.hours) || 0);
+        monthlyAggregation[monthKey][cName] = (monthlyAggregation[monthKey][cName] || 0) + totalHrs;
+      });
+    });
+
+    // Sort months chronologically
+    const sortedMonths = months.sort((a, b) => {
+      return parse(a, 'MMM yyyy', new Date()).getTime() - parse(b, 'MMM yyyy', new Date()).getTime();
+    });
+
+    return sortedMonths.map(m => ({
+      month: m,
+      ...monthlyAggregation[m]
+    }));
+  }, [dailyReports, contractors]);
+
+  // Extract unique contractor names for chart series
+  const activeContractorNames = useMemo(() => {
+    const names = new Set<string>();
+    laborByContractorData.forEach(d => {
+      Object.keys(d).forEach(k => {
+        if (k !== 'month') names.add(k);
+      });
+    });
+    return Array.from(names);
+  }, [laborByContractorData]);
 
   // DATA PROCESSING: Safety Matrix
   const safetyTrendData = useMemo(() => {
@@ -150,9 +196,9 @@ export default function AnalyticsPage() {
       });
   }, [dailyReports]);
 
-  const COLORS = ['#46a395', '#FF9800', '#64748b', '#ef4444', '#3b82f6'];
+  const COLORS = ['#46a395', '#FF9800', '#64748b', '#ef4444', '#3b82f6', '#8b5cf6', '#ec4899', '#10b981'];
 
-  const isLoading = projectsLoading || safetyLoading || reportsLoading;
+  const isLoading = projectsLoading || safetyLoading || reportsLoading || contractorsLoading;
 
   const renderChart = () => {
     if (isLoading) {
@@ -167,34 +213,23 @@ export default function AnalyticsPage() {
       <ChartContainer config={chartConfig} className="h-[350px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           {(() => {
-            if (activeModel === 'project-pulse') {
-              if (chartType === 'pie') {
-                return (
-                  <PieChart>
-                    <Pie
-                      data={projectStatusData}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={60}
-                      outerRadius={100}
-                      paddingAngle={5}
-                      dataKey="value"
-                    >
-                      {projectStatusData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                  </PieChart>
-                );
-              }
+            if (activeModel === 'labor-analysis') {
               return (
-                <BarChart data={projectStatusData}>
+                <BarChart data={laborByContractorData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} className="text-[10px] font-bold" />
+                  <XAxis dataKey="month" axisLine={false} tickLine={false} className="text-[10px] font-bold" />
                   <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
                   <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="value" fill="var(--color-value)" radius={[4, 4, 0, 0]} />
+                  <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
+                  {activeContractorNames.map((name, index) => (
+                    <Bar 
+                      key={name} 
+                      dataKey={name} 
+                      stackId="a" 
+                      fill={COLORS[index % COLORS.length]} 
+                      radius={index === activeContractorNames.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} 
+                    />
+                  ))}
                 </BarChart>
               );
             }
@@ -218,17 +253,6 @@ export default function AnalyticsPage() {
             }
 
             if (activeModel === 'labor-dynamics') {
-              if (chartType === 'line') {
-                return (
-                  <LineChart data={laborTrendData}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                    <XAxis dataKey="date" axisLine={false} tickLine={false} className="text-[10px]" />
-                    <YAxis axisLine={false} tickLine={false} className="text-[10px]" />
-                    <ChartTooltip content={<ChartTooltipContent />} />
-                    <Line type="stepAfter" dataKey="hours" stroke="var(--color-hours)" strokeWidth={4} dot={{ r: 6, fill: '#FF9800' }} />
-                  </LineChart>
-                );
-              }
               return (
                 <BarChart data={laborTrendData}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
@@ -260,12 +284,12 @@ export default function AnalyticsPage() {
         
         <div className="flex items-center gap-2 bg-slate-100 p-1 rounded-sm border border-slate-200 shadow-sm">
           <Button 
-            variant={activeModel === 'project-pulse' ? 'default' : 'ghost'} 
+            variant={activeModel === 'labor-analysis' ? 'default' : 'ghost'} 
             size="sm" 
             className="h-8 text-[10px] font-bold uppercase rounded-sm"
-            onClick={() => setActiveModel('project-pulse')}
+            onClick={() => setActiveModel('labor-analysis')}
           >
-            Project Pulse
+            Labor Analysis
           </Button>
           <Button 
             variant={activeModel === 'safety-matrix' ? 'default' : 'ghost'} 
@@ -303,9 +327,8 @@ export default function AnalyticsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="rounded-sm">
-                  <SelectItem value="bar" className="text-xs">Cluster Bar Chart</SelectItem>
+                  <SelectItem value="bar" className="text-xs">Stacked Bar Chart</SelectItem>
                   <SelectItem value="area" className="text-xs">Smooth Area Gradient</SelectItem>
-                  <SelectItem value="pie" className="text-xs">Proportional Ring (Donut)</SelectItem>
                   <SelectItem value="line" className="text-xs">Step Progression Line</SelectItem>
                 </SelectContent>
               </Select>
@@ -317,7 +340,7 @@ export default function AnalyticsPage() {
                   <Info className="h-3 w-3" /> Model Insight
                 </h4>
                 <p className="text-[10px] text-slate-500 leading-relaxed italic">
-                  {activeModel === 'project-pulse' && "Analyzing project status distribution within the selected scope."}
+                  {activeModel === 'labor-analysis' && "Analyzing man-hours distribution by contractor across different months."}
                   {activeModel === 'safety-matrix' && "Monitoring recordable incident frequency vs temporal site progression."}
                   {activeModel === 'labor-dynamics' && "Tracking of cumulative man-hours reported in daily field logs."}
                 </p>
@@ -345,9 +368,9 @@ export default function AnalyticsPage() {
           <CardHeader className="p-6 border-b bg-white flex flex-row items-center justify-between">
             <div>
               <CardTitle className="text-lg font-black tracking-tight text-slate-800 capitalize">
-                {activeModel.replace('-', ' ')} Analysis
+                {activeModel.replace('-', ' ')}
               </CardTitle>
-              <CardDescription className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">Real-time data stream sync</CardDescription>
+              <CardDescription className="text-[10px] uppercase font-bold text-slate-400 mt-0.5">Real-time man-hours sync</CardDescription>
             </div>
             <div className="flex items-center gap-2">
               <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
@@ -361,11 +384,11 @@ export default function AnalyticsPage() {
             <div className="flex items-center gap-6">
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-[#46a395]" />
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Primary Metric</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Contractor A</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="h-2.5 w-2.5 rounded-full bg-[#FF9800]" />
-                <span className="text-[10px] font-bold text-slate-500 uppercase">Comparison Delta</span>
+                <span className="text-[10px] font-bold text-slate-500 uppercase">Contractor B</span>
               </div>
             </div>
             <div className="text-[10px] font-medium text-slate-400 italic flex items-center gap-1">
