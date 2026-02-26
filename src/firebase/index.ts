@@ -1,24 +1,18 @@
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
-import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
+import { initializeApp, getApps, FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 /**
  * Initializes Firebase services for the application.
- * Uses explicit config to avoid "app/no-options" error in SSR/Local environments.
+ * Always provides explicit config to prevent 'app/no-options' errors in Next.js.
  */
 export function initializeFirebase() {
   const apps = getApps();
-  if (apps.length > 0) {
-    return getSdks(apps[0]);
-  }
-
-  // Always provide options explicitly to prevent initialization failures
-  // outside of Google Cloud Hosting environments.
-  const firebaseApp = initializeApp(firebaseConfig);
+  const firebaseApp = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
 

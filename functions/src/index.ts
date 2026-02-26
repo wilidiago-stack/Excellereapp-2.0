@@ -78,8 +78,9 @@ export const setupInitialUserRole = onUserCreated(async (event) => {
  */
 export const onUserRoleChange = onDocumentUpdated("users/{userId}",
   async (event) => {
-    const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
+    if (!event.data) return;
+    const beforeData = event.data.before.data();
+    const afterData = event.data.after.data();
     if (!afterData) return;
 
     const rChanged = afterData.role !== beforeData?.role;
