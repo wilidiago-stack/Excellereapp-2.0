@@ -12,7 +12,8 @@ import { getStorage } from 'firebase/storage';
  */
 export function initializeFirebase() {
   const apps = getApps();
-  // CRITICAL: Always use firebaseConfig to ensure options are provided.
+  // CRITICAL: Always provide firebaseConfig to initializeApp to ensure options 
+  // are provided, avoiding 'app/no-options' errors in Next.js.
   const firebaseApp = apps.length > 0 ? apps[0] : initializeApp(firebaseConfig);
   return getSdks(firebaseApp);
 }
