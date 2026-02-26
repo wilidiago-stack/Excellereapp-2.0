@@ -8,7 +8,7 @@ import { getStorage } from 'firebase/storage';
 
 /**
  * Initializes Firebase services for the application.
- * Force explicit config to avoid 'app/no-options' errors in Next.js SSR.
+ * Siempre usa la configuración explícita para evitar errores de SSR.
  */
 export function initializeFirebase() {
   const apps = getApps();
