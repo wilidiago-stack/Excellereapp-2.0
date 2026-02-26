@@ -1,5 +1,6 @@
+
 import { setGlobalOptions } from "firebase-functions/v2";
-import { onAuthUserCreated } from "firebase-functions/v2/identity";
+import { onUserCreated } from "firebase-functions/v2/auth";
 import { onDocumentUpdated } from "firebase-functions/v2/firestore";
 import * as admin from "firebase-admin";
 import * as logger from "firebase-functions/logger";
@@ -23,7 +24,7 @@ const ALL_MODULES = [
 /**
  * Triggered on new user creation in Firebase Authentication.
  */
-export const setupInitialUserRole = onAuthUserCreated(async (event: any) => {
+export const setupInitialUserRole = onUserCreated(async (event: any) => {
   const data = event.data;
   if (!data) {
     logger.error("No user data found in event");
