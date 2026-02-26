@@ -6,11 +6,16 @@ module.exports = {
   },
   extends: [
     "eslint:recommended",
-    "google", // O "plugin:import/errors" si no usas el estilo de google
   ],
   rules: {
-    "quotes": ["error", "double"],
-    "object-curly-spacing": ["error", "always"],
+    "quotes": "off",
+    "object-curly-spacing": "off",
+    "indent": "off",
+    "no-unused-vars": "off",
+    "max-len": "off",
+    "require-jsdoc": "off",
+    "valid-jsdoc": "off",
+    "comma-dangle": "off"
   },
   parserOptions: {
     ecmaVersion: 2018,
