@@ -1,3 +1,4 @@
+
 'use client';
 
 import { firebaseConfig } from '@/firebase/config';
@@ -8,7 +9,7 @@ import { getStorage } from 'firebase/storage';
 
 /**
  * Initializes Firebase services for the application.
- * Siempre usa la configuración explícita para evitar errores de SSR.
+ * Always use explicit config to avoid SSR options errors.
  */
 export function initializeFirebase() {
   const apps = getApps();
